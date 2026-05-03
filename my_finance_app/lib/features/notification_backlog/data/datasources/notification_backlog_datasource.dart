@@ -1,11 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../domain/entities/notification_backlog_item_entity.dart';
 import '../models/notification_backlog_item_model.dart';
 
 abstract class NotificationBacklogDatasource {
   Stream<List<NotificationBacklogItemModel>> watchItems(String userId);
-  Future<void> addItem(NotificationBacklogItemModel item);
-  Future<void> markImported(String itemId);
+
+  /// Returns the Firestore-assigned doc id.
+  Future<String> addItem(NotificationBacklogItemModel item);
+
+  /// Updates the status (and optionally the linked transactionId).
+  Future<void> markStatus(
+    String itemId, {
+    required BacklogItemStatus status,
+    String? transactionId,
+  });
+
   Future<void> deleteItem(String itemId);
   Future<void> deleteAllPending(String userId);
 }
@@ -33,14 +43,27 @@ class NotificationBacklogFirestoreDatasource
   }
 
   @override
-  Future<void> addItem(NotificationBacklogItemModel item) async {
-    // Use Firestore auto-ID; item.id is ignored on insert.
-    await _col.add(item.toFirestore());
+  Future<String> addItem(NotificationBacklogItemModel item) async {
+    final ref = await _col.add(item.toFirestore());
+    return ref.id;
   }
 
   @override
-  Future<void> markImported(String itemId) async {
-    await _col.doc(itemId).update({'imported': true});
+  Future<void> markStatus(
+    String itemId, {
+    required BacklogItemStatus status,
+    String? transactionId,
+  }) async {
+    final imported = status == BacklogItemStatus.autoImported ||
+        status == BacklogItemStatus.manuallyImported;
+    final patch = <String, dynamic>{
+      'status': backlogItemStatusToString(status),
+      'imported': imported, // keep legacy field in sync for backwards compat
+    };
+    if (transactionId != null) {
+      patch['transactionId'] = transactionId;
+    }
+    await _col.doc(itemId).update(patch);
   }
 
   @override
@@ -50,6 +73,8 @@ class NotificationBacklogFirestoreDatasource
 
   @override
   Future<void> deleteAllPending(String userId) async {
+    // Use the legacy `imported` field to avoid requiring a composite index
+    // on (userId, status). The legacy field is kept in sync by markStatus().
     final snap = await _col
         .where('userId', isEqualTo: userId)
         .where('imported', isEqualTo: false)

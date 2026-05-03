@@ -454,6 +454,53 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
     );
   }
 
+  /// Same as [add] but returns the generated transaction id (or null on failure).
+  /// Used by the notification auto-save flow to link the backlog item to the
+  /// created transaction.
+  Future<String?> addAndReturnId({
+    required String title,
+    required double amount,
+    required TransactionType type,
+    required String category,
+    required DateTime date,
+    String? description,
+    String walletId = '',
+    String? sourceWalletId,
+    String? goalId,
+    bool isPending = false,
+    List<String> tags = const [],
+  }) async {
+    state = const AsyncValue.loading();
+    final id = const Uuid().v4();
+    final transaction = TransactionEntity(
+      id: id,
+      userId: _userId,
+      title: title,
+      amount: amount,
+      type: type,
+      category: category,
+      date: date,
+      description: description,
+      walletId: walletId,
+      sourceWalletId: sourceWalletId,
+      goalId: goalId,
+      isPending: isPending,
+      tags: tags,
+    );
+    final result = await _addTransaction(
+        AddTransactionParams(transaction: transaction));
+    return result.fold(
+      (failure) {
+        state = AsyncValue.error(failure.message, StackTrace.current);
+        return null;
+      },
+      (_) {
+        state = const AsyncValue.data(null);
+        return id;
+      },
+    );
+  }
+
   Future<bool> update(TransactionEntity updated) async {
     state = const AsyncValue.loading();
     final result = await _updateTransaction(
