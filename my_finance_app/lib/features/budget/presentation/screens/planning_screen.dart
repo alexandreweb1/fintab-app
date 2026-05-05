@@ -342,6 +342,16 @@ class _BudgetCard extends ConsumerWidget {
         cat != null ? (kCategoryIconMap[cat.iconCodePoint] ?? Icons.category) : Icons.category;
     final catColor = cat != null ? Color(cat.colorValue) : cs.primary;
 
+    // Count transactions for this category
+    final allTransactions = ref.watch(transactionsStreamProvider).value ?? [];
+    final monthTransactions = allTransactions
+        .where((t) =>
+            t.category == budget.categoryName &&
+            t.date.year == budget.month.year &&
+            t.date.month == budget.month.month &&
+            t.isExpense)
+        .length;
+
     void navigateToTransactions() {
       // Reset filters irrelevantes
       ref.read(statementTypeFilterProvider.notifier).state = null;
@@ -511,7 +521,16 @@ class _BudgetCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Ver lançamentos',
+                          '$monthTransactions lançamento${monthTransactions != 1 ? 's' : ''}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Ver',
                           style: TextStyle(
                             fontSize: 11,
                             color: cs.primary,

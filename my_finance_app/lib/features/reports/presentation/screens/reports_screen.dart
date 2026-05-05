@@ -206,10 +206,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     String Function(double) fmt,
   ) {
     final Map<String, double> byGroup = {};
+    final Map<String, int> countByGroup = {};
 
     if (_pieSubTab == 0) {
       for (final t in monthTxs.where((t) => t.isExpense)) {
         byGroup[t.category] = (byGroup[t.category] ?? 0) + t.amount;
+        countByGroup[t.category] = (countByGroup[t.category] ?? 0) + 1;
       }
     } else if (_pieSubTab == 1) {
       final wallets = ref.watch(walletsStreamProvider).value ?? [];
@@ -218,10 +220,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         final name =
             t.walletId.isEmpty ? 'Geral' : (walletMap[t.walletId] ?? 'Geral');
         byGroup[name] = (byGroup[name] ?? 0) + t.amount;
+        countByGroup[name] = (countByGroup[name] ?? 0) + 1;
       }
     } else {
       for (final t in monthTxs.where((t) => t.isIncome)) {
         byGroup[t.category] = (byGroup[t.category] ?? 0) + t.amount;
+        countByGroup[t.category] = (countByGroup[t.category] ?? 0) + 1;
       }
     }
 
@@ -239,6 +243,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               amount: e.value.value,
               percentage: e.value.value / total,
               color: _kChartColors[e.key % _kChartColors.length],
+              count: countByGroup[e.value.key] ?? 0,
             ))
         .toList();
 
@@ -1126,14 +1131,26 @@ class _CategoryChartState extends State<_CategoryChart> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            s.category,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                s.category,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${s.count} lançamento${s.count != 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         Text(
@@ -2157,12 +2174,14 @@ class _PieSlice {
   final double amount;
   final double percentage;
   final Color color;
+  final int count;
 
   const _PieSlice({
     required this.category,
     required this.amount,
     required this.percentage,
     required this.color,
+    required this.count,
   });
 }
 
