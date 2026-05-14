@@ -179,16 +179,31 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                 ),
               ]
             : null,
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(text: 'Extrato'),
-            Tab(text: 'Reservas'),
-            Tab(text: 'Investimentos'),
-            Tab(text: 'Patrimônio'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Quando a tela é larga o suficiente, distribui as 4 abas
+              // ocupando toda a largura. Em telas menores, vira rolável
+              // para evitar quebra/overflow do texto.
+              final fits = constraints.maxWidth >= 380;
+              return TabBar(
+                controller: _tabController,
+                isScrollable: !fits,
+                tabAlignment:
+                    fits ? TabAlignment.fill : TabAlignment.center,
+                labelPadding: fits
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.symmetric(horizontal: 16),
+                tabs: const [
+                  Tab(text: 'Extrato'),
+                  Tab(text: 'Reservas'),
+                  Tab(text: 'Investimentos'),
+                  Tab(text: 'Patrimônio'),
+                ],
+              );
+            },
+          ),
         ),
       ),
       body: TabBarView(
@@ -287,11 +302,22 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                           if (constraints.maxWidth >= 720) {
                             return TransactionTable(transactions: txs);
                           }
+                          final items = _buildGroupedItems(txs);
                           return ListView.builder(
                             padding: const EdgeInsets.only(bottom: 80),
-                            itemCount: txs.length,
-                            itemBuilder: (ctx, i) =>
-                                TransactionListTile(transaction: txs[i]),
+                            itemCount: items.length,
+                            itemBuilder: (ctx, i) {
+                              final item = items[i];
+                              if (item is _DayHeaderItem) {
+                                return _DaySectionHeader(
+                                  day: item.day,
+                                  isFirst: i == 0,
+                                );
+                              }
+                              return TransactionListTile(
+                                transaction: (item as _TxItem).transaction,
+                              );
+                            },
                           );
                         },
                       ),
@@ -365,6 +391,91 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => const _FilterSheet(),
+    );
+  }
+}
+
+// ─── Grouping helpers (statement list by day) ─────────────────────────────────
+sealed class _ListItem {
+  const _ListItem();
+}
+
+class _DayHeaderItem extends _ListItem {
+  final DateTime day;
+  const _DayHeaderItem(this.day);
+}
+
+class _TxItem extends _ListItem {
+  final TransactionEntity transaction;
+  const _TxItem(this.transaction);
+}
+
+List<_ListItem> _buildGroupedItems(List<TransactionEntity> txs) {
+  // Sort newest first, then group by calendar day.
+  final sorted = [...txs]..sort((a, b) => b.date.compareTo(a.date));
+  final items = <_ListItem>[];
+  DateTime? currentDay;
+  for (final t in sorted) {
+    final day = DateTime(t.date.year, t.date.month, t.date.day);
+    if (currentDay == null || day != currentDay) {
+      currentDay = day;
+      items.add(_DayHeaderItem(day));
+    }
+    items.add(_TxItem(t));
+  }
+  return items;
+}
+
+// ─── Day Section Header ───────────────────────────────────────────────────────
+class _DaySectionHeader extends StatelessWidget {
+  final DateTime day;
+  final bool isFirst;
+
+  const _DaySectionHeader({
+    required this.day,
+    required this.isFirst,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final dayStr = DateFormat('dd/MM').format(day);
+    String prefix;
+    if (day == today) {
+      prefix = 'HOJE';
+    } else if (day == yesterday) {
+      prefix = 'ONTEM';
+    } else {
+      prefix = '';
+    }
+
+    final label = prefix.isEmpty ? dayStr : '$prefix · $dayStr';
+    final isHighlight = prefix.isNotEmpty;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 390;
+    final hMargin = isCompact ? 12.0 : 20.0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        hMargin,
+        isFirst ? 4 : 12,
+        hMargin,
+        6,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: isHighlight ? cs.primary : cs.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

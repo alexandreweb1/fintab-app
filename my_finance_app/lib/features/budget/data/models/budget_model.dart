@@ -10,6 +10,8 @@ class BudgetModel extends BudgetEntity {
     required super.categoryName,
     required super.limitAmount,
     required super.month,
+    super.period,
+    super.parentBudgetId,
   });
 
   factory BudgetModel.fromFirestore(DocumentSnapshot doc) {
@@ -22,6 +24,8 @@ class BudgetModel extends BudgetEntity {
       categoryName: data['categoryName'] as String,
       limitAmount: (data['limitAmount'] as num).toDouble(),
       month: monthTs.toDate(),
+      period: BudgetPeriod.fromKey(data['period'] as String?),
+      parentBudgetId: data['parentBudgetId'] as String?,
     );
   }
 
@@ -31,6 +35,8 @@ class BudgetModel extends BudgetEntity {
         'categoryName': categoryName,
         'limitAmount': limitAmount,
         'month': Timestamp.fromDate(month),
+        'period': period.key,
+        if (parentBudgetId != null) 'parentBudgetId': parentBudgetId,
       };
 
   factory BudgetModel.fromEntity(BudgetEntity entity) => BudgetModel(
@@ -40,5 +46,7 @@ class BudgetModel extends BudgetEntity {
         categoryName: entity.categoryName,
         limitAmount: entity.limitAmount,
         month: entity.month,
+        period: entity.period,
+        parentBudgetId: entity.parentBudgetId,
       );
 }

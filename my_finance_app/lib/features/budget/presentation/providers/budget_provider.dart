@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../features/transactions/domain/entities/transaction_entity.dart';
 import '../../../../features/transactions/presentation/providers/transactions_provider.dart';
 import '../../data/datasources/budget_remote_datasource.dart';
 import '../../data/repositories/budget_repository_impl.dart';
@@ -36,8 +37,16 @@ final deleteBudgetUseCaseProvider = Provider(
   (ref) => DeleteBudgetUseCase(ref.watch(budgetRepositoryProvider)),
 );
 
+// --- View mode (monthly / quarterly / semestral / annual) ---
+
+/// Currently selected budget view mode in the Planning screen.
+final budgetViewModeProvider =
+    StateProvider<BudgetPeriod>((ref) => BudgetPeriod.monthly);
+
 // --- Stream Providers ---
 
+/// All MONTHLY budgets for the currently selected month. Used by callers
+/// that need a per-month view (financial health, dashboard helpers).
 final budgetsStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
@@ -48,11 +57,56 @@ final budgetsStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
       return ref
           .watch(getBudgetsUseCaseProvider)
           .call(GetBudgetsParams(userId: effectiveUserId, month: month))
+          .map((either) => either
+              .getOrElse(() => [])
+              .where((b) => b.period == BudgetPeriod.monthly)
+              .toList());
+    },
+    loading: () => const Stream.empty(),
+    error: (_, __) => const Stream.empty(),
+  );
+});
+
+/// All budgets stored in the calendar year of [selectedMonthProvider].
+/// Used by the period views (quarterly / semestral / annual).
+final budgetsByYearStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final month = ref.watch(selectedMonthProvider);
+  return authState.when(
+    data: (user) {
+      if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
+      return ref
+          .watch(budgetRepositoryProvider)
+          .watchBudgetsByYear(effectiveUserId, month.year)
           .map((either) => either.getOrElse(() => []));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
   );
+});
+
+/// Budgets currently visible on the Planning screen given the active view
+/// mode. Monthly → budgets for [selectedMonthProvider]. Period modes →
+/// budgets in the selected year whose [period] matches the view mode and
+/// whose period contains [selectedMonthProvider].
+final activeBudgetsProvider = Provider<List<BudgetEntity>>((ref) {
+  final viewMode = ref.watch(budgetViewModeProvider);
+  final selectedMonth = ref.watch(selectedMonthProvider);
+
+  if (viewMode == BudgetPeriod.monthly) {
+    return ref.watch(budgetsStreamProvider).value ?? [];
+  }
+
+  final periodStart = normalizePeriodStart(selectedMonth, viewMode);
+  final all = ref.watch(budgetsByYearStreamProvider).value ?? [];
+  return all
+      .where((b) =>
+          b.period == viewMode &&
+          b.parentBudgetId == null &&
+          b.month.year == periodStart.year &&
+          b.month.month == periodStart.month)
+      .toList();
 });
 
 /// Budgets for any specific month (used for month-picker based copy/spending).
@@ -63,7 +117,10 @@ final budgetsForMonthProvider =
   return ref
       .watch(getBudgetsUseCaseProvider)
       .call(GetBudgetsParams(userId: effectiveUserId, month: month))
-      .map((result) => result.getOrElse(() => []));
+      .map((result) => result
+          .getOrElse(() => [])
+          .where((b) => b.period == BudgetPeriod.monthly)
+          .toList());
 });
 
 /// Budgets from the month immediately before [selectedMonthProvider].
@@ -78,30 +135,57 @@ final previousMonthBudgetsProvider = StreamProvider<List<BudgetEntity>>((ref) {
       return ref
           .watch(getBudgetsUseCaseProvider)
           .call(GetBudgetsParams(userId: effectiveUserId, month: prevMonth))
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => either
+              .getOrElse(() => [])
+              .where((b) => b.period == BudgetPeriod.monthly)
+              .toList());
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
   );
 });
 
-// --- Budget Summary Provider (joins budgets + visible transactions) ---
+// --- Budget Summary Providers (budgets + transaction spending) ---
 
+double _spentForBudget(
+    BudgetEntity budget, Iterable<TransactionEntity> transactions) {
+  final start = budget.periodStart;
+  final end = budget.periodEnd;
+  return transactions
+      .where((t) =>
+          t.isExpense &&
+          t.category == budget.categoryName &&
+          !t.date.isBefore(start) &&
+          t.date.isBefore(end))
+      .fold<double>(0.0, (sum, t) => sum + t.amount);
+}
+
+/// Summaries for the MONTHLY budgets of [selectedMonthProvider]. Kept stable
+/// across view-mode changes so callers like financial health behave as
+/// before.
 final budgetSummaryProvider = Provider<List<BudgetSummary>>((ref) {
   final budgets = ref.watch(budgetsStreamProvider).value ?? [];
   final transactions = ref.watch(visibleTransactionsProvider);
-  final month = ref.watch(selectedMonthProvider);
+  return budgets
+      .map((b) => BudgetSummary(
+            budget: b,
+            spentAmount: _spentForBudget(b, transactions),
+          ))
+      .toList();
+});
 
-  return budgets.map((budget) {
-    final spent = transactions
-        .where((t) =>
-            t.isExpense &&
-            t.category == budget.categoryName &&
-            t.date.year == month.year &&
-            t.date.month == month.month)
-        .fold(0.0, (sum, t) => sum + t.amount);
-    return BudgetSummary(budget: budget, spentAmount: spent);
-  }).toList();
+/// Summaries for the budgets currently displayed on the Planning screen,
+/// based on the active view mode. Spent amount is summed across the budget's
+/// full period.
+final activeBudgetSummariesProvider = Provider<List<BudgetSummary>>((ref) {
+  final budgets = ref.watch(activeBudgetsProvider);
+  final transactions = ref.watch(visibleTransactionsProvider);
+  return budgets
+      .map((b) => BudgetSummary(
+            budget: b,
+            spentAmount: _spentForBudget(b, transactions),
+          ))
+      .toList();
 });
 
 // --- Notifier ---
@@ -114,23 +198,44 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
   BudgetNotifier(this._setBudget, this._deleteBudget, this._userId)
       : super(const AsyncValue.data(null));
 
+  String _budgetId({
+    required String categoryId,
+    required DateTime periodStart,
+    required BudgetPeriod period,
+  }) {
+    final mm = periodStart.month.toString().padLeft(2, '0');
+    final suffix =
+        period == BudgetPeriod.monthly ? '' : '_${period.key}';
+    return '${_userId}_${categoryId}_${periodStart.year}-$mm$suffix';
+  }
+
+  /// Sets (creates or updates) a budget for a specific period. The [month]
+  /// argument can be any date inside the desired period; it is normalised to
+  /// the period's first day.
   Future<bool> set({
     required String categoryId,
     required String categoryName,
     required double limitAmount,
     required DateTime month,
+    BudgetPeriod period = BudgetPeriod.monthly,
+    String? parentBudgetId,
   }) async {
     state = const AsyncValue.loading();
-    final firstOfMonth = DateTime(month.year, month.month, 1);
-    final id =
-        '${_userId}_${categoryId}_${firstOfMonth.year}-${firstOfMonth.month.toString().padLeft(2, '0')}';
+    final periodStart = normalizePeriodStart(month, period);
+    final id = _budgetId(
+      categoryId: categoryId,
+      periodStart: periodStart,
+      period: period,
+    );
     final budget = BudgetEntity(
       id: id,
       userId: _userId,
       categoryId: categoryId,
       categoryName: categoryName,
       limitAmount: limitAmount,
-      month: firstOfMonth,
+      month: periodStart,
+      period: period,
+      parentBudgetId: parentBudgetId,
     );
     final result = await _setBudget(SetBudgetParams(budget: budget));
     return result.fold(
@@ -145,6 +250,60 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
     );
   }
 
+  /// Creates a period budget (annual / semestral / quarterly) and, when
+  /// [createMonthlyReplicas] is true, also creates one monthly budget per
+  /// month covered, dividing [limitAmount] evenly across them.
+  ///
+  /// For annual budgets, [startMonth] lets the caller cover only part of the
+  /// year (e.g. "rest of year" mode starts at the current month instead of
+  /// January). The amount is split across the actual covered months.
+  Future<bool> createPeriodBudget({
+    required String categoryId,
+    required String categoryName,
+    required double limitAmount,
+    required int year,
+    required BudgetPeriod period,
+    required DateTime startMonth,
+    bool createMonthlyReplicas = true,
+  }) async {
+    final periodStart = normalizePeriodStart(startMonth, period);
+    final coveredMonths = period == BudgetPeriod.annual
+        ? 12 - periodStart.month + 1
+        : period.monthSpan;
+
+    final parentOk = await set(
+      categoryId: categoryId,
+      categoryName: categoryName,
+      limitAmount: limitAmount,
+      month: periodStart,
+      period: period,
+    );
+    if (!parentOk) return false;
+
+    if (!createMonthlyReplicas || coveredMonths <= 0) return true;
+
+    final parentId = _budgetId(
+      categoryId: categoryId,
+      periodStart: periodStart,
+      period: period,
+    );
+    final perMonth = limitAmount / coveredMonths;
+
+    for (var i = 0; i < coveredMonths; i++) {
+      final monthDate = DateTime(periodStart.year, periodStart.month + i, 1);
+      final ok = await set(
+        categoryId: categoryId,
+        categoryName: categoryName,
+        limitAmount: perMonth,
+        month: monthDate,
+        period: BudgetPeriod.monthly,
+        parentBudgetId: parentId,
+      );
+      if (!ok) return false;
+    }
+    return true;
+  }
+
   Future<bool> copyFromPreviousMonth({
     required List<BudgetEntity> previousBudgets,
     required DateTime targetMonth,
@@ -153,23 +312,14 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     final firstOfMonth = DateTime(targetMonth.year, targetMonth.month, 1);
     for (final budget in previousBudgets) {
-      final id =
-          '${_userId}_${budget.categoryId}_${firstOfMonth.year}-${firstOfMonth.month.toString().padLeft(2, '0')}';
-      final newBudget = BudgetEntity(
-        id: id,
-        userId: _userId,
+      final ok = await set(
         categoryId: budget.categoryId,
         categoryName: budget.categoryName,
         limitAmount: budget.limitAmount,
         month: firstOfMonth,
+        period: BudgetPeriod.monthly,
       );
-      final result = await _setBudget(SetBudgetParams(budget: newBudget));
-      final failed = result.fold((_) => true, (_) => false);
-      if (failed) {
-        state = AsyncValue.error(
-            'Erro ao copiar orçamentos.', StackTrace.current);
-        return false;
-      }
+      if (!ok) return false;
     }
     state = const AsyncValue.data(null);
     return true;

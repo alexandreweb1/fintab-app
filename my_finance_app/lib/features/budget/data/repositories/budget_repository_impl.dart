@@ -28,6 +28,19 @@ class BudgetRepositoryImpl implements BudgetRepository {
   }
 
   @override
+  Stream<Either<Failure, List<BudgetEntity>>> watchBudgetsByYear(
+      String userId, int year) {
+    return remoteDataSource.watchBudgetsByYear(userId, year).transform(
+      StreamTransformer.fromHandlers(
+        handleData: (models, sink) =>
+            sink.add(Right(List<BudgetEntity>.from(models))),
+        handleError: (error, _, sink) =>
+            sink.add(Left(ServerFailure(error.toString()))),
+      ),
+    );
+  }
+
+  @override
   Future<Either<Failure, BudgetEntity>> setBudget(BudgetEntity budget) async {
     try {
       final model = BudgetModel.fromEntity(budget);
