@@ -1057,7 +1057,9 @@ class _PatrimonioTab extends ConsumerWidget {
     // Build list of (wallet, balance) pairs; include "Geral" if needed
     final List<({String id, String name, int iconCodePoint, int colorValue, double balance})> entries = [];
 
+    final knownIds = <String>{};
     for (final w in wallets) {
+      knownIds.add(w.id);
       entries.add((
         id: w.id,
         name: w.name,
@@ -1079,7 +1081,22 @@ class _PatrimonioTab extends ConsumerWidget {
       ));
     }
 
-    final totalPatrimonio = balances.values.fold(0.0, (a, b) => a + b);
+    // Orphan balances: walletIds em transações que não existem mais (ex.: carteira excluída).
+    // Agregadas em "Outros" para que a soma exibida bata com o Patrimônio Total.
+    final outrosBalance = balances.entries
+        .where((e) => e.key.isNotEmpty && !knownIds.contains(e.key))
+        .fold<double>(0.0, (a, e) => a + e.value);
+    if (outrosBalance != 0.0) {
+      entries.add((
+        id: '__outros__',
+        name: 'Outros',
+        iconCodePoint: Icons.help_outline.codePoint,
+        colorValue: cs.onSurfaceVariant.toARGB32(),
+        balance: outrosBalance,
+      ));
+    }
+
+    final totalPatrimonio = entries.fold<double>(0.0, (a, e) => a + e.balance);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),

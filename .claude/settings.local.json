@@ -31,7 +31,10 @@
       "Bash(git add *)",
       "Bash(git check-ignore *)",
       "Bash(cat .gitignore)",
-      "Bash(ls my_finance_app/web/)"
+      "Bash(ls my_finance_app/web/)",
+      "PowerShell(& \"C:\\\\flutter\\\\bin\\\\flutter.bat\" --version)",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\alexandre.figueiredo\\\\AppData\\\\Local\\\\Android\\\\Sdk\")",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\ALEXAN~1.FIG\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-alexandre-figueiredo-Documents-projects-my-finance-app\\\\f84f92c2-d603-476c-a32e-39275356a5b9\\\\tasks\\\\b3w4x2mv4.output\" -Wait -Tail 5)"
     ]
   }
 }

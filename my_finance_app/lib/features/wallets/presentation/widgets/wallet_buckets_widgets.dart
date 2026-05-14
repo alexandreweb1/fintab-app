@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
@@ -153,13 +154,20 @@ class TypedWalletsTab extends ConsumerWidget {
     final wallets = type == WalletType.reserve
         ? ref.watch(reserveWalletsProvider)
         : ref.watch(investmentWalletsProvider);
-    final balances = ref.watch(walletBalancesProvider);
+    // Saldos reais (sem filtro de oculto): cards continuam mostrando o valor
+    // verdadeiro mesmo quando a carteira está oculta dos totais do app.
+    final balances = ref.watch(walletAllBalancesProvider);
+    final hiddenIds = ref.watch(appSettingsProvider).hiddenWalletIds;
     final fmt = ref.watch(currencyFormatterProvider);
     final cs = Theme.of(context).colorScheme;
     final accent = _accent(context);
 
     final total =
         wallets.fold<double>(0, (sum, w) => sum + (balances[w.id] ?? 0));
+    final visibleTotal = wallets
+        .where((w) => !hiddenIds.contains(w.id))
+        .fold<double>(0, (sum, w) => sum + (balances[w.id] ?? 0));
+    final hiddenCount = wallets.where((w) => hiddenIds.contains(w.id)).length;
     final aggregateTarget =
         wallets.fold<double>(0, (sum, w) => sum + w.targetAmount);
 
@@ -208,6 +216,25 @@ class TypedWalletsTab extends ConsumerWidget {
                               color: total >= 0 ? accent : Colors.red.shade700,
                             ),
                           ),
+                          if (hiddenCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.visibility_off_outlined,
+                                    size: 13, color: cs.onSurfaceVariant),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Computando no patrimônio: ${fmt(visibleTotal)} '
+                                    '($hiddenCount ocult${hiddenCount == 1 ? "a" : "as"})',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -278,8 +305,12 @@ class TypedWalletsTab extends ConsumerWidget {
                 balance: balances[w.id] ?? 0,
                 fmt: fmt,
                 accent: accent,
+                isHidden: hiddenIds.contains(w.id),
                 onTap: () => _openActions(context, w),
                 onAporte: () => _openTransfer(context, wallet: w, isAporte: true),
+                onToggleHidden: () => ref
+                    .read(appSettingsProvider.notifier)
+                    .toggleWalletVisibility(w.id),
               )),
 
         const SizedBox(height: 12),
@@ -413,16 +444,20 @@ class _BucketCard extends StatelessWidget {
   final double balance;
   final String Function(double) fmt;
   final Color accent;
+  final bool isHidden;
   final VoidCallback onTap;
   final VoidCallback onAporte;
+  final VoidCallback onToggleHidden;
 
   const _BucketCard({
     required this.wallet,
     required this.balance,
     required this.fmt,
     required this.accent,
+    required this.isHidden,
     required this.onTap,
     required this.onAporte,
+    required this.onToggleHidden,
   });
 
   @override
@@ -438,66 +473,106 @@ class _BucketCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+        child: Opacity(
+          opacity: isHidden ? 0.65 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              border: isHidden
+                  ? Border.all(
+                      color: cs.outlineVariant,
+                      style: BorderStyle.solid,
+                      width: 1,
+                    )
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(categoryIcon(wallet.iconCodePoint),
+                          color: color, size: 22),
                     ),
-                    child: Icon(categoryIcon(wallet.iconCodePoint),
-                        color: color, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          wallet.name,
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          fmt(balance),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: balance >= 0
-                                ? accent
-                                : Colors.red.shade700,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  wallet.name,
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isHidden) ...[
+                                const SizedBox(width: 6),
+                                Icon(Icons.visibility_off_outlined,
+                                    size: 14, color: cs.onSurfaceVariant),
+                              ],
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            fmt(balance),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: balance >= 0
+                                  ? accent
+                                  : Colors.red.shade700,
+                            ),
+                          ),
+                          if (isHidden)
+                            Text(
+                              'Oculta dos totais e gráficos',
+                              style: TextStyle(
+                                  fontSize: 11, color: cs.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Aporte',
-                    icon: Icon(Icons.add_circle, color: accent, size: 28),
-                    onPressed: onAporte,
-                  ),
-                ],
-              ),
+                    IconButton(
+                      tooltip: isHidden
+                          ? 'Incluir no patrimônio total'
+                          : 'Ocultar do patrimônio total',
+                      icon: Icon(
+                        isHidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: cs.onSurfaceVariant,
+                        size: 22,
+                      ),
+                      onPressed: onToggleHidden,
+                    ),
+                    IconButton(
+                      tooltip: 'Aporte',
+                      icon: Icon(Icons.add_circle, color: accent, size: 28),
+                      onPressed: onAporte,
+                    ),
+                  ],
+                ),
               if (hasTarget) ...[
                 const SizedBox(height: 8),
                 Padding(
@@ -534,6 +609,7 @@ class _BucketCard extends StatelessWidget {
               ],
             ],
           ),
+        ),
         ),
       ),
     );

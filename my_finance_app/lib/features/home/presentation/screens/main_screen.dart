@@ -104,6 +104,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
       }
       // Check if the user tapped a native notification while app was in background
       _checkIntentSuggestion();
+      // Kick the outbox sync in case items piled up while the app was killed.
+      ref.read(backlogSyncWorkerProvider).tickNow();
     }
   }
 
@@ -128,6 +130,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
     if (!mounted) return;
 
     _notifInitDone = true;
+
+    // Boot the outbox sync worker — uploads any locally-queued backlog items
+    // that didn't reach Firestore in a previous session.
+    ref.read(backlogSyncWorkerProvider);
 
     // 2. Start listening if detection is already enabled
     _syncNotificationListening();
@@ -224,7 +230,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     debugPrint('[Notif] Listening started');
   }
 
-  void _handleSuggestion(NotificationSuggestion suggestion) {
+  Future<void> _handleSuggestion(NotificationSuggestion suggestion) async {
     debugPrint('[Notif] Received: amount=${suggestion.amount}, '
         'type=${suggestion.type?.name}, source=${suggestion.sourceApp}');
 
@@ -235,40 +241,52 @@ class _MainScreenState extends ConsumerState<MainScreen>
       return;
     }
 
-    // Backlog: persist EVERY detected notification (fire-and-forget)
     final userId = ref.read(effectiveUserIdProvider);
-    if (userId.isNotEmpty) {
-      ref.read(backlogNotifierProvider.notifier).addFromSuggestion(suggestion);
-    } else {
-      debugPrint('[Notif] Skipping backlog — userId not available yet');
+    if (userId.isEmpty) {
+      debugPrint('[Notif] Skipping — userId not available yet');
+      return;
     }
 
-    // Native Android notification is already shown by NotificationMonitorService
-    // (works even when app is closed). No need for flutter_local_notifications here.
+    // 1. Persist to local outbox (always succeeds — uploaded to Firestore by the
+    //    sync worker). Returns a localId so we can update the same item later.
+    final backlogId = await ref
+        .read(backlogNotifierProvider.notifier)
+        .addFromSuggestion(suggestion);
 
-    // Auto-save as pending transaction if enabled (needs userId)
-    if (ref.read(notificationAutoSaveProvider) && userId.isNotEmpty) {
-      _autoSaveTransaction(suggestion);
+    // 2. If auto-save is enabled, create the transaction and link it to the
+    //    backlog item. If transaction creation fails, the backlog item stays
+    //    in `pending` status so the user can import it manually later.
+    if (backlogId != null && ref.read(notificationAutoSaveProvider)) {
+      final txId = await _autoSaveTransaction(suggestion);
+      if (txId != null) {
+        await ref
+            .read(backlogNotifierProvider.notifier)
+            .markAutoImported(backlogId, transactionId: txId);
+      }
     }
   }
 
-  Future<void> _autoSaveTransaction(NotificationSuggestion suggestion) async {
+  Future<String?> _autoSaveTransaction(NotificationSuggestion suggestion) async {
     try {
       final type = suggestion.type ?? TransactionType.expense;
-      await ref.read(transactionsNotifierProvider.notifier).add(
-        title: suggestion.rawText.length > 60
-            ? suggestion.rawText.substring(0, 60)
-            : suggestion.rawText,
-        amount: suggestion.amount,
-        type: type,
-        category: 'A categorizar',
-        date: DateTime.now(),
-        description: 'Via ${suggestion.sourceApp}',
-        isPending: true,
-      );
-      debugPrint('[Notif] Auto-saved transaction: ${suggestion.amount}');
+      final id = await ref
+          .read(transactionsNotifierProvider.notifier)
+          .addAndReturnId(
+            title: suggestion.rawText.length > 60
+                ? suggestion.rawText.substring(0, 60)
+                : suggestion.rawText,
+            amount: suggestion.amount,
+            type: type,
+            category: 'A categorizar',
+            date: DateTime.now(),
+            description: 'Via ${suggestion.sourceApp}',
+            isPending: true,
+          );
+      debugPrint('[Notif] Auto-saved transaction id=$id');
+      return id;
     } catch (e) {
       debugPrint('[Notif] Auto-save failed: $e');
+      return null;
     }
   }
 

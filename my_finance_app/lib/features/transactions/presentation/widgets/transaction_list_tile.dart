@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/animated_dialog.dart';
+import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../providers/transactions_provider.dart';
 import 'add_transaction_dialog.dart';
@@ -24,6 +26,18 @@ class TransactionListTile extends ConsumerWidget {
     final fmt = ref.watch(currencyFormatterProvider);
     final dateLoc = ref.watch(dateLocaleProvider);
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Get category icon
+    final categories = ref.watch(categoriesStreamProvider).value ?? [];
+    IconData categoryIconData = Icons.category;
+    try {
+      final matchedCategory = categories.firstWhere(
+        (c) => c.name == transaction.category,
+      );
+      categoryIconData = categoryIcon(matchedCategory.iconCodePoint);
+    } catch (_) {
+      // Category not found, use default
+    }
 
     // Theme-aware icon background: tinted surface in both light and dark mode
     final iconBg = isIncome
@@ -107,9 +121,7 @@ class TransactionListTile extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
-                  isIncome
-                      ? Icons.arrow_downward_rounded
-                      : Icons.arrow_upward_rounded,
+                  categoryIconData,
                   color: color,
                   size: isCompact ? 17.0 : 20.0,
                 ),

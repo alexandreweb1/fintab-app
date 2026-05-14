@@ -529,6 +529,16 @@ class _BudgetCard extends ConsumerWidget {
         : Icons.category;
     final catColor = cat != null ? Color(cat.colorValue) : cs.primary;
 
+    // Count transactions for this category
+    final allTransactions = ref.watch(transactionsStreamProvider).value ?? [];
+    final monthTransactions = allTransactions
+        .where((t) =>
+            t.category == budget.categoryName &&
+            t.date.year == budget.month.year &&
+            t.date.month == budget.month.month &&
+            t.isExpense)
+        .length;
+
     void navigateToTransactions() {
       // Reset filters irrelevantes
       ref.read(statementTypeFilterProvider.notifier).state = null;

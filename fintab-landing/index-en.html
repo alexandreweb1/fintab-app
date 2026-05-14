@@ -1,12 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Content Security Policy: restringe fontes de scripts, estilos e fontes tipográficas.
-       script-src 'none' — a página não carrega nenhum JS externo ou inline.
-       object-src 'none' — bloqueia Flash/plugins obsoletos.
-       base-uri 'self'   — impede injeção de <base> que redireciona links relativos. -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self';
                  style-src 'self' https://fonts.googleapis.com 'unsafe-inline';
@@ -16,10 +12,10 @@
                  object-src 'none';
                  base-uri 'self';
                  form-action 'none';" />
-  <title>Fintab — Controle Financeiro Pessoal</title>
-  <meta name="description" content="Fintab é o app de finanças pessoais para quem quer ter controle real do próprio dinheiro. Registre gastos, crie orçamentos e analise suas finanças." />
-  <meta property="og:title" content="Fintab — Controle Financeiro Pessoal" />
-  <meta property="og:description" content="Controle gastos, orçamentos e finanças pessoais em um só lugar." />
+  <title>Fintab — Personal Finance Control</title>
+  <meta name="description" content="Fintab is the personal finance app for people who want real control over their money. Track expenses, create budgets, and analyze your finances." />
+  <meta property="og:title" content="Fintab — Personal Finance Control" />
+  <meta property="og:description" content="Control expenses, budgets, and personal finances in one place." />
   <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
@@ -134,9 +130,7 @@
       margin-bottom: 20px;
       color: var(--text);
     }
-    .hero h1 span {
-      color: var(--green);
-    }
+    .hero h1 span { color: var(--green); }
     .hero-desc {
       font-size: 1.05rem;
       color: var(--text-muted);
@@ -265,12 +259,7 @@
       flex-wrap: wrap;
     }
     .stat-item { text-align: center; }
-    .stat-num {
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--green-dark);
-      letter-spacing: -0.5px;
-    }
+    .stat-num { font-size: 1.8rem; font-weight: 800; color: var(--green-dark); letter-spacing: -0.5px; }
     .stat-label { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
     .stat-divider { width: 1px; height: 36px; background: var(--border); }
 
@@ -346,11 +335,7 @@
       gap: 8px;
       color: var(--text);
     }
-    .feature-card p {
-      font-size: 0.87rem;
-      color: var(--text-muted);
-      line-height: 1.65;
-    }
+    .feature-card p { font-size: 0.87rem; color: var(--text-muted); line-height: 1.65; }
     .pro-badge {
       display: inline-block;
       background: var(--green);
@@ -373,11 +358,7 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 32px;
     }
-    .step {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
+    .step { display: flex; flex-direction: column; gap: 14px; }
     .step-num {
       width: 40px; height: 40px;
       border-radius: 12px;
@@ -385,9 +366,7 @@
       color: #fff;
       font-size: 1rem;
       font-weight: 800;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
     .step h3 { font-size: 1rem; font-weight: 700; color: var(--text); }
@@ -409,20 +388,9 @@
       margin-right: auto;
     }
     .privacy-left { flex: 1; min-width: 260px; }
-    .privacy-left h2 {
-      font-size: 1.6rem;
-      font-weight: 800;
-      color: #fff;
-      margin-bottom: 10px;
-      letter-spacing: -0.3px;
-    }
+    .privacy-left h2 { font-size: 1.6rem; font-weight: 800; color: #fff; margin-bottom: 10px; letter-spacing: -0.3px; }
     .privacy-left p { font-size: 0.92rem; color: rgba(255,255,255,0.6); line-height: 1.6; }
-    .privacy-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 20px;
-    }
+    .privacy-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
     .privacy-pill {
       display: flex;
       align-items: center;
@@ -455,10 +423,7 @@
       transition: box-shadow 0.2s;
     }
     .pricing-card:hover { box-shadow: var(--shadow-md); }
-    .pricing-card.highlighted {
-      border-color: var(--green);
-      background: #f0fdf8;
-    }
+    .pricing-card.highlighted { border-color: var(--green); background: #f0fdf8; }
     .pricing-popular {
       position: absolute;
       top: -12px; left: 50%; transform: translateX(-50%);
@@ -472,26 +437,12 @@
       white-space: nowrap;
     }
     .pricing-plan { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-    .pricing-price {
-      font-size: 2.6rem;
-      font-weight: 800;
-      line-height: 1;
-      color: var(--text);
-      letter-spacing: -1px;
-      margin-bottom: 4px;
-    }
+    .pricing-price { font-size: 2.6rem; font-weight: 800; line-height: 1; color: var(--text); letter-spacing: -1px; margin-bottom: 4px; }
     .pricing-price span { font-size: 1rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0; }
     .pricing-detail { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 24px; }
     .pricing-divider { border: none; border-top: 1px solid var(--border); margin-bottom: 20px; }
     .pricing-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-    .pricing-features li {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
+    .pricing-features li { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
     .pricing-features li svg { width: 16px; height: 16px; fill: var(--green); flex-shrink: 0; }
     .pricing-cta {
       display: block;
@@ -504,16 +455,9 @@
       transition: background 0.2s, transform 0.15s;
     }
     .pricing-cta:hover { transform: translateY(-1px); }
-    .pricing-card.highlighted .pricing-cta {
-      background: var(--green);
-      color: #fff;
-    }
+    .pricing-card.highlighted .pricing-cta { background: var(--green); color: #fff; }
     .pricing-card.highlighted .pricing-cta:hover { background: var(--green-dark); }
-    .pricing-card:not(.highlighted) .pricing-cta {
-      background: var(--bg2);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
+    .pricing-card:not(.highlighted) .pricing-cta { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
     .pricing-card:not(.highlighted) .pricing-cta:hover { background: var(--bg3); }
     .pricing-note { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 24px; }
 
@@ -525,29 +469,12 @@
       padding: 96px 48px;
       text-align: center;
     }
-    .download-badges {
-      display: flex;
-      justify-content: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 40px;
-    }
+    .download-badges { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 40px; }
 
     /* ── CTA FINAL ── */
-    .cta-section {
-      padding: 100px 48px;
-      text-align: center;
-    }
-    .cta-inner {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    .cta-section h2 {
-      font-size: clamp(2rem, 4vw, 2.8rem);
-      font-weight: 800;
-      margin-bottom: 16px;
-      letter-spacing: -0.5px;
-    }
+    .cta-section { padding: 100px 48px; text-align: center; }
+    .cta-inner { max-width: 600px; margin: 0 auto; }
+    .cta-section h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 800; margin-bottom: 16px; letter-spacing: -0.5px; }
     .cta-section p { color: var(--text-muted); margin-bottom: 36px; font-size: 1.05rem; line-height: 1.6; }
     .btn-primary {
       display: inline-flex;
@@ -563,11 +490,7 @@
       transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
       box-shadow: 0 4px 20px rgba(0,201,122,0.3);
     }
-    .btn-primary:hover {
-      background: var(--green-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(0,201,122,0.35);
-    }
+    .btn-primary:hover { background: var(--green-dark); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,201,122,0.35); }
 
     /* ── FOOTER ── */
     footer {
@@ -588,12 +511,7 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 960px) {
-      .hero {
-        grid-template-columns: 1fr;
-        text-align: center;
-        padding: 100px 24px 60px;
-        gap: 48px;
-      }
+      .hero { grid-template-columns: 1fr; text-align: center; padding: 100px 24px 60px; gap: 48px; }
       .hero-desc { margin-left: auto; margin-right: auto; }
       .store-badges { justify-content: center; }
       .hero-trust { justify-content: center; }
@@ -615,36 +533,27 @@
     }
   </style>
 </head>
-<script>
-  (function(){
-    var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
-    if (!lang.startsWith('pt')) {
-      var dest = location.pathname.replace(/index\.html$/, '') + 'index-en.html';
-      location.replace(dest);
-    }
-  })();
-</script>
 <body>
 
 <!-- NAV -->
 <nav>
   <div class="nav-logo">Fintab</div>
   <ul class="nav-links">
-    <li><a href="#features">Recursos</a></li>
-    <li><a href="#how">Como usar</a></li>
-    <li><a href="#pricing">Planos</a></li>
-    <li><a href="https://my-finance-app-red-omega.vercel.app" class="nav-cta" target="_blank" rel="noopener">Abrir app ↗</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="https://my-finance-app-red-omega.vercel.app" class="nav-cta" target="_blank" rel="noopener">Open app ↗</a></li>
   </ul>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
   <div class="hero-left">
-    <div class="hero-badge">✦ Finanças pessoais simplificadas</div>
-    <h1>Pare de perder<br />dinheiro sem<br /><span>saber por quê</span></h1>
+    <div class="hero-badge">✦ Personal finance, simplified</div>
+    <h1>Stop losing money<br />without knowing<br /><span>where it goes</span></h1>
     <p class="hero-desc">
-      O Fintab mostra em segundos para onde vai cada dinheiro. Controle gastos,
-      crie orçamentos e tome decisões com confiança — tudo em um app limpo e fácil de usar.
+      Fintab shows you in seconds where every dollar goes. Track expenses,
+      create budgets, and make confident decisions — all in a clean, easy-to-use app.
     </p>
 
     <div class="store-badges">
@@ -656,7 +565,7 @@
           <path d="M21.14 10.19C20.56 9.55 19.67 9.15 18.5 9.62L16.92 8.35L13.27 12L16.92 15.65L18.5 14.38C19.67 14.85 20.56 14.45 21.14 13.81C21.72 13.17 22 12.58 22 12C22 11.42 21.72 10.83 21.14 10.19Z" fill="rgba(255,255,255,0.95)"/>
         </svg>
         <div class="store-btn-text">
-          <span class="store-btn-label">Baixar na</span>
+          <span class="store-btn-label">Get it on</span>
           <span class="store-btn-name">Google Play</span>
         </div>
       </a>
@@ -670,8 +579,8 @@
           <path d="M4.5 16.5H19.5" stroke="#00A86B" stroke-width="1.2" stroke-linecap="round"/>
         </svg>
         <div class="store-btn-text">
-          <span class="store-btn-label">Acessar pelo</span>
-          <span class="store-btn-name">Navegador Web</span>
+          <span class="store-btn-label">Use on</span>
+          <span class="store-btn-name">Web Browser</span>
         </div>
       </a>
     </div>
@@ -679,15 +588,15 @@
     <div class="hero-trust">
       <div class="hero-trust-item">
         <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-        Grátis para começar
+        Free to start
       </div>
       <div class="hero-trust-item">
         <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-        Sem cartão de crédito
+        No credit card required
       </div>
       <div class="hero-trust-item">
         <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-        Dados 100% seus
+        Your data, fully yours
       </div>
     </div>
   </div>
@@ -696,59 +605,59 @@
   <div class="hero-right">
     <div class="dashboard">
       <div class="dash-header">
-        <span class="dash-title">Resumo financeiro</span>
+        <span class="dash-title">Financial summary</span>
         <span class="dash-month">Mar 2026</span>
       </div>
       <div class="dash-balance">
-        <div class="dash-balance-label">Saldo atual</div>
-        <div class="dash-balance-value">R$ 3.240,00</div>
+        <div class="dash-balance-label">Current balance</div>
+        <div class="dash-balance-value">$ 3,240.00</div>
       </div>
       <div class="dash-row">
         <div class="dash-mini-card">
           <div class="dash-mini-label">
             <span class="dash-mini-dot" style="background:var(--green)"></span>
-            Receitas
+            Income
           </div>
-          <div class="dash-mini-value income">R$ 6.500</div>
+          <div class="dash-mini-value income">$ 6,500</div>
         </div>
         <div class="dash-mini-card">
           <div class="dash-mini-label">
             <span class="dash-mini-dot" style="background:#ef4444"></span>
-            Gastos
+            Expenses
           </div>
-          <div class="dash-mini-value expense">R$ 3.260</div>
+          <div class="dash-mini-value expense">$ 3,260</div>
         </div>
       </div>
-      <div class="dash-chart-label">Gastos por mês</div>
+      <div class="dash-chart-label">Spending by month</div>
       <div class="dash-bars">
-        <div class="dash-bar-col"><div class="dash-bar" style="height:30px"></div><span class="dash-bar-month">Out</span></div>
+        <div class="dash-bar-col"><div class="dash-bar" style="height:30px"></div><span class="dash-bar-month">Oct</span></div>
         <div class="dash-bar-col"><div class="dash-bar" style="height:46px"></div><span class="dash-bar-month">Nov</span></div>
-        <div class="dash-bar-col"><div class="dash-bar" style="height:26px"></div><span class="dash-bar-month">Dez</span></div>
+        <div class="dash-bar-col"><div class="dash-bar" style="height:26px"></div><span class="dash-bar-month">Dec</span></div>
         <div class="dash-bar-col"><div class="dash-bar" style="height:54px"></div><span class="dash-bar-month">Jan</span></div>
-        <div class="dash-bar-col"><div class="dash-bar" style="height:38px"></div><span class="dash-bar-month">Fev</span></div>
+        <div class="dash-bar-col"><div class="dash-bar" style="height:38px"></div><span class="dash-bar-month">Feb</span></div>
         <div class="dash-bar-col"><div class="dash-bar active" style="height:36px"></div><span class="dash-bar-month" style="color:var(--green);font-weight:700">Mar</span></div>
       </div>
-      <div class="dash-tx-label">Últimas transações</div>
+      <div class="dash-tx-label">Recent transactions</div>
       <div class="dash-tx">
         <div class="dash-tx-info">
           <div class="dash-tx-icon" style="background:#fee2e2">🛒</div>
-          <div><div class="dash-tx-name">Supermercado</div><div class="dash-tx-cat">Alimentação</div></div>
+          <div><div class="dash-tx-name">Grocery store</div><div class="dash-tx-cat">Food</div></div>
         </div>
-        <div class="dash-tx-amount neg">−R$ 245</div>
+        <div class="dash-tx-amount neg">−$ 245</div>
       </div>
       <div class="dash-tx">
         <div class="dash-tx-info">
           <div class="dash-tx-icon" style="background:#dcfce7">💼</div>
-          <div><div class="dash-tx-name">Salário</div><div class="dash-tx-cat">Receita</div></div>
+          <div><div class="dash-tx-name">Salary</div><div class="dash-tx-cat">Income</div></div>
         </div>
-        <div class="dash-tx-amount pos">+R$ 6.500</div>
+        <div class="dash-tx-amount pos">+$ 6,500</div>
       </div>
       <div class="dash-tx">
         <div class="dash-tx-info">
           <div class="dash-tx-icon" style="background:#fef9c3">⚡</div>
-          <div><div class="dash-tx-name">Conta de luz</div><div class="dash-tx-cat">Moradia</div></div>
+          <div><div class="dash-tx-name">Electric bill</div><div class="dash-tx-cat">Housing</div></div>
         </div>
-        <div class="dash-tx-amount neg">−R$ 187</div>
+        <div class="dash-tx-amount neg">−$ 187</div>
       </div>
     </div>
   </div>
@@ -759,22 +668,22 @@
   <div class="divider-inner">
     <div class="stat-item">
       <div class="stat-num">100%</div>
-      <div class="stat-label">Seus dados, na sua conta</div>
+      <div class="stat-label">Your data, in your account</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
       <div class="stat-num">0</div>
-      <div class="stat-label">Dados enviados a terceiros</div>
+      <div class="stat-label">Data sold to third parties</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
       <div class="stat-num">Android + Web</div>
-      <div class="stat-label">Disponível em</div>
+      <div class="stat-label">Available on</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
-      <div class="stat-num">R$ 0</div>
-      <div class="stat-label">Para começar</div>
+      <div class="stat-num">$ 0</div>
+      <div class="stat-label">To get started</div>
     </div>
   </div>
 </div>
@@ -782,67 +691,67 @@
 <!-- FEATURES -->
 <section class="section" id="features">
   <div class="center">
-    <div class="section-tag">✦ Funcionalidades</div>
-    <h2 class="section-title">Tudo que você precisa para<br />cuidar do seu dinheiro</h2>
-    <p class="section-subtitle">Sem planilhas, sem complicação. O Fintab organiza suas finanças de forma simples e visual</p>
+    <div class="section-tag">✦ Features</div>
+    <h2 class="section-title">Everything you need to<br />take control of your money</h2>
+    <p class="section-subtitle">No spreadsheets, no hassle. Fintab organizes your finances in a simple, visual way.</p>
   </div>
   <div class="features-grid">
-    <!-- ── Grátis ── -->
+    <!-- Free -->
     <div class="feature-card">
       <div class="feature-icon">💰</div>
-      <h3>Controle de Gastos</h3>
-      <p>Registre receitas e despesas com categorias personalizadas. Saiba exatamente para onde vai cada centavo do seu dinheiro.</p>
+      <h3>Expense Tracking</h3>
+      <p>Record income and expenses with custom categories. Know exactly where every cent of your money goes.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔔</div>
-      <h3>Detecção Automática</h3>
-      <p>O app lê notificações de bancos e sugere lançamentos automaticamente. Seus dados nunca saem do celular.</p>
+      <h3>Auto Detection</h3>
+      <p>The app reads bank notifications and automatically suggests entries. Your data never leaves your phone.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔁</div>
-      <h3>Transações Recorrentes</h3>
-      <p>Cadastre contas e receitas que se repetem todo mês — o app lança automaticamente e você nunca esquece um pagamento.</p>
+      <h3>Recurring Transactions</h3>
+      <p>Set up recurring bills and income — the app logs them automatically so you never miss a payment.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">❤️</div>
-      <h3>Saúde Financeira</h3>
-      <p>Receba um diagnóstico claro do seu momento financeiro com indicadores que mostram onde você está e como melhorar.</p>
+      <h3>Financial Health</h3>
+      <p>Get a clear snapshot of your financial situation with indicators that show where you stand and how to improve.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">📁</div>
-      <h3>Importar e Exportar</h3>
-      <p>Traga dados de outras fontes ou exporte seus lançamentos em CSV a qualquer momento. Seus dados, sua liberdade.</p>
+      <h3>Import &amp; Export</h3>
+      <p>Bring data from other sources or export your records as CSV anytime. Your data, your freedom.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔒</div>
-      <h3>Bloqueio por PIN</h3>
-      <p>Proteja o acesso ao app com um PIN exclusivo. Mais uma camada de segurança para suas informações financeiras.</p>
+      <h3>PIN Lock</h3>
+      <p>Protect app access with a personal PIN. An extra layer of security for your financial information.</p>
     </div>
-    <!-- ── Pro ── -->
+    <!-- Pro -->
     <div class="feature-card">
       <div class="feature-icon">📊</div>
-      <h3>Visão Anual <span class="pro-badge">PRO</span></h3>
-      <p>Analise seus gastos mês a mês ao longo do ano inteiro e identifique padrões financeiros com gráficos claros.</p>
+      <h3>Annual View <span class="pro-badge">PRO</span></h3>
+      <p>Analyze your spending month by month across the entire year and spot financial patterns with clear charts.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">👛</div>
-      <h3>Múltiplas Carteiras <span class="pro-badge">PRO</span></h3>
-      <p>Organize seu dinheiro por carteira: conta corrente, poupança, cartão de crédito e o que mais precisar.</p>
+      <h3>Multiple Wallets <span class="pro-badge">PRO</span></h3>
+      <p>Organize your money by wallet: checking, savings, credit card, and whatever else you need.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🎯</div>
-      <h3>Orçamentos <span class="pro-badge">PRO</span></h3>
-      <p>Defina limites mensais por categoria e acompanhe em tempo real se está dentro do planejado.</p>
+      <h3>Budgets <span class="pro-badge">PRO</span></h3>
+      <p>Set monthly limits by category and track in real time whether you're staying on plan.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🏆</div>
-      <h3>Metas Financeiras <span class="pro-badge">PRO</span></h3>
-      <p>Defina objetivos de economia, acompanhe o progresso visualmente e conquiste suas metas com mais clareza.</p>
+      <h3>Financial Goals <span class="pro-badge">PRO</span></h3>
+      <p>Set savings targets, track progress visually, and achieve your goals with greater clarity.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">👥</div>
-      <h3>Compartilhamento <span class="pro-badge">PRO</span></h3>
-      <p>Gerencie finanças em conjunto com parceiro, família ou sócio — tudo sincronizado em tempo real.</p>
+      <h3>Sharing <span class="pro-badge">PRO</span></h3>
+      <p>Manage finances together with a partner, family, or business partner — all synced in real time.</p>
     </div>
   </div>
 </section>
@@ -851,25 +760,25 @@
 <div class="how-bg">
   <section class="section" id="how">
     <div class="center">
-      <div class="section-tag">✦ Como funciona</div>
-      <h2 class="section-title">Comece em menos de 2 minutos</h2>
-      <p class="section-subtitle">Sem burocracia. Você no controle total dos seus dados.</p>
+      <div class="section-tag">✦ How it works</div>
+      <h2 class="section-title">Get started in under 2 minutes</h2>
+      <p class="section-subtitle">No red tape. You stay in full control of your data.</p>
     </div>
     <div class="steps-grid">
       <div class="step">
         <div class="step-num">01</div>
-        <h3>Crie sua conta</h3>
-        <p>Cadastre-se grátis com seu e-mail. Nenhum cartão de crédito necessário. Seu perfil fica protegido com autenticação segura.</p>
+        <h3>Create your account</h3>
+        <p>Sign up for free with your email. No credit card needed. Your profile is secured with safe authentication.</p>
       </div>
       <div class="step">
         <div class="step-num">02</div>
-        <h3>Lance suas transações</h3>
-        <p>Registre receitas e despesas manualmente ou deixe o app detectar automaticamente pelas notificações do seu banco.</p>
+        <h3>Log your transactions</h3>
+        <p>Enter income and expenses manually, or let the app detect them automatically from your bank notifications.</p>
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <h3>Analise e tome decisões</h3>
-        <p>Veja gráficos, acompanhe categorias e entenda seus hábitos financeiros com dashboards claros e objetivos.</p>
+        <h3>Analyze and decide</h3>
+        <p>View charts, track categories, and understand your financial habits with clear, focused dashboards.</p>
       </div>
     </div>
   </section>
@@ -879,24 +788,24 @@
 <div style="padding: 0 48px; max-width:1196px; margin: 80px auto;">
   <div class="privacy-banner">
     <div class="privacy-left">
-      <h2>Privacidade que você merece</h2>
-      <p>O Fintab não vende dados. Tudo fica na sua conta, acessível só por você.</p>
+      <h2>Privacy you deserve</h2>
+      <p>Fintab doesn't sell data. Everything stays in your account, accessible only by you.</p>
       <div class="privacy-pills">
         <div class="privacy-pill">
           <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-          Dados criptografados
+          Encrypted data
         </div>
         <div class="privacy-pill">
           <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-          Zero rastreadores
+          Zero trackers
         </div>
         <div class="privacy-pill">
           <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-          Bloqueio por PIN
+          PIN lock
         </div>
         <div class="privacy-pill">
           <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-          Exportação livre dos dados
+          Free data export
         </div>
       </div>
     </div>
@@ -906,61 +815,61 @@
 <!-- PRICING -->
 <section class="section" id="pricing" style="padding-top: 0;">
   <div class="center">
-    <div class="section-tag">✦ Planos</div>
-    <h2 class="section-title">Comece grátis,<br />evolua quando quiser</h2>
-    <p class="section-subtitle">Plano gratuito completo para uso pessoal. Pro para quem quer ir além.</p>
+    <div class="section-tag">✦ Pricing</div>
+    <h2 class="section-title">Start free,<br />upgrade when you're ready</h2>
+    <p class="section-subtitle">A full free plan for personal use. Pro for those who want to go further.</p>
   </div>
   <div class="pricing-grid">
     <div class="pricing-card">
-      <div class="pricing-plan">Gratuito</div>
-      <div class="pricing-price">R$ 0<span>/sempre</span></div>
-      <div class="pricing-detail">Para começar sem compromisso</div>
+      <div class="pricing-plan">Free</div>
+      <div class="pricing-price">$ 0<span>/forever</span></div>
+      <div class="pricing-detail">Start with no commitment</div>
       <hr class="pricing-divider" />
       <ul class="pricing-features">
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>1 carteira</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Categorias padrão</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Detecção automática</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Orçamentos básicos</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>1 wallet</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Default categories</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Auto detection</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Basic budgets</li>
       </ul>
-      <a href="https://my-finance-app-red-omega.vercel.app" class="pricing-cta" target="_blank" rel="noopener">Começar grátis</a>
+      <a href="https://my-finance-app-red-omega.vercel.app" class="pricing-cta" target="_blank" rel="noopener">Start for free</a>
     </div>
     <div class="pricing-card">
-      <div class="pricing-plan">Pro Mensal</div>
-      <div class="pricing-price">R$ 5<span>/mês</span></div>
-      <div class="pricing-detail">Renovação automática mensal</div>
+      <div class="pricing-plan">Pro Monthly</div>
+      <div class="pricing-price">$ 1<span>/mo</span></div>
+      <div class="pricing-detail">Auto-renews monthly</div>
       <hr class="pricing-divider" />
       <ul class="pricing-features">
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Carteiras ilimitadas</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Categorias personalizadas</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Visão anual</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Compartilhamento</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Metas financeiras</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Unlimited wallets</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Custom categories</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Annual view</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Sharing</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Financial goals</li>
       </ul>
-      <a href="https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp" class="pricing-cta" target="_blank" rel="noopener">Assinar no app</a>
+      <a href="https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp" class="pricing-cta" target="_blank" rel="noopener">Subscribe in app</a>
     </div>
     <div class="pricing-card highlighted">
-      <div class="pricing-popular">MAIS POPULAR</div>
-      <div class="pricing-plan">Pro Anual</div>
-      <div class="pricing-price">R$ 50<span>/ano</span></div>
-      <div class="pricing-detail">≈ R$ 4,17/mês · Economize R$ 10</div>
+      <div class="pricing-popular">MOST POPULAR</div>
+      <div class="pricing-plan">Pro Annual</div>
+      <div class="pricing-price">$ 10<span>/yr</span></div>
+      <div class="pricing-detail">≈ $ 0.83/mo · Save 17%</div>
       <hr class="pricing-divider" />
       <ul class="pricing-features">
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Tudo do Pro Mensal</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>2 meses grátis</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Acesso completo a novidades</li>
-        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Suporte prioritário</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Everything in Pro Monthly</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>2 months free</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Early access to new features</li>
+        <li><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>Priority support</li>
       </ul>
-      <a href="https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp" class="pricing-cta" target="_blank" rel="noopener">Assinar no app</a>
+      <a href="https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp" class="pricing-cta" target="_blank" rel="noopener">Subscribe in app</a>
     </div>
   </div>
-  <p class="pricing-note">Assinaturas processadas pela Google Play Store · Cancele quando quiser</p>
+  <p class="pricing-note">Subscriptions processed by Google Play Store · Cancel anytime</p>
 </section>
 
 <!-- DOWNLOAD -->
 <div class="download-bg" id="download">
   <div class="section-tag" style="margin:0 auto 16px;">✦ Download</div>
-  <h2 class="section-title">Disponível onde você estiver</h2>
-  <p style="color:var(--text-muted);font-size:1rem;margin-top:8px;">No celular ou no navegador, suas finanças sempre com você.</p>
+  <h2 class="section-title">Available wherever you are</h2>
+  <p style="color:var(--text-muted);font-size:1rem;margin-top:8px;">On your phone or in the browser, your finances always with you.</p>
   <div class="download-badges">
     <a href="https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp" class="store-btn store-btn-play" target="_blank" rel="noopener">
       <svg class="store-btn-icon" viewBox="0 0 24 24" fill="none">
@@ -970,7 +879,7 @@
         <path d="M21.14 10.19C20.56 9.55 19.67 9.15 18.5 9.62L16.92 8.35L13.27 12L16.92 15.65L18.5 14.38C19.67 14.85 20.56 14.45 21.14 13.81C21.72 13.17 22 12.58 22 12C22 11.42 21.72 10.83 21.14 10.19Z" fill="rgba(255,255,255,0.95)"/>
       </svg>
       <div class="store-btn-text">
-        <span class="store-btn-label">Baixar na</span>
+        <span class="store-btn-label">Get it on</span>
         <span class="store-btn-name">Google Play</span>
       </div>
     </a>
@@ -983,8 +892,8 @@
         <path d="M4.5 16.5H19.5" stroke="#00A86B" stroke-width="1.2" stroke-linecap="round"/>
       </svg>
       <div class="store-btn-text">
-        <span class="store-btn-label">Acessar pelo</span>
-        <span class="store-btn-name">Navegador Web</span>
+        <span class="store-btn-label">Use on</span>
+        <span class="store-btn-name">Web Browser</span>
       </div>
     </a>
   </div>
@@ -993,10 +902,10 @@
 <!-- CTA FINAL -->
 <section class="cta-section">
   <div class="cta-inner">
-    <h2>Pronto para ter controle<br />das suas finanças?</h2>
-    <p>Grátis para sempre no plano básico. Sem cartão de crédito. Começa em 2 minutos.</p>
+    <h2>Ready to take control<br />of your finances?</h2>
+    <p>Free forever on the basic plan. No credit card. Up and running in 2 minutes.</p>
     <a href="https://my-finance-app-red-omega.vercel.app" class="btn-primary" target="_blank" rel="noopener">
-      Começar agora — é grátis →
+      Get started — it's free →
     </a>
   </div>
 </section>
@@ -1005,9 +914,9 @@
 <footer>
   <div class="footer-logo">Fintab</div>
   <div class="footer-links">
-    <a href="/privacy">Política de Privacidade</a>
-    <a href="/terms">Termos de Uso</a>
-    <a href="mailto:alexandre.filho.dev@gmail.com">Contato</a>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Use</a>
+    <a href="mailto:alexandre.filho.dev@gmail.com">Contact</a>
   </div>
   <div>© 2026 Alexandre Figueiredo Dev</div>
 </footer>

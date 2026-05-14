@@ -109,12 +109,17 @@ class BudgetSummary {
 
   const BudgetSummary({required this.budget, required this.spentAmount});
 
+  /// Visual progress for the bar — capped at 1.0 so the indicator
+  /// doesn't overflow.
   double get progress =>
       budget.limitAmount > 0
           ? (spentAmount / budget.limitAmount).clamp(0.0, 1.0)
           : 0.0;
 
-  double get percentage => progress * 100;
+  /// Real percentage of the budget consumed — can exceed 100% when
+  /// the user has spent more than the limit.
+  double get percentage =>
+      budget.limitAmount > 0 ? (spentAmount / budget.limitAmount) * 100 : 0.0;
 
   bool get isOverBudget => spentAmount > budget.limitAmount;
 

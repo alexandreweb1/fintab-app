@@ -11,10 +11,12 @@ import '../../domain/financial_score.dart';
 /// rebuilds whenever transactions, budgets, goals, reserves or
 /// investments change.
 final financialScoreProvider = Provider<FinancialScore>((ref) {
-  final transactions = ref.watch(visibleTransactionsProvider);
+  // Score deve refletir a saúde financeira real do usuário,
+  // independente de carteiras ocultas dos totais visuais.
+  final transactions = ref.watch(transactionsStreamProvider).value ?? const [];
   final budgetSummaries = ref.watch(budgetSummaryProvider);
   final goals = ref.watch(goalsStreamProvider).value ?? [];
-  final balances = ref.watch(walletBalancesProvider);
+  final balances = ref.watch(walletAllBalancesProvider);
   final reserveWallets = ref.watch(reserveWalletsProvider);
   final investmentWallets = ref.watch(investmentWalletsProvider);
 

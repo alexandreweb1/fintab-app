@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
 import '../../domain/entities/notification_backlog_item_entity.dart';
 import '../providers/backlog_provider.dart';
@@ -33,45 +34,39 @@ class BacklogScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erro: $e')),
         data: (items) {
-          if (items.isEmpty) {
-            return _EmptyState();
+          if (items.isEmpty) return _EmptyState();
+
+          final pending = items
+              .where((i) => i.status == BacklogItemStatus.pending)
+              .toList();
+          final autoImported = items
+              .where((i) => i.status == BacklogItemStatus.autoImported)
+              .toList();
+          final manuallyImported = items
+              .where((i) => i.status == BacklogItemStatus.manuallyImported)
+              .toList();
+
+          final children = <Widget>[];
+          if (pending.isNotEmpty) {
+            children.add(_SectionHeader(label: 'Pendentes', cs: cs));
+            children.addAll(pending.map(
+                (i) => _BacklogItemCard(item: i, key: ValueKey(i.id))));
+          }
+          if (autoImported.isNotEmpty) {
+            children.add(_SectionHeader(label: 'Lançadas automaticamente', cs: cs));
+            children.addAll(autoImported.map(
+                (i) => _BacklogItemCard(item: i, key: ValueKey(i.id))));
+          }
+          if (manuallyImported.isNotEmpty) {
+            children.add(
+                _SectionHeader(label: 'Importadas manualmente', cs: cs));
+            children.addAll(manuallyImported.map(
+                (i) => _BacklogItemCard(item: i, key: ValueKey(i.id))));
           }
 
-          // Non-imported first, then imported; within each group, newest first.
-          final pending = items.where((i) => !i.imported).toList();
-          final imported = items.where((i) => i.imported).toList();
-          final sorted = [...pending, ...imported];
-
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-            itemCount: sorted.length + (imported.isNotEmpty ? 1 : 0),
-            itemBuilder: (ctx, index) {
-              // Section header between pending and imported
-              if (pending.isNotEmpty &&
-                  imported.isNotEmpty &&
-                  index == pending.length) {
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-                  child: Text(
-                    'Já importados',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurfaceVariant,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                );
-              }
-
-              final itemIndex =
-                  (pending.isNotEmpty && imported.isNotEmpty && index > pending.length)
-                      ? index - 1
-                      : index;
-
-              final item = sorted[itemIndex];
-              return _BacklogItemCard(item: item, key: ValueKey(item.id));
-            },
+            children: children,
           );
         },
       ),
@@ -106,6 +101,32 @@ class BacklogScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Section header
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final ColorScheme cs;
+  const _SectionHeader({required this.label, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: cs.onSurfaceVariant,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Individual item card
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -129,6 +150,7 @@ class _BacklogItemCard extends ConsumerWidget {
 
     final bankName = _bankDisplayName(item.sourceApp);
     final preview = item.rawText.trim();
+    final isImported = item.imported;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 5),
@@ -136,18 +158,18 @@ class _BacklogItemCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: item.imported
+          color: isImported
               ? cs.outlineVariant.withValues(alpha: 0.3)
               : cs.outlineVariant.withValues(alpha: 0.6),
         ),
       ),
-      color: item.imported ? cs.surfaceContainerLow : cs.surface,
+      color: isImported ? cs.surfaceContainerLow : cs.surface,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Row 1: bank chip + type badge + timestamp ──
+            // ── Row 1: bank chip + type badge + sync chip + timestamp ──
             Row(
               children: [
                 _Chip(
@@ -166,6 +188,14 @@ class _BacklogItemCard extends ConsumerWidget {
                         ? Colors.green.shade700
                         : Colors.red.shade700,
                   ),
+                if (item.pendingSync) ...[
+                  const SizedBox(width: 6),
+                  _Chip(
+                    label: '↻ Sincronizando',
+                    color: cs.surfaceContainerHighest,
+                    textColor: cs.onSurfaceVariant,
+                  ),
+                ],
                 const Spacer(),
                 Text(
                   _timeAgo(item.receivedAt),
@@ -205,119 +235,142 @@ class _BacklogItemCard extends ConsumerWidget {
 
             const SizedBox(height: 12),
 
-            // ── Row 4: actions ──
-            if (!item.imported)
-              Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Ignorar notificação'),
-                          content: const Text(
-                              'Deseja ignorar e remover esta notificação?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(false),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(ctx).colorScheme.error),
-                              onPressed: () => Navigator.of(ctx).pop(true),
-                              child: const Text('Ignorar'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true) {
-                        ref
-                            .read(backlogNotifierProvider.notifier)
-                            .dismiss(item.id);
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text('Ignorar'),
-                  ),
-                  const Spacer(),
-                  FilledButton.icon(
-                    onPressed: () => _import(context, ref),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Importar'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  Icon(Icons.check_circle_outline,
-                      size: 16, color: Colors.green.shade600),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Importado',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Remover notificação'),
-                          content: const Text(
-                              'Deseja remover esta notificação do histórico?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(false),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(ctx).colorScheme.error),
-                              onPressed: () => Navigator.of(ctx).pop(true),
-                              child: const Text('Remover'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true) {
-                        ref
-                            .read(backlogNotifierProvider.notifier)
-                            .dismiss(item.id);
-                      }
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: cs.onSurfaceVariant,
-                    ),
-                    child: const Text('Remover'),
-                  ),
-                ],
-              ),
+            // ── Row 4: actions (varies by status) ──
+            _ActionsRow(item: item),
           ],
         ),
       ),
     );
   }
+}
 
-  Future<void> _import(BuildContext context, WidgetRef ref) async {
+// ─────────────────────────────────────────────────────────────────────────────
+// Actions row — branches by status
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ActionsRow extends ConsumerWidget {
+  final NotificationBacklogItemEntity item;
+  const _ActionsRow({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    switch (item.status) {
+      case BacklogItemStatus.pending:
+        return Row(
+          children: [
+            OutlinedButton(
+              onPressed: () => _confirmDismiss(context, ref),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Ignorar'),
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: () => _importManually(context, ref),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Importar'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        );
+
+      case BacklogItemStatus.autoImported:
+        return Row(
+          children: [
+            Icon(Icons.bolt_rounded,
+                size: 16, color: Colors.green.shade600),
+            const SizedBox(width: 6),
+            Text(
+              'Lançada automaticamente',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _editTransaction(context, ref),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Editar'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        );
+
+      case BacklogItemStatus.manuallyImported:
+        return Row(
+          children: [
+            Icon(Icons.check_circle_outline,
+                size: 16, color: Colors.green.shade600),
+            const SizedBox(width: 6),
+            Text(
+              'Importada',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => _confirmDismiss(context, ref),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+                foregroundColor: cs.onSurfaceVariant,
+              ),
+              child: const Text('Remover'),
+            ),
+          ],
+        );
+
+      case BacklogItemStatus.ignored:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Future<void> _confirmDismiss(BuildContext context, WidgetRef ref) async {
+    final isPending = item.status == BacklogItemStatus.pending;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isPending ? 'Ignorar notificação' : 'Remover notificação'),
+        content: Text(isPending
+            ? 'Deseja ignorar e remover esta notificação?'
+            : 'Deseja remover esta notificação do histórico?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(isPending ? 'Ignorar' : 'Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(backlogNotifierProvider.notifier).dismiss(item.id);
+    }
+  }
+
+  Future<void> _importManually(BuildContext context, WidgetRef ref) async {
     // Mark as imported immediately so the UI updates; user can still cancel the dialog.
-    await ref.read(backlogNotifierProvider.notifier).markImported(item.id);
+    await ref.read(backlogNotifierProvider.notifier).markManuallyImported(item.id);
     if (!context.mounted) return;
     await showAnimatedDialog<void>(
       context: context,
@@ -325,6 +378,39 @@ class _BacklogItemCard extends ConsumerWidget {
         initialAmount: item.amount,
         initialType: item.type,
       ),
+    );
+  }
+
+  Future<void> _editTransaction(BuildContext context, WidgetRef ref) async {
+    final txId = item.transactionId;
+    if (txId == null) {
+      // No link — open a fresh dialog pre-filled (best effort).
+      await showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => AddTransactionDialog(
+          initialAmount: item.amount,
+          initialType: item.type,
+        ),
+      );
+      return;
+    }
+    final tx = ref
+        .read(transactionsStreamProvider)
+        .value
+        ?.where((t) => t.id == txId)
+        .cast<TransactionEntity?>()
+        .firstWhere((_) => true, orElse: () => null);
+
+    if (!context.mounted) return;
+    if (tx == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Transação vinculada não encontrada.'),
+      ));
+      return;
+    }
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => AddTransactionDialog(transaction: tx),
     );
   }
 }
