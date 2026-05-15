@@ -425,6 +425,117 @@ class AppLocalizations {
       'Diversificação de gastos',
       'Spending diversification',
       'Diversificación de gastos');
+
+  // ── Onboarding: nível de familiaridade financeira ────────────────────────
+  String get literacyOnboardingTitle => _t(
+      'Como você se sente com finanças?',
+      'How do you feel about finance?',
+      '¿Cómo te sientes con las finanzas?');
+  String get literacyOnboardingSubtitle => _t(
+      'Vamos adaptar o app para você. Você poderá mudar isso depois nas Configurações.',
+      'We\'ll tailor the app for you. You can change this later in Settings.',
+      'Adaptaremos la app para ti. Podrás cambiarlo después en Configuración.');
+  String get literacyLevelBeginner =>
+      _t('Iniciante', 'Beginner', 'Principiante');
+  String get literacyLevelBeginnerDesc => _t(
+      'Estou começando agora — quero dicas e explicações em todo o app.',
+      'I\'m just starting — show me tips and explanations everywhere.',
+      'Estoy empezando — quiero ver consejos y explicaciones en toda la app.');
+  String get literacyLevelIntermediate =>
+      _t('Intermediário', 'Intermediate', 'Intermedio');
+  String get literacyLevelIntermediateDesc => _t(
+      'Já controlo minhas finanças, mas algumas dicas ainda ajudam.',
+      'I track my finances, but the occasional tip still helps.',
+      'Controlo mis finanzas, pero algunos consejos aún me ayudan.');
+  String get literacyLevelAdvanced =>
+      _t('Avançado', 'Advanced', 'Avanzado');
+  String get literacyLevelAdvancedDesc => _t(
+      'Tenho experiência — quero a interface limpa, sem dicas.',
+      'I\'m experienced — keep the UI clean, no tips.',
+      'Tengo experiencia — quiero la interfaz limpia, sin consejos.');
+  String get literacyLevelSettingsTitle => _t(
+      'Nível de experiência',
+      'Experience level',
+      'Nivel de experiencia');
+  String get literacyLevelSettingsSubtitle => _t(
+      'Controla quando o app mostra dicas explicativas',
+      'Controls when the app shows explanatory tips',
+      'Controla cuándo la app muestra consejos explicativos');
+  String get helpHintLabel =>
+      _t('Saiba mais', 'Learn more', 'Saber más');
+  String get gotIt => _t('Entendi', 'Got it', 'Entendido');
+  String get continueAction => _t('Continuar', 'Continue', 'Continuar');
+
+  // ── Help hints (conteúdo das explicações) ────────────────────────────────
+  String get hintBudgetTitle => _t(
+      'O que é um orçamento?',
+      'What is a budget?',
+      '¿Qué es un presupuesto?');
+  String get hintBudgetBody => _t(
+      'Um orçamento é um limite mensal de gastos que você define para uma categoria (ex.: Alimentação até R\$ 800). O app avisa quando o gasto se aproxima do limite.',
+      'A budget is a monthly spending limit you set for a category (e.g., Food up to \$800). The app warns you as spending approaches the limit.',
+      'Un presupuesto es un límite mensual de gastos que defines para una categoría (ej.: Alimentación hasta \$800). La app te avisa cuando el gasto se acerca al límite.');
+
+  String get hintGoalTitle => _t(
+      'O que é uma meta?',
+      'What is a goal?',
+      '¿Qué es una meta?');
+  String get hintGoalBody => _t(
+      'Uma meta é um objetivo financeiro com um valor a alcançar (ex.: juntar R\$ 5.000 para uma viagem). Você acompanha o progresso aos poucos.',
+      'A goal is a financial target with an amount to reach (e.g., save \$5,000 for a trip). You track progress over time.',
+      'Una meta es un objetivo financiero con un monto a alcanzar (ej.: ahorrar \$5.000 para un viaje). Sigues el progreso poco a poco.');
+
+  String get hintRecurringTitle => _t(
+      'O que é uma recorrência?',
+      'What is a recurring transaction?',
+      '¿Qué es una recurrencia?');
+  String get hintRecurringBody => _t(
+      'Recorrências são transações que se repetem automaticamente (ex.: salário todo dia 5, aluguel todo dia 10). Você cadastra uma vez e o app lança nos meses seguintes.',
+      'Recurring transactions repeat automatically (e.g., salary on the 5th, rent on the 10th). Set it once and the app posts them every period.',
+      'Las recurrencias son transacciones que se repiten automáticamente (ej.: salario el día 5, alquiler el día 10). Las creas una vez y la app las registra cada período.');
+
+  String get hintWalletTitle => _t(
+      'O que é uma carteira?',
+      'What is a wallet?',
+      '¿Qué es una billetera?');
+  String get hintWalletBody => _t(
+      'Carteira é onde seu dinheiro está: conta corrente, dinheiro vivo, cartão pré-pago etc. Você pode ter várias e ver o saldo de cada uma separadamente.',
+      'A wallet is where your money lives: checking account, cash, prepaid card, etc. You can have several and see each balance separately.',
+      'Una billetera es dónde está tu dinero: cuenta corriente, efectivo, tarjeta prepago, etc. Puedes tener varias y ver el saldo de cada una.');
+
+  String get hintCategoryTitle => _t(
+      'O que é uma categoria?',
+      'What is a category?',
+      '¿Qué es una categoría?');
+  String get hintCategoryBody => _t(
+      'Categorias agrupam suas transações por tipo (Alimentação, Transporte, Salário…). Servem para você entender para onde o dinheiro vai.',
+      'Categories group your transactions by type (Food, Transport, Salary…). They help you see where the money goes.',
+      'Las categorías agrupan tus transacciones por tipo (Alimentación, Transporte, Salario…). Sirven para ver a dónde va el dinero.');
+
+  String get hintIncomeExpenseTitle => _t(
+      'Receita ou Despesa?',
+      'Income or Expense?',
+      '¿Ingreso o Gasto?');
+  String get hintIncomeExpenseBody => _t(
+      'Receita é dinheiro que entra (salário, vendas, presentes). Despesa é dinheiro que sai (compras, contas, lazer). A diferença mostra se você está sobrando ou faltando ao fim do mês.',
+      'Income is money coming in (salary, sales, gifts). Expense is money going out (purchases, bills, leisure). The difference shows if you ended the month in surplus or deficit.',
+      'Ingreso es el dinero que entra (salario, ventas, regalos). Gasto es el dinero que sale (compras, cuentas, ocio). La diferencia muestra si terminaste el mes con excedente o déficit.');
+
+  String get hintFinancialHealthTitle => _t(
+      'O que é Saúde Financeira?',
+      'What is Financial Health?',
+      '¿Qué es la Salud Financiera?');
+  String get hintFinancialHealthBody => _t(
+      'É uma nota de 0 a 100 que resume seus hábitos: o quanto você poupa, se tem reserva de emergência, se respeita os orçamentos e se progride nas metas.',
+      'A 0–100 score that summarizes your habits: how much you save, whether you have an emergency fund, if you stick to budgets and make progress on goals.',
+      'Es una nota de 0 a 100 que resume tus hábitos: cuánto ahorras, si tienes fondo de emergencia, si cumples los presupuestos y avanzas en las metas.');
+
+  String get hintTagTitle =>
+      _t('O que são etiquetas?', 'What are tags?', '¿Qué son las etiquetas?');
+  String get hintTagBody => _t(
+      'Etiquetas (tags) são marcadores livres que você adiciona a uma transação para filtrar depois (ex.: "viagem-2026", "presente-aniversário").',
+      'Tags are free labels you attach to a transaction so you can filter later (e.g., "trip-2026", "birthday-gift").',
+      'Las etiquetas son marcadores libres que añades a una transacción para filtrar después (ej.: "viaje-2026", "regalo-cumpleaños").');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

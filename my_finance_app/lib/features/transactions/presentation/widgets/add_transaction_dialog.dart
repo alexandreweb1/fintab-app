@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/widgets/help_hint.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
@@ -464,7 +465,18 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         _suggestedCategory != _category;
 
     return AlertDialog(
-      title: Text(_isEditing ? l10n.editTransaction : l10n.newTransaction),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+                _isEditing ? l10n.editTransaction : l10n.newTransaction),
+          ),
+          HelpHint(
+            title: l10n.hintIncomeExpenseTitle,
+            body: l10n.hintIncomeExpenseBody,
+          ),
+        ],
+      ),
       content: SizedBox(
         width: 400,
         child: Form(

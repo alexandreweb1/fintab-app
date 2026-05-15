@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/providers/app_settings_provider.dart';
+import '../../../../core/widgets/help_hint.dart';
 import '../../../../core/services/notification_listener_service.dart';
 import '../../../../core/services/notification_providers.dart';
 import '../../../../core/providers/effective_user_provider.dart';
@@ -468,6 +469,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             onTap: () => _showAppearanceDialog(context, l10n),
           ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const _IconBadge(Icons.school_outlined,
+                color: Color(0xFF8E24AA)),
+            title: Text(l10n.literacyLevelSettingsTitle),
+            subtitle: Text(l10n.literacyLevelSettingsSubtitle,
+                style: TextStyle(
+                    color: Colors.grey.shade500, fontSize: 12)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_literacyLevelLabel(settings.literacyLevel, l10n),
+                    style: TextStyle(
+                        color: Colors.grey.shade500, fontSize: 13)),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 20),
+              ],
+            ),
+            onTap: () => _showLiteracyLevelDialog(context, l10n),
+          ),
         ]),
       ),
       const SizedBox(height: 20),
@@ -680,6 +701,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context: context, builder: (ctx) => _AppearanceDialog(l10n: l10n));
   }
 
+  void _showLiteracyLevelDialog(
+      BuildContext context, AppLocalizations l10n) {
+    showAnimatedDialog(
+        context: context,
+        builder: (ctx) => _LiteracyLevelDialog(l10n: l10n));
+  }
+
   String _themeModeLabel(AppThemeMode mode, AppLocalizations l10n) {
     switch (mode) {
       case AppThemeMode.system:
@@ -688,6 +716,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return l10n.themeModeLight;
       case AppThemeMode.dark:
         return l10n.themeModeDark;
+    }
+  }
+
+  String _literacyLevelLabel(
+      FinancialLiteracyLevel level, AppLocalizations l10n) {
+    switch (level) {
+      case FinancialLiteracyLevel.beginner:
+        return l10n.literacyLevelBeginner;
+      case FinancialLiteracyLevel.intermediate:
+        return l10n.literacyLevelIntermediate;
+      case FinancialLiteracyLevel.advanced:
+        return l10n.literacyLevelAdvanced;
+      case FinancialLiteracyLevel.unset:
+        return '—';
     }
   }
 }
@@ -1193,8 +1235,20 @@ class _CategorySection extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final isPro = ref.watch(isProProvider);
     return ExpansionTile(
-      title:
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(title,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 6),
+          HelpHint(
+            title: l10n.hintCategoryTitle,
+            body: l10n.hintCategoryBody,
+          ),
+        ],
+      ),
       children: [
         ...categories.map(
           (cat) => ListTile(
@@ -1927,8 +1981,20 @@ class _WalletSection extends ConsumerWidget {
     );
 
     return ExpansionTile(
-      title: Text(l10n.wallets,
-          style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(l10n.wallets,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 6),
+          HelpHint(
+            title: l10n.hintWalletTitle,
+            body: l10n.hintWalletBody,
+          ),
+        ],
+      ),
       children: [
         ...walletTiles,
         // Gate: free users só podem ter 1 carteira
@@ -2263,6 +2329,68 @@ class _AppearanceDialog extends ConsumerWidget {
               RadioListTile<AppThemeMode>(
                   value: AppThemeMode.dark,
                   title: Text(l10n.themeModeDark)),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.cancel)),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Literacy Level Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LiteracyLevelDialog extends ConsumerWidget {
+  final AppLocalizations l10n;
+  const _LiteracyLevelDialog({required this.l10n});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(appSettingsProvider).literacyLevel;
+    return AlertDialog(
+      title: Text(l10n.literacyLevelSettingsTitle),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      content: SizedBox(
+        width: 360,
+        child: RadioGroup<FinancialLiteracyLevel>(
+          groupValue: current == FinancialLiteracyLevel.unset
+              ? FinancialLiteracyLevel.beginner
+              : current,
+          onChanged: (v) {
+            if (v != null) {
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .setLiteracyLevel(v);
+              Navigator.of(context).pop();
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<FinancialLiteracyLevel>(
+                value: FinancialLiteracyLevel.beginner,
+                title: Text(l10n.literacyLevelBeginner),
+                subtitle: Text(l10n.literacyLevelBeginnerDesc,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              RadioListTile<FinancialLiteracyLevel>(
+                value: FinancialLiteracyLevel.intermediate,
+                title: Text(l10n.literacyLevelIntermediate),
+                subtitle: Text(l10n.literacyLevelIntermediateDesc,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              RadioListTile<FinancialLiteracyLevel>(
+                value: FinancialLiteracyLevel.advanced,
+                title: Text(l10n.literacyLevelAdvanced),
+                subtitle: Text(l10n.literacyLevelAdvancedDesc,
+                    style: const TextStyle(fontSize: 12)),
+              ),
             ],
           ),
         ),
@@ -3075,7 +3203,13 @@ class _FinancialHealthCard extends ConsumerWidget {
         title: Row(
           children: [
             Text(l10n.financialHealthTitle),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
+            HelpHint(
+              title: l10n.hintFinancialHealthTitle,
+              body: l10n.hintFinancialHealthBody,
+              showForIntermediate: true,
+            ),
+            const SizedBox(width: 6),
             if (!isPro) const ProBadgeWidget(),
           ],
         ),

@@ -8,6 +8,7 @@ import '../../../../core/providers/selected_month_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/help_hint.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../../core/utils/money_input_formatter.dart';
@@ -73,10 +74,46 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
             : null,
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Orçamentos'),
-            Tab(text: 'Metas'),
-            Tab(text: 'Recorrências'),
+          tabs: [
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Orçamentos'),
+                  const SizedBox(width: 4),
+                  HelpHint(
+                    title: l10n.hintBudgetTitle,
+                    body: l10n.hintBudgetBody,
+                  ),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Metas'),
+                  const SizedBox(width: 4),
+                  HelpHint(
+                    title: l10n.hintGoalTitle,
+                    body: l10n.hintGoalBody,
+                  ),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Recorrências'),
+                  const SizedBox(width: 4),
+                  HelpHint(
+                    title: l10n.hintRecurringTitle,
+                    body: l10n.hintRecurringBody,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -517,6 +554,7 @@ class _BudgetCard extends ConsumerWidget {
     final budget = summary.budget;
     final cs = Theme.of(context).colorScheme;
     final pctColor = _statusColor(summary.progress, summary.isOverBudget);
+    final isSynthetic = isSyntheticBudget(budget);
 
     // Try to find the category to get icon & color
     final categories = ref.watch(expenseCategoriesProvider);
@@ -529,14 +567,17 @@ class _BudgetCard extends ConsumerWidget {
         : Icons.category;
     final catColor = cat != null ? Color(cat.colorValue) : cs.primary;
 
-    // Count transactions for this category
+    // Count expense transactions for this category within the budget's
+    // full period (works for monthly + quarterly / semestral / annual).
     final allTransactions = ref.watch(transactionsStreamProvider).value ?? [];
-    final monthTransactions = allTransactions
+    final periodStart = budget.periodStart;
+    final periodEnd = budget.periodEnd;
+    final periodTransactions = allTransactions
         .where((t) =>
+            t.isExpense &&
             t.category == budget.categoryName &&
-            t.date.year == budget.month.year &&
-            t.date.month == budget.month.month &&
-            t.isExpense)
+            !t.date.isBefore(periodStart) &&
+            t.date.isBefore(periodEnd))
         .length;
 
     void navigateToTransactions() {
@@ -607,13 +648,54 @@ class _BudgetCard extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              budget.categoryName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: catFontSize),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    budget.categoryName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: catFontSize),
+                                  ),
+                                ),
+                                if (isSynthetic) ...[
+                                  const SizedBox(width: 6),
+                                  Tooltip(
+                                    message:
+                                        'Soma dos orçamentos mensais existentes deste ano.',
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: cs.surfaceContainerHighest,
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: cs.outlineVariant),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.functions_rounded,
+                                              size: 11,
+                                              color: cs.onSurfaceVariant),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            'Mensal',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -634,59 +716,62 @@ class _BudgetCard extends ConsumerWidget {
                           fontSize: pctFontSize,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined,
-                            color: cs.primary, size: 20),
-                        onPressed: () => showAnimatedDialog(
-                          context: context,
-                          builder: (_) => _AddBudgetDialog(
-                            month: budget.month,
-                            period: budget.period,
-                            budget: budget,
-                          ),
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            color: cs.error, size: 20),
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
+                      if (!isSynthetic) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined,
+                              color: cs.primary, size: 20),
+                          onPressed: () => showAnimatedDialog(
                             context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Excluir orçamento'),
-                              content: Text(
-                                  'Deseja excluir o orçamento de "${budget.categoryName}"?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                FilledButton(
-                                  style: FilledButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(ctx).colorScheme.error),
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(true),
-                                  child: const Text('Excluir'),
-                                ),
-                              ],
+                            builder: (_) => _AddBudgetDialog(
+                              month: budget.month,
+                              period: budget.period,
+                              budget: budget,
                             ),
-                          );
-                          if (confirmed == true) {
-                            ref
-                                .read(budgetNotifierProvider.notifier)
-                                .delete(budget.id);
-                          }
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                      ),
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              color: cs.error, size: 20),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Excluir orçamento'),
+                                content: Text(
+                                    'Deseja excluir o orçamento de "${budget.categoryName}"?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(false),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(
+                                        backgroundColor: Theme.of(ctx)
+                                            .colorScheme
+                                            .error),
+                                    onPressed: () =>
+                                        Navigator.of(ctx).pop(true),
+                                    child: const Text('Excluir'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              ref
+                                  .read(budgetNotifierProvider.notifier)
+                                  .delete(budget.id);
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -728,7 +813,16 @@ class _BudgetCard extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Ver lançamentos',
+                            '$periodTransactions lançamento${periodTransactions != 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Ver',
                             style: TextStyle(
                               fontSize: 11,
                               color: cs.primary,

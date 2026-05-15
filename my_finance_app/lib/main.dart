@@ -12,6 +12,7 @@ import 'features/auth/domain/entities/user_entity.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/home/presentation/screens/main_screen.dart';
+import 'features/onboarding/presentation/screens/literacy_onboarding_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -112,6 +113,18 @@ class MyFinanceApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // Clamp the OS-level text scaling so very large system font sizes
+      // don't break tight layouts (tabs, summary cards, buttons). Up to
+      // 1.3x still helps accessibility users without clipping the UI.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3),
+          ),
+          child: child!,
+        );
+      },
       home: const AppRouter(),
     );
   }
@@ -141,11 +154,63 @@ class AppRouter extends ConsumerWidget {
 
     return authAsync.when(
       data: (UserEntity? user) => user != null
-          ? const AppLockGate(child: MainScreen())
+          ? const AppLockGate(child: _LiteracyOnboardingGate(child: MainScreen()))
           : const LoginScreen(),
       loading: () => const _SplashScreen(),
       error: (error, _) => _FirebaseErrorScreen(error: error.toString()),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onboarding gate — pergunta o nível de familiaridade financeira
+// uma única vez, na 1ª abertura após login/cadastro.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LiteracyOnboardingGate extends ConsumerStatefulWidget {
+  final Widget child;
+  const _LiteracyOnboardingGate({required this.child});
+
+  @override
+  ConsumerState<_LiteracyOnboardingGate> createState() =>
+      _LiteracyOnboardingGateState();
+}
+
+class _LiteracyOnboardingGateState
+    extends ConsumerState<_LiteracyOnboardingGate> {
+  bool _showing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
+  }
+
+  void _maybeShow() {
+    if (!mounted || _showing) return;
+    final level = ref.read(appSettingsProvider).literacyLevel;
+    if (level == FinancialLiteracyLevel.unset) {
+      _showing = true;
+      LiteracyOnboardingDialog.show(context).whenComplete(() {
+        _showing = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Caso o nível mude para `unset` em runtime (ex.: usuário trocou de conta),
+    // re-exibe o onboarding.
+    ref.listen<FinancialLiteracyLevel>(
+      appSettingsProvider.select((s) => s.literacyLevel),
+      (prev, next) {
+        if (next == FinancialLiteracyLevel.unset) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _maybeShow());
+        }
+      },
+    );
+    return widget.child;
   }
 }
 

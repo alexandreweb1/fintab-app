@@ -99,6 +99,32 @@ enum AppThemeMode {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Financial literacy level (controla a exibição das dicas "?")
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum FinancialLiteracyLevel {
+  /// Não respondeu ainda — onboarding deve ser exibido.
+  unset,
+
+  /// Mostra TODAS as dicas, inclusive básicas.
+  beginner,
+
+  /// Mostra apenas dicas marcadas como `intermediate` (conceitos não-triviais).
+  intermediate,
+
+  /// Oculta todas as dicas.
+  advanced;
+
+  static FinancialLiteracyLevel fromString(String? value) {
+    if (value == null) return FinancialLiteracyLevel.unset;
+    return FinancialLiteracyLevel.values.firstWhere(
+      (l) => l.name == value,
+      orElse: () => FinancialLiteracyLevel.unset,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Settings state
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -107,12 +133,14 @@ class AppSettings {
   final AppLanguage language;
   final AppThemeMode themeMode;
   final Set<String> hiddenWalletIds;
+  final FinancialLiteracyLevel literacyLevel;
 
   const AppSettings({
     this.currency = AppCurrency.brl,
     this.language = AppLanguage.portuguese,
     this.themeMode = AppThemeMode.system,
     this.hiddenWalletIds = const {},
+    this.literacyLevel = FinancialLiteracyLevel.unset,
   });
 
   AppSettings copyWith({
@@ -120,12 +148,14 @@ class AppSettings {
     AppLanguage? language,
     AppThemeMode? themeMode,
     Set<String>? hiddenWalletIds,
+    FinancialLiteracyLevel? literacyLevel,
   }) =>
       AppSettings(
         currency: currency ?? this.currency,
         language: language ?? this.language,
         themeMode: themeMode ?? this.themeMode,
         hiddenWalletIds: hiddenWalletIds ?? this.hiddenWalletIds,
+        literacyLevel: literacyLevel ?? this.literacyLevel,
       );
 }
 
@@ -138,6 +168,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   static const _keyLanguage = 'app_language';
   static const _keyThemeMode = 'app_theme_mode';
   static const _keyHiddenWallets = 'hidden_wallet_ids';
+  static const _keyLiteracyLevel = 'app_literacy_level';
 
   AppSettingsNotifier(AppSettings initial) : super(initial);
 
@@ -157,6 +188,12 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     state = state.copyWith(themeMode: themeMode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyThemeMode, themeMode.name);
+  }
+
+  Future<void> setLiteracyLevel(FinancialLiteracyLevel level) async {
+    state = state.copyWith(literacyLevel: level);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLiteracyLevel, level.name);
   }
 
   Future<void> toggleWalletVisibility(String walletId) async {
@@ -180,6 +217,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final savedLanguageCode = prefs.getString(_keyLanguage);
     final themeModeStr = prefs.getString(_keyThemeMode) ?? 'system';
     final hiddenList = prefs.getStringList(_keyHiddenWallets) ?? [];
+    final literacyLevelStr = prefs.getString(_keyLiteracyLevel);
 
     final AppLanguage language;
     if (savedLanguageCode != null) {
@@ -203,6 +241,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       language: language,
       themeMode: AppThemeMode.fromString(themeModeStr),
       hiddenWalletIds: Set<String>.from(hiddenList),
+      literacyLevel: FinancialLiteracyLevel.fromString(literacyLevelStr),
     );
   }
 }

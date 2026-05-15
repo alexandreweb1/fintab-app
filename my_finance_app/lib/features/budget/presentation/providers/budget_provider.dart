@@ -86,10 +86,27 @@ final budgetsByYearStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
   );
 });
 
+/// Prefix used to mark a [BudgetEntity] as a synthetic view-only aggregation
+/// of standalone monthly budgets. Cards with this id can't be edited or
+/// deleted directly — the user manages the underlying monthly budgets.
+const String kSyntheticBudgetIdPrefix = 'synthetic_';
+
+/// Whether the budget is a synthetic aggregation built by the period views
+/// from existing monthly budgets (not persisted in Firestore).
+bool isSyntheticBudget(BudgetEntity b) =>
+    b.id.startsWith(kSyntheticBudgetIdPrefix);
+
 /// Budgets currently visible on the Planning screen given the active view
-/// mode. Monthly → budgets for [selectedMonthProvider]. Period modes →
-/// budgets in the selected year whose [period] matches the view mode and
-/// whose period contains [selectedMonthProvider].
+/// mode.
+///
+/// - **Monthly view**: budgets for [selectedMonthProvider].
+/// - **Period views** (quarterly / semestral / annual): every explicit
+///   period budget in the active window, *plus* a synthetic aggregated
+///   period budget per category that only has standalone monthly budgets
+///   inside the window — its limit is the sum of those monthly limits.
+///   This lets the user see e.g. an annual total in May even when no
+///   explicit annual budget exists, summing the monthly limits already
+///   defined.
 final activeBudgetsProvider = Provider<List<BudgetEntity>>((ref) {
   final viewMode = ref.watch(budgetViewModeProvider);
   final selectedMonth = ref.watch(selectedMonthProvider);
@@ -99,14 +116,62 @@ final activeBudgetsProvider = Provider<List<BudgetEntity>>((ref) {
   }
 
   final periodStart = normalizePeriodStart(selectedMonth, viewMode);
+  final periodEnd = DateTime(
+      periodStart.year, periodStart.month + viewMode.monthSpan, 1);
   final all = ref.watch(budgetsByYearStreamProvider).value ?? [];
-  return all
+
+  // Explicit period budgets for the current window.
+  final periodBudgets = all
       .where((b) =>
           b.period == viewMode &&
           b.parentBudgetId == null &&
           b.month.year == periodStart.year &&
           b.month.month == periodStart.month)
       .toList();
+
+  // Categories already represented by an explicit period budget — we don't
+  // synthesise on top of those.
+  final coveredCategories =
+      periodBudgets.map((b) => b.categoryId).toSet();
+
+  // Standalone monthly budgets inside the active window, excluding the
+  // automatic monthly replicas (parentBudgetId != null) which are already
+  // accounted for via their parent period budget.
+  final monthlyWithin = all.where((b) =>
+      b.period == BudgetPeriod.monthly &&
+      b.parentBudgetId == null &&
+      !b.month.isBefore(periodStart) &&
+      b.month.isBefore(periodEnd) &&
+      !coveredCategories.contains(b.categoryId));
+
+  final aggregates = <String, BudgetEntity>{};
+  for (final b in monthlyWithin) {
+    final existing = aggregates[b.categoryId];
+    if (existing == null) {
+      aggregates[b.categoryId] = BudgetEntity(
+        id: '$kSyntheticBudgetIdPrefix${b.categoryId}_'
+            '${periodStart.year}-${periodStart.month}_${viewMode.key}',
+        userId: b.userId,
+        categoryId: b.categoryId,
+        categoryName: b.categoryName,
+        limitAmount: b.limitAmount,
+        month: periodStart,
+        period: viewMode,
+      );
+    } else {
+      aggregates[b.categoryId] = BudgetEntity(
+        id: existing.id,
+        userId: existing.userId,
+        categoryId: existing.categoryId,
+        categoryName: existing.categoryName,
+        limitAmount: existing.limitAmount + b.limitAmount,
+        month: existing.month,
+        period: existing.period,
+      );
+    }
+  }
+
+  return [...periodBudgets, ...aggregates.values];
 });
 
 /// Budgets for any specific month (used for month-picker based copy/spending).
