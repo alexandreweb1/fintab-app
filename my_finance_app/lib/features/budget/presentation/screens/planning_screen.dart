@@ -74,6 +74,8 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
             : null,
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.center,
           tabs: [
             Tab(
               child: Row(

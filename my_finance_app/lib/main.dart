@@ -155,7 +155,7 @@ class AppRouter extends ConsumerWidget {
     return authAsync.when(
       data: (UserEntity? user) => user != null
           ? const AppLockGate(child: _LiteracyOnboardingGate(child: MainScreen()))
-          : const LoginScreen(),
+          : const MainScreen(),
       loading: () => const _SplashScreen(),
       error: (error, _) => _FirebaseErrorScreen(error: error.toString()),
     );

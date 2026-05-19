@@ -566,7 +566,7 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: EdgeInsets.symmetric(
-            horizontal: compact ? 8 : 14, vertical: 6),
+            horizontal: compact ? 8 : 14, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
