@@ -286,11 +286,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final initials = _initials(user?.displayName ?? user?.email ?? '?');
 
     final sliverAppBar = SliverAppBar(
-      expandedHeight: 176,
+      expandedHeight: 190, // Aumentei levemente para o Avatar respirar melhor
       pinned: true,
+      centerTitle: true, // Centraliza o título na AppBar recolhida
       backgroundColor: _kDarkBlue,
       foregroundColor: Colors.white,
       flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true, // Centraliza o título na AppBar expandida
         title: Text(
           l10n.settings,
           style: const TextStyle(
@@ -299,7 +301,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 18,
           ),
         ),
-        titlePadding: const EdgeInsets.only(left: 56, bottom: 14),
+        // Removido o titlePadding que estava empurrando o texto para a direita
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -310,7 +312,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 8, 48),
+              // A mágica: top = 56 empurra o conteúdo para baixo da área do botão de voltar!
+              padding: const EdgeInsets.fromLTRB(20, 56, 8, 48),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [

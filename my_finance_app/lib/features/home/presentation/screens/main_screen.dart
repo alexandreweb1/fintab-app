@@ -470,6 +470,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
+        height: 85,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
         color: Theme.of(context).colorScheme.surface,
