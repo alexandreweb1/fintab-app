@@ -66,7 +66,6 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.planning),
-        centerTitle: false,
         actions: _selectedTab == 0
             ? [
                 _ViewModeMenu(viewMode: viewMode),
@@ -1074,9 +1073,9 @@ class _EmptyBudgets extends ConsumerWidget {
                 child: DropdownButtonFormField<int>(
                   initialValue: selectedMonth,
                   decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(),
                   ),
                   items: List.generate(
                     12,
@@ -1097,9 +1096,9 @@ class _EmptyBudgets extends ConsumerWidget {
                 child: DropdownButtonFormField<int>(
                   initialValue: selectedYear,
                   decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(),
                   ),
                   items: years
                       .map((y) => DropdownMenuItem(

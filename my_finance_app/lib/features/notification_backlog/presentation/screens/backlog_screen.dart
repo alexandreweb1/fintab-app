@@ -21,7 +21,6 @@ class BacklogScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificações Bancárias'),
-        centerTitle: false,
         actions: [
           if (pendingCount > 0)
             TextButton(

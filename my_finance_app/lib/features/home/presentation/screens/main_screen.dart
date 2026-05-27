@@ -477,59 +477,131 @@ class _MainScreenState extends ConsumerState<MainScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
+      bottomNavigationBar: _MobileNav(
+        currentIndex: _currentIndex,
+        onTap: _changeTab,
+        onAdd: () => showAnimatedDialog(
           context: context,
           builder: (_) => const AddTransactionDialog(),
         ),
-        backgroundColor: _kGreen,
-        tooltip: l10n.newTransaction,
-        child: const Icon(Icons.add, color: Colors.white),
+        l10n: l10n,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        color: Theme.of(context).colorScheme.surface,
-        elevation: 12,
-        shadowColor: Colors.black.withValues(alpha: 0.08),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(
-              icon: Icons.home_outlined,
-              activeIcon: Icons.home_rounded,
-              label: l10n.navHome,
-              index: 0,
-              currentIndex: _currentIndex,
-              onTap: _changeTab,
+    );
+  }
+}
+
+// ── Mobile bottom navigation bar ─────────────────────────────────────────────
+
+class _MobileNav extends StatelessWidget {
+  final int currentIndex;
+  final Future<void> Function(int) onTap;
+  final VoidCallback onAdd;
+  final AppLocalizations l10n;
+
+  const _MobileNav({
+    required this.currentIndex,
+    required this.onTap,
+    required this.onAdd,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(
+          top: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: l10n.navHome,
+                index: 0,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              ),
+              _NavItem(
+                icon: Icons.receipt_long_outlined,
+                activeIcon: Icons.receipt_long_rounded,
+                label: l10n.navStatement,
+                index: 1,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              ),
+              _AddNavButton(onTap: onAdd),
+              _NavItem(
+                icon: Icons.pie_chart_outline,
+                activeIcon: Icons.pie_chart_rounded,
+                label: l10n.navPlanning,
+                index: 2,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              ),
+              _NavItem(
+                icon: Icons.bar_chart_outlined,
+                activeIcon: Icons.bar_chart_rounded,
+                label: l10n.navReports,
+                index: 3,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddNavButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddNavButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: _kGreen,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: _kGreen.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            _NavItem(
-              icon: Icons.receipt_long_outlined,
-              activeIcon: Icons.receipt_long_rounded,
-              label: l10n.navStatement,
-              index: 1,
-              currentIndex: _currentIndex,
-              onTap: _changeTab,
-            ),
-            const SizedBox(width: 56),
-            _NavItem(
-              icon: Icons.pie_chart_outline,
-              activeIcon: Icons.pie_chart_rounded,
-              label: l10n.navPlanning,
-              index: 2,
-              currentIndex: _currentIndex,
-              onTap: _changeTab,
-            ),
-            _NavItem(
-              icon: Icons.bar_chart_outlined,
-              activeIcon: Icons.bar_chart_rounded,
-              label: l10n.navReports,
-              index: 3,
-              currentIndex: _currentIndex,
-              onTap: _changeTab,
-            ),
-          ],
+            child: const Icon(Icons.add, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );
@@ -556,47 +628,47 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = index == currentIndex;
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = isActive ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    final screenW = MediaQuery.of(context).size.width;
-    final compact = screenW < 360;
+    final cs = Theme.of(context).colorScheme;
+    final color = isActive ? cs.primary : cs.onSurfaceVariant;
 
-    return InkWell(
-      onTap: () => onTap(index),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-            horizontal: compact ? 8 : 14, vertical: 4),
+    return Expanded(
+      child: InkWell(
+        onTap: () => onTap(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isActive ? activeIcon : icon,
-                key: ValueKey(isActive),
-                color: color,
-                size: compact ? 20 : 24,
-              ),
-            ),
-            const SizedBox(height: 2),
-            if (!compact)
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.normal,
-                ),
-              ),
-            const SizedBox(height: 2),
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              height: 3,
-              width: isActive ? 16 : 0,
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
-                color: _kGreen,
-                borderRadius: BorderRadius.circular(2),
+                color: isActive
+                    ? cs.primary.withValues(alpha: 0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Icon(
+                  isActive ? activeIcon : icon,
+                  key: ValueKey(isActive),
+                  color: color,
+                  size: 22,
+                ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                letterSpacing: 0.1,
               ),
             ),
           ],

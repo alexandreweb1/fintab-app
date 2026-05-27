@@ -240,8 +240,8 @@ class _AddGoalDialogState extends ConsumerState<AddGoalDialog> {
                   inputFormatters: [MoneyInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Valor da meta',
-                    border: OutlineInputBorder(),
                     hintText: 'R\$ 0,00',
+                    border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Informe o valor';
@@ -258,7 +258,6 @@ class _AddGoalDialogState extends ConsumerState<AddGoalDialog> {
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: 'Prazo (opcional)',
-                      border: const OutlineInputBorder(),
                       suffixIcon: _deadline != null
                           ? IconButton(
                               icon: const Icon(Icons.close, size: 18),
@@ -267,6 +266,7 @@ class _AddGoalDialogState extends ConsumerState<AddGoalDialog> {
                             )
                           : const Icon(Icons.calendar_today_outlined,
                               size: 18),
+                      border: const OutlineInputBorder(),
                     ),
                     child: Text(
                       _deadline != null

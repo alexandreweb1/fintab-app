@@ -733,8 +733,8 @@ class _TypedWalletDialogState extends ConsumerState<TypedWalletDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Meta (opcional)',
                   hintText: '0,00',
-                  border: OutlineInputBorder(),
                   prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -937,8 +937,8 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Valor',
                   hintText: '0,00',
-                  border: OutlineInputBorder(),
                   prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -955,9 +955,9 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: counterpartLabel,
-                  border: const OutlineInputBorder(),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 10),
+                  border: const OutlineInputBorder(),
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
@@ -988,8 +988,8 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
                 child: InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Data',
-                    border: OutlineInputBorder(),
                     suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    border: OutlineInputBorder(),
                   ),
                   child: Text(DateFormat('dd/MM/yyyy', dateLoc).format(_date)),
                 ),

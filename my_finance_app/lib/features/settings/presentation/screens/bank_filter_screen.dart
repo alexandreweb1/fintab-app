@@ -60,7 +60,6 @@ class _BankFilterScreenState extends ConsumerState<BankFilterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Apps Monitorados'),
-        centerTitle: false,
         actions: [
           TextButton(
             onPressed: allEnabled
@@ -198,8 +197,8 @@ class _BankFilterScreenState extends ConsumerState<BankFilterScreen> {
               autofocus: true,
               decoration: const InputDecoration(
                 hintText: 'com.exemplo.app',
-                border: OutlineInputBorder(),
                 isDense: true,
+                border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.url,
             ),

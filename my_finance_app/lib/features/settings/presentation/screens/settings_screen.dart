@@ -235,6 +235,83 @@ class _IconBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Profile info card (top of settings content)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProfileInfoCard extends StatelessWidget {
+  final String? photoUrl;
+  final String initials;
+  final String displayName;
+  final String email;
+  final AppLocalizations l10n;
+  final VoidCallback onEdit;
+
+  const _ProfileInfoCard({
+    required this.photoUrl,
+    required this.initials,
+    required this.displayName,
+    required this.email,
+    required this.l10n,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return _SettingsCard(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Row(
+          children: [
+            UserAvatar(
+              photoUrl: photoUrl,
+              initials: initials,
+              radius: 28,
+              backgroundColor: cs.primaryContainer,
+              textStyle: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName.isNotEmpty ? displayName : l10n.noName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (email.isNotEmpty)
+                    Text(
+                      email,
+                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.edit_outlined, color: cs.primary, size: 20),
+              tooltip: l10n.editProfile,
+              onPressed: onEdit,
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SettingsScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -287,93 +364,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final initials = _initials(user?.displayName ?? user?.email ?? '?');
 
     final sliverAppBar = SliverAppBar(
-      expandedHeight: 176,
       pinned: true,
-      backgroundColor: _kDarkBlue,
-      foregroundColor: Colors.white,
-      flexibleSpace: FlexibleSpaceBar(
-        title: Text(
-          l10n.settings,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        titlePadding: const EdgeInsets.only(left: 56, bottom: 14),
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [_kDarkBlue, _kBlue],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 8, 48),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  UserAvatar(
-                    photoUrl: user?.photoUrl,
-                    initials: initials,
-                    radius: 34,
-                    backgroundColor: Colors.white.withValues(alpha: 0.22),
-                    textStyle: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName.isNotEmpty ? displayName : l10n.noName,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          email,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.75),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                    tooltip: l10n.editProfile,
-                    onPressed: () => showAnimatedDialog(
-                      context: context,
-                      builder: (_) =>
-                          _EditProfileDialog(currentName: displayName),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      title: Text(
+        l10n.settings,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
       ),
     );
 
     final settingsContent = [
+      // ── Perfil ─────────────────────────────────────────────────────────
+      _ProfileInfoCard(
+        photoUrl: user?.photoUrl,
+        initials: initials,
+        displayName: displayName,
+        email: email,
+        l10n: l10n,
+        onEdit: () => showAnimatedDialog(
+          context: context,
+          builder: (_) => _EditProfileDialog(currentName: displayName),
+        ),
+      ),
+      const SizedBox(height: 16),
+
       // ── Banner Pro ─────────────────────────────────────────────────────
       const _ProBannerCard(),
-      const SizedBox(height: 20),
+      const SizedBox(height: 24),
 
       // ── CONTA ──────────────────────────────────────────────────────────
+      const _MobileSectionLabel('Conta'),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keyAccount,
         child: _SettingsCard(children: [
@@ -401,21 +424,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       // ── SEGURANÇA ──────────────────────────────────────────────────────
       _MobileSectionLabel(l10n.security),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       const _AppLockCard(),
       const SizedBox(height: 20),
 
-      // ── DADOS ──────────────────────────────────────────────────────────
-      _MobileSectionLabel(l10n.dataSection),
-      const SizedBox(height: 6),
-      const _DataIoCard(),
-      const SizedBox(height: 12),
-      const _FinancialHealthCard(),
-      const SizedBox(height: 20),
-
-      // ── GERAL ──────────────────────────────────────────────────────────
-      const _MobileSectionLabel('Geral'),
-      const SizedBox(height: 6),
+      // ── PREFERÊNCIAS ──────────────────────────────────────────────────
+      const _MobileSectionLabel('Preferências'),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keyPreferences,
         child: _SettingsCard(children: [
@@ -494,8 +509,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       const SizedBox(height: 20),
 
       // ── DADOS ──────────────────────────────────────────────────────────
-      const _MobileSectionLabel('Dados'),
-      const SizedBox(height: 6),
+      _MobileSectionLabel(l10n.dataSection),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keyData,
         child: _SettingsCard(children: [
@@ -514,11 +529,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ]),
       ),
+      const SizedBox(height: 12),
+      const _DataIoCard(),
+      const SizedBox(height: 12),
+      const _FinancialHealthCard(),
       const SizedBox(height: 20),
 
       // ── COMPARTILHAMENTO ───────────────────────────────────────────────
       const _MobileSectionLabel('Compartilhamento'),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keySharing,
         child: const _SharingSection(),
@@ -527,7 +546,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       // ── NOTIFICAÇÕES ───────────────────────────────────────────────────
       const _MobileSectionLabel('Notificações'),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keyNotifications,
         child: const _NotificationDetectionSection(),
@@ -536,7 +555,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       // ── SOBRE ──────────────────────────────────────────────────────────
       const _MobileSectionLabel('Sobre'),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       _SettingsCard(children: [
         ListTile(
           leading: const _IconBadge(Icons.privacy_tip_outlined,
@@ -570,13 +589,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ]),
       const SizedBox(height: 20),
 
-      // ── CONTA ──────────────────────────────────────────────────────────
+      // ── SAIR ───────────────────────────────────────────────────────────
+      const _MobileSectionLabel('Sair'),
+      const SizedBox(height: 8),
       KeyedSubtree(
         key: _keyLogout,
         child: _SettingsCard(children: [
           ListTile(
-            leading:
-                _IconBadge(Icons.logout, color: Colors.red.shade400),
+            leading: _IconBadge(Icons.logout, color: Colors.red.shade400),
             title: Text(l10n.logout,
                 style: TextStyle(color: Colors.red.shade600)),
             onTap: () =>
@@ -962,7 +982,6 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                 obscureText: _obscureCurrent,
                 decoration: InputDecoration(
                   labelText: l10n.currentPassword,
-                  border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureCurrent
                         ? Icons.visibility_off
@@ -970,6 +989,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                     onPressed: () =>
                         setState(() => _obscureCurrent = !_obscureCurrent),
                   ),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
                     v == null || v.isEmpty ? l10n.enterCurrentPassword : null,
@@ -980,13 +1000,13 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                 obscureText: _obscureNew,
                 decoration: InputDecoration(
                   labelText: l10n.newPassword,
-                  border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
                         _obscureNew ? Icons.visibility_off : Icons.visibility),
                     onPressed: () =>
                         setState(() => _obscureNew = !_obscureNew),
                   ),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return l10n.enterNewPassword;
@@ -1083,12 +1103,12 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 obscureText: _obscure,
                 decoration: InputDecoration(
                   labelText: 'Confirme sua senha',
-                  border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
                         _obscure ? Icons.visibility_off : Icons.visibility),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ] else ...[
@@ -1182,12 +1202,12 @@ class _SetPasswordDialogState extends ConsumerState<_SetPasswordDialog> {
             autofocus: true,
             decoration: InputDecoration(
               labelText: l10n.newPassword,
-              border: const OutlineInputBorder(),
               suffixIcon: IconButton(
                 icon: Icon(
                     _obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
+              border: const OutlineInputBorder(),
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return l10n.enterNewPassword;
@@ -1395,8 +1415,8 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(
                     labelText: l10n.categoryName,
-                    border: const OutlineInputBorder()),
-              ),
+                    border: const OutlineInputBorder(),
+                    ),              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -1501,8 +1521,8 @@ class _EditCategoryDialogState extends ConsumerState<_EditCategoryDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(
                     labelText: l10n.categoryName,
-                    border: const OutlineInputBorder()),
-              ),
+                    border: const OutlineInputBorder(),
+                    ),              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -1792,8 +1812,8 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                             keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
                               labelText: 'Email do colaborador',
-                              border: OutlineInputBorder(),
                               isDense: true,
+                              border: OutlineInputBorder(),
                             ),
                             onSubmitted: (_) => _sendInvite(),
                           ),
@@ -2094,8 +2114,8 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
                 autofocus: true,
                 decoration: InputDecoration(
                     labelText: l10n.walletName,
-                    border: const OutlineInputBorder()),
-              ),
+                    border: const OutlineInputBorder(),
+                    ),              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -2117,9 +2137,9 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
                 initialValue: _currency,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(),
                 ),
                 items: AppCurrency.values
                     .map((c) => DropdownMenuItem(
@@ -2233,8 +2253,8 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(
                     labelText: l10n.walletName,
-                    border: const OutlineInputBorder()),
-              ),
+                    border: const OutlineInputBorder(),
+                    ),              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -2256,9 +2276,9 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
                 initialValue: _currency,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(),
                 ),
                 items: AppCurrency.values
                     .map((c) => DropdownMenuItem(

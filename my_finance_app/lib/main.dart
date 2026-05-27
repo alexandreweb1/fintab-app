@@ -155,7 +155,7 @@ class AppRouter extends ConsumerWidget {
     return authAsync.when(
       data: (UserEntity? user) => user != null
           ? const AppLockGate(child: _LiteracyOnboardingGate(child: MainScreen()))
-          : const MainScreen(),
+          : const LoginScreen(),
       loading: () => const _SplashScreen(),
       error: (error, _) => _FirebaseErrorScreen(error: error.toString()),
     );
@@ -221,6 +221,7 @@ class _LiteracyOnboardingGateState
 final _lightTheme = ThemeData(
   colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E88E5)),
   useMaterial3: true,
+  appBarTheme: const AppBarTheme(centerTitle: true),
   inputDecorationTheme: const InputDecorationTheme(
     border: OutlineInputBorder(),
   ),
@@ -240,6 +241,7 @@ final _darkTheme = ThemeData(
     brightness: Brightness.dark,
   ),
   useMaterial3: true,
+  appBarTheme: const AppBarTheme(centerTitle: true),
   inputDecorationTheme: const InputDecorationTheme(
     border: OutlineInputBorder(),
   ),

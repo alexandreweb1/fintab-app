@@ -112,7 +112,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     decoration: InputDecoration(
                       labelText: l10n.passwordField,
                       prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
                             ? Icons.visibility_off
@@ -120,6 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         onPressed: () =>
                             setState(() => _obscurePassword = !_obscurePassword),
                       ),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: (v) => v == null || v.length < 6
                         ? l10n.minChars

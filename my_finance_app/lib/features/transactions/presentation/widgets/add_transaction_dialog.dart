@@ -698,8 +698,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: l10n.dateField,
-                      border: const OutlineInputBorder(),
                       suffixIcon: const Icon(Icons.calendar_today),
+                      border: const OutlineInputBorder(),
                     ),
                     child: Text(
                       '${_date.day.toString().padLeft(2, '0')}/'
@@ -717,10 +717,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                       : (wallets.isNotEmpty ? wallets.first.id : null),
                   decoration: InputDecoration(
                     labelText: l10n.walletField,
-                    border: const OutlineInputBorder(),
                     prefixIcon: const Icon(
                         Icons.account_balance_wallet_outlined,
                         size: 20),
+                    border: const OutlineInputBorder(),
                   ),
                   items: [
                     ...wallets.map(
@@ -773,8 +773,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     initialValue: goals.any((g) => g.id == _goalId) ? _goalId : null,
                     decoration: const InputDecoration(
                       labelText: 'Vincular à meta (opcional)',
-                      border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.savings_rounded, size: 20),
+                      border: OutlineInputBorder(),
                     ),
                     items: [
                       const DropdownMenuItem<String?>(
@@ -808,8 +808,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Observação (opcional)',
                     hintText: 'Adicione uma nota...',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.notes_rounded, size: 20),
+                    border: OutlineInputBorder(),
                   ),
                   maxLines: 2,
                   minLines: 1,
@@ -840,12 +840,12 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     decoration: InputDecoration(
                       labelText: 'Tags (opcional)',
                       hintText: 'Digite e pressione Enter',
-                      border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.label_outline_rounded, size: 20),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.add, size: 20),
                         onPressed: _addTag,
                       ),
+                      border: const OutlineInputBorder(),
                     ),
                     onFieldSubmitted: (_) => _addTag(),
                   ),

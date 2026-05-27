@@ -91,7 +91,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.navStatement),
-        centerTitle: false,
+        centerTitle: true,
         actions: _selectedTab == 0
             ? [
                 IconButton(
@@ -1430,8 +1430,8 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                           decoration: InputDecoration(
                             labelText: l10n.filterMin,
                             prefixText: 'R\$ ',
-                            border: const OutlineInputBorder(),
                             isDense: true,
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: (_) => setState(() {}),
                         ),
@@ -1445,8 +1445,8 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                           decoration: InputDecoration(
                             labelText: l10n.filterMax,
                             prefixText: 'R\$ ',
-                            border: const OutlineInputBorder(),
                             isDense: true,
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: (_) => setState(() {}),
                         ),

@@ -72,7 +72,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           // ── AppBar ──────────────────────────────────────────────────────
           SliverAppBar(
             title: Text(l10n.navReports),
-            centerTitle: false,
             pinned: true,
             backgroundColor: colorScheme.surface,
             surfaceTintColor: colorScheme.surfaceTint,
