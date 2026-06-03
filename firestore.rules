@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // True when the document being written declares the caller as owner.
+    function isCreatingOwnDoc() {
+      return request.resource.data.userId == request.auth.uid;
+    }
+
+    // True when the existing document belongs to the caller.
+    function isOwnerOfExistingDoc() {
+      return resource.data.userId == request.auth.uid;
+    }
+
+    // True when the signed-in user is a collaborator of the document owner.
+    // Reads the caller's user profile to check masterUserId.
+    function isCollaboratorOfOwner() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return 'masterUserId' in profile && profile.masterUserId == resource.data.userId;
+    }
+
+    // True when a collaborator is creating a doc on behalf of their master.
+    function isCollaboratorCreatingMastersDoc() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return 'masterUserId' in profile && profile.masterUserId == request.resource.data.userId;
+    }
+
+    // ── /users/{userId} ───────────────────────────────────────────────────────
+    // Each user can only read / write their own profile document.
+    // Exception: the master may remove masterUserId from a collaborator's profile.
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn()
+        && resource.data.masterUserId == request.auth.uid
+        && !('masterUserId' in request.resource.data);
+    }
+
+    // ── /transactions/{transactionId} ─────────────────────────────────────────
+    // Owner or collaborator of the owner may read/write.
+    match /transactions/{transactionId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /categories/{categoryId} ──────────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /budgets/{budgetId} ───────────────────────────────────────────────────
+    match /budgets/{budgetId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /wallets/{walletId} ───────────────────────────────────────────────────
+    match /wallets/{walletId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /goals/{goalId} ──────────────────────────────────────────────────────
+    match /goals/{goalId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /recurring_transactions/{recurringId} ────────────────────────────────
+    match /recurring_transactions/{recurringId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
+    // ── /subscriptions/{userId} ───────────────────────────────────────────────
+    // Document ID == userId; only the owner can read/write their subscription.
+    match /subscriptions/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── /notification_backlog/{docId} ────────────────────────────────────────
+    // Only the owning user can read/write their own backlog items.
+    match /notification_backlog/{docId} {
+      allow read, update, delete: if isSignedIn() && isOwnerOfExistingDoc();
+      allow create:               if isSignedIn() && isCreatingOwnDoc();
+    }
+
+    // ── /invitations/{invitationId} ───────────────────────────────────────────
+    // Master: can create, read, update and delete their own invitations.
+    // Invitee: can read and update (accept/decline) invitations sent to their email.
+    match /invitations/{invitationId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.masterUserId == request.auth.uid;
+
+      allow read:   if isSignedIn()
+                    && (resource.data.masterUserId == request.auth.uid
+                        || resource.data.inviteeEmail == request.auth.token.email);
+
+      allow update: if isSignedIn()
+                    && (resource.data.masterUserId == request.auth.uid
+                        || resource.data.inviteeEmail == request.auth.token.email);
+
+      allow delete: if isSignedIn()
+                    && resource.data.masterUserId == request.auth.uid;
+    }
+  }
+}

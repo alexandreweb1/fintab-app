@@ -1,0 +1,33 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/*
+!build/web/
+!build/web/**
+*.iml
+ios/
+android/
+
+# Firebase — native config files (not needed for web build)
+google-services.json
+GoogleService-Info.plist
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+.vercel
+.env*.local
+
+# Logs
+*.log

@@ -1,0 +1,9 @@
+{
+  "buildCommand": "echo 'Using pre-built build/web'",
+  "installCommand": "echo 'Skip install'",
+  "outputDirectory": "build/web",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
