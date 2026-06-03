@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/animated_dialog.dart';
@@ -32,6 +31,8 @@ import '../../../notification_backlog/presentation/providers/backlog_provider.da
 import '../../../../core/services/bank_filter_provider.dart';
 import '../../../notification_backlog/presentation/screens/backlog_screen.dart';
 import 'bank_filter_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_use_screen.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
 
@@ -561,30 +562,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           leading: const _IconBadge(Icons.privacy_tip_outlined,
               color: Color(0xFF5C6BC0)),
           title: const Text('Política de Privacidade'),
-          trailing: const Icon(Icons.open_in_new, size: 18),
-          onTap: () async {
-            final uri = Uri.parse(
-                'https://fintab-privacy.vercel.app/privacy');
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri,
-                  mode: LaunchMode.externalApplication);
-            }
-          },
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (_) => const PrivacyPolicyScreen()),
+          ),
         ),
         const Divider(height: 1, indent: 56),
         ListTile(
           leading: const _IconBadge(Icons.description_outlined,
               color: Color(0xFF5C6BC0)),
           title: const Text('Termos de Uso'),
-          trailing: const Icon(Icons.open_in_new, size: 18),
-          onTap: () async {
-            final uri = Uri.parse(
-                'https://fintab-privacy.vercel.app/terms');
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri,
-                  mode: LaunchMode.externalApplication);
-            }
-          },
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (_) => const TermsOfUseScreen()),
+          ),
         ),
       ]),
       const SizedBox(height: 20),
