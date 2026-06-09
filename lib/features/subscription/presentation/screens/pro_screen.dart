@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../../../../core/utils/platform_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +8,8 @@ import 'package:intl/intl.dart';
 import '../../domain/entities/subscription_entity.dart';
 import '../providers/subscription_provider.dart';
 import '../widgets/pro_badge_widget.dart';
+import '../../../settings/presentation/screens/privacy_policy_screen.dart';
+import '../../../settings/presentation/screens/terms_of_use_screen.dart';
 
 const _kGreen = Color(0xFF00D887);
 const _kGreenDark = Color(0xFF00A86B);
@@ -18,6 +22,13 @@ class ProScreen extends ConsumerWidget {
     final isPro = ref.watch(isProProvider);
     final subscription = ref.watch(subscriptionStreamProvider).value;
     final iapState = ref.watch(iapNotifierProvider);
+
+    // O preço exibido vem da loja (ProductDetails.price, já localizado) quando
+    // disponível; usa o fallback configurado se os produtos ainda não carregaram.
+    String priceFor(String id, String fallback) {
+      final matches = iapState.products.where((p) => p.id == id);
+      return matches.isEmpty ? fallback : matches.first.price;
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -110,7 +121,7 @@ class ProScreen extends ConsumerWidget {
                     // Mensal
                     _PriceCard(
                       planName: 'Mensal',
-                      price: 'R\$ 5,00',
+                      price: priceFor(kIapMonthly, 'R\$ 4,90'),
                       period: '/mês',
                       detail: 'Renovação automática mensal',
                       isHighlighted: false,
@@ -123,9 +134,9 @@ class ProScreen extends ConsumerWidget {
                     // Anual (destaque)
                     _PriceCard(
                       planName: 'Anual',
-                      price: 'R\$ 50,00',
+                      price: priceFor(kIapAnnual, 'R\$ 49,90'),
                       period: '/ano',
-                      detail: '≈ R\$ 4,17/mês · Economize R\$ 10',
+                      detail: '≈ R\$ 4,16/mês · Economize R\$ 8,90',
                       savings: 'MAIS POPULAR',
                       isHighlighted: true,
                       isLoading: iapState.isLoading,
@@ -178,7 +189,7 @@ class ProScreen extends ConsumerWidget {
 
                     // Nota legal
                     Text(
-                      'O pagamento é processado pela Google Play Store / App Store. '
+                      'O pagamento é processado pela $storeNameFull. '
                       'As assinaturas renovam automaticamente. '
                       'Cancele a qualquer momento nas configurações da loja.',
                       style: TextStyle(
@@ -189,6 +200,33 @@ class ProScreen extends ConsumerWidget {
                             .withValues(alpha: 0.45),
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _LegalLink(
+                          label: 'Termos de Uso',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const TermsOfUseScreen()),
+                          ),
+                        ),
+                        Text('·',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.45))),
+                        _LegalLink(
+                          label: 'Política de Privacidade',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const PrivacyPolicyScreen()),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -459,6 +497,32 @@ class _FeatureRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Card de preço
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _LegalLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _LegalLink({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: _kGreenDark,
+            decoration: TextDecoration.underline,
+            decorationColor: _kGreenDark,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _PriceCard extends StatelessWidget {
   final String planName;

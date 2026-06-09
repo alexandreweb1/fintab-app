@@ -189,6 +189,7 @@ class AppLocalizations {
   String get invalidEmail => _t('E-mail inválido', 'Invalid e-mail', 'E-mail inválido');
   String get passwordField => _t('Senha', 'Password', 'Contraseña');
   String get continueWithGoogle => _t('Continuar com Google', 'Continue with Google', 'Continuar con Google');
+  String get continueWithApple => _t('Continuar com a Apple', 'Continue with Apple', 'Continuar con Apple');
   String get or => _t('OU', 'OR', 'O');
 
   // ── Budget actions ────────────────────────────────────────────────────────

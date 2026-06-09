@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -190,6 +192,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                   ),
+                  // Sign in with Apple — required by App Store Guideline 4.8
+                  // whenever a third-party login (Google) is offered. Shown
+                  // with the same prominence as the Google button on iOS/macOS.
+                  if (_isApplePlatform) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: authState.isLoading
+                            ? null
+                            : () => ref
+                                .read(authNotifierProvider.notifier)
+                                .signInWithApple(),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.apple,
+                                size: 22, color: Colors.white),
+                            const SizedBox(width: 10),
+                            Text(
+                              l10n.continueWithApple,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -199,6 +239,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 }
+
+// Apple Sign-In is only offered on Apple platforms where the native flow works.
+bool get _isApplePlatform =>
+    defaultTargetPlatform == TargetPlatform.iOS ||
+    defaultTargetPlatform == TargetPlatform.macOS;
 
 Widget _googleLogo() {
   return const Text.rich(

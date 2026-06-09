@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/utils/platform_store.dart';
 import 'legal_document.dart';
 
 /// Full Terms of Use rendered natively inside the app (no external link / webview).
@@ -32,11 +33,11 @@ final List<LegalBlock> _ptTerms = <LegalBlock>[
   const Rule(),
 
   const Heading(2, '1. Definições e aceitação'),
-  const Bullets([
+  Bullets([
     '**"App" ou "Fintab":** o aplicativo móvel Fintab para iOS e Android, incluindo todas as versões futuras.',
     '**"Você" / "Usuário":** pessoa física que baixa, instala ou usa o Fintab.',
     '**"Pro":** plano de assinatura pago que desbloqueia funcionalidades premium.',
-    '**"Loja":** Apple App Store (iOS) ou Google Play Store (Android).',
+    '**"Loja":** ${isApplePlatform ? "Apple App Store" : "Apple App Store (iOS) ou Google Play Store (Android)"}.',
   ]),
   const Para(
       'Ao instalar, criar conta ou usar o Fintab, você declara ter **13 anos ou mais** e concordar com estes Termos. Se não concorda, não use o app.'),
@@ -97,9 +98,10 @@ final List<LegalBlock> _ptTerms = <LegalBlock>[
   ]),
   const Heading(3, '6.2 Cancelamento'),
   const Para('Você pode cancelar a qualquer momento:'),
-  const Bullets([
+  Bullets([
     '**iPhone/iPad:** Ajustes → [seu nome] → Assinaturas → Fintab Pro → Cancelar Assinatura',
-    '**Android:** Google Play Store → ☰ → Assinaturas → Fintab Pro → Cancelar',
+    if (!isApplePlatform)
+      '**Android:** Google Play Store → ☰ → Assinaturas → Fintab Pro → Cancelar',
   ]),
   const Para(
       'Após o cancelamento, você continua com acesso Pro até o fim do período já pago.'),
@@ -202,11 +204,11 @@ final List<LegalBlock> _enTerms = <LegalBlock>[
   const Rule(),
 
   const Heading(2, '1. Definitions and acceptance'),
-  const Bullets([
+  Bullets([
     '**"App" or "Fintab":** the Fintab mobile application for iOS and Android, including all future versions.',
     '**"You" / "User":** the individual who downloads, installs, or uses Fintab.',
     '**"Pro":** the paid subscription plan that unlocks premium features.',
-    '**"Store":** Apple App Store (iOS) or Google Play Store (Android).',
+    '**"Store":** ${isApplePlatform ? "Apple App Store" : "Apple App Store (iOS) or Google Play Store (Android)"}.',
   ]),
   const Para(
       'By installing, creating an account, or using Fintab, you confirm you are **13 years or older** and agree to these Terms. If you don\'t agree, don\'t use the app.'),
@@ -266,9 +268,10 @@ final List<LegalBlock> _enTerms = <LegalBlock>[
   ]),
   const Heading(3, '6.2 Cancellation'),
   const Para('You can cancel at any time:'),
-  const Bullets([
+  Bullets([
     '**iPhone/iPad:** Settings → [your name] → Subscriptions → Fintab Pro → Cancel Subscription',
-    '**Android:** Google Play Store → ☰ → Subscriptions → Fintab Pro → Cancel',
+    if (!isApplePlatform)
+      '**Android:** Google Play Store → ☰ → Subscriptions → Fintab Pro → Cancel',
   ]),
   const Para(
       'After cancellation, you keep Pro access until the end of the period already paid.'),

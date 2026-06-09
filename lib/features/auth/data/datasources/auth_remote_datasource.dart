@@ -148,6 +148,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
         rawNonce: rawNonce,
+        // Required since firebase_auth 5.2.0: without authorizationCode the
+        // backend rejects the request as "Invalid OAuth response from apple.com".
+        accessToken: appleCredential.authorizationCode,
       );
 
       final userCredential = await _firebaseAuth
@@ -367,6 +370,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         final oauth = OAuthProvider('apple.com').credential(
           idToken: appleCredential.identityToken,
           rawNonce: rawNonce,
+          // Required since firebase_auth 5.2.0 (see signInWithApple above).
+          accessToken: appleCredential.authorizationCode,
         );
         await user.reauthenticateWithCredential(oauth);
       } else {

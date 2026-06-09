@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/utils/platform_store.dart';
 import 'legal_document.dart';
 
 /// Full Privacy Policy rendered natively inside the app (no external link / webview).
@@ -73,8 +74,8 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
     'Status da assinatura, identificador do produto, data de expiração',
     '`purchaseToken` (token sensível usado para validar a compra junto à Apple/Google)',
   ]),
-  const Para(
-      'O pagamento em si é processado pela Apple App Store ou Google Play. **Não temos acesso ao seu cartão de crédito ou método de pagamento.**'),
+  Para(
+      'O pagamento em si é processado pela ${isApplePlatform ? "Apple App Store" : "Apple App Store ou Google Play"}. **Não temos acesso ao seu cartão de crédito ou método de pagamento.**'),
 
   const Heading(3, '2.5 Compartilhamento de conta (colaboradores) — Pro'),
   const Para(
@@ -138,7 +139,7 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
   const Heading(2, '5. Compartilhamento com terceiros (suboperadores)'),
   const Para(
       'Compartilhamos o mínimo necessário com os seguintes prestadores:'),
-  const TableBlock([
+  TableBlock([
     [
       '**Google LLC** — Firebase Authentication',
       '**Dado compartilhado:** E-mail, UID, senha (hash), tokens OAuth',
@@ -159,11 +160,12 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
       '**Dado compartilhado:** `purchaseToken`, `productId`',
       '**Finalidade:** Processar e validar assinatura Pro (iOS)',
     ],
-    [
-      '**Google LLC** — Google Play Billing',
-      '**Dado compartilhado:** `purchaseToken`, `productId`',
-      '**Finalidade:** Processar e validar assinatura Pro (Android)',
-    ],
+    if (!isApplePlatform)
+      [
+        '**Google LLC** — Google Play Billing',
+        '**Dado compartilhado:** `purchaseToken`, `productId`',
+        '**Finalidade:** Processar e validar assinatura Pro (Android)',
+      ],
   ]),
   const Para(
       'Não há outros suboperadores. Não há SDKs de publicidade, analytics ou attribution.'),
@@ -223,16 +225,17 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
       'O Fintab não é direcionado a menores de 13 anos e não coleta intencionalmente dados de crianças. Se você é responsável e identificou que uma criança nos forneceu dados, entre em contato em alexandreweb2@gmail.com para que sejam removidos.'),
 
   const Heading(2, '11. Assinaturas Pro auto-renováveis'),
-  const Para(
-      'O Fintab Pro é uma assinatura auto-renovável processada pela Apple App Store (iOS) ou Google Play (Android). Ao assinar:'),
+  Para(
+      'O Fintab Pro é uma assinatura auto-renovável processada pela ${isApplePlatform ? "Apple App Store" : "Apple App Store (iOS) ou Google Play (Android)"}. Ao assinar:'),
   const Bullets([
     '**Renovação:** a assinatura é renovada automaticamente ao final de cada período (Mensal ou Anual) pelo mesmo valor, salvo cancelamento até **24 horas antes** do término do período atual.',
     '**Cobrança:** processada na sua conta da Apple/Google na confirmação da compra e a cada renovação.',
     '**Cancelamento:** você pode cancelar a qualquer momento:',
   ]),
-  const Bullets([
+  Bullets([
     '**iPhone/iPad:** Ajustes → [seu nome] → Assinaturas → Fintab Pro → Cancelar Assinatura',
-    '**Android:** Google Play Store → ☰ → Assinaturas → Fintab Pro → Cancelar',
+    if (!isApplePlatform)
+      '**Android:** Google Play Store → ☰ → Assinaturas → Fintab Pro → Cancelar',
   ], indent: true),
   const Bullets([
     '**Reembolso:** reembolsos são processados exclusivamente pela Apple/Google conforme as políticas delas. Não temos acesso direto ao seu pagamento.',
@@ -308,8 +311,8 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
     'Subscription status, product identifier, expiry date',
     '`purchaseToken` (sensitive token used to validate the purchase with Apple/Google)',
   ]),
-  const Para(
-      'Payment itself is processed by the Apple App Store or Google Play. **We have no access to your credit card or payment method.**'),
+  Para(
+      'Payment itself is processed by ${isApplePlatform ? "the Apple App Store" : "the Apple App Store or Google Play"}. **We have no access to your credit card or payment method.**'),
 
   const Heading(3, '2.5 Account sharing (collaborators) — Pro'),
   const Para(
@@ -372,7 +375,7 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
 
   const Heading(2, '5. Sharing with third parties (subprocessors)'),
   const Para('We share the minimum necessary with the following processors:'),
-  const TableBlock([
+  TableBlock([
     [
       '**Google LLC** — Firebase Authentication',
       '**Data shared:** Email, UID, password (hash), OAuth tokens',
@@ -393,11 +396,12 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
       '**Data shared:** `purchaseToken`, `productId`',
       '**Purpose:** Process and validate Pro subscription (iOS)',
     ],
-    [
-      '**Google LLC** — Google Play Billing',
-      '**Data shared:** `purchaseToken`, `productId`',
-      '**Purpose:** Process and validate Pro subscription (Android)',
-    ],
+    if (!isApplePlatform)
+      [
+        '**Google LLC** — Google Play Billing',
+        '**Data shared:** `purchaseToken`, `productId`',
+        '**Purpose:** Process and validate Pro subscription (Android)',
+      ],
   ]),
   const Para(
       'There are no other subprocessors. No advertising, analytics, or attribution SDKs.'),
@@ -457,16 +461,17 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
       'Fintab is not directed at children under 13 and does not knowingly collect data from children. If you are a guardian and identified that a child provided us with data, contact alexandreweb2@gmail.com for removal.'),
 
   const Heading(2, '11. Auto-renewable Pro subscriptions'),
-  const Para(
-      'Fintab Pro is an auto-renewable subscription processed by the Apple App Store (iOS) or Google Play (Android). By subscribing:'),
+  Para(
+      'Fintab Pro is an auto-renewable subscription processed by ${isApplePlatform ? "the Apple App Store" : "the Apple App Store (iOS) or Google Play (Android)"}. By subscribing:'),
   const Bullets([
     '**Renewal:** the subscription auto-renews at the end of each period (Monthly or Yearly) at the same price unless canceled at least **24 hours before** the current period ends.',
     '**Billing:** charged to your Apple/Google account at purchase confirmation and at each renewal.',
     '**Cancellation:** you can cancel at any time:',
   ]),
-  const Bullets([
+  Bullets([
     '**iPhone/iPad:** Settings → [your name] → Subscriptions → Fintab Pro → Cancel Subscription',
-    '**Android:** Google Play Store → ☰ → Subscriptions → Fintab Pro → Cancel',
+    if (!isApplePlatform)
+      '**Android:** Google Play Store → ☰ → Subscriptions → Fintab Pro → Cancel',
   ], indent: true),
   const Bullets([
     '**Refunds:** refunds are processed exclusively by Apple/Google per their policies. We have no direct access to your payment.',
