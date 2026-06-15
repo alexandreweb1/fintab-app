@@ -5,6 +5,7 @@ import 'notification_suggestion.dart';
 
 const _kPrefKey = 'notification_detection_enabled';
 const _kAutoSaveKey = 'notification_auto_save_enabled';
+const _kClipboardCaptureKey = 'clipboard_capture_enabled';
 
 // ── Detection toggle ─────────────────────────────────────────────────────────
 
@@ -66,6 +67,34 @@ class _AutoSaveNotifier extends StateNotifier<bool> {
     final prefs = await SharedPreferences.getInstance();
     state = value;
     await prefs.setBool(_kAutoSaveKey, value);
+  }
+}
+
+// ── Clipboard quick-capture (iOS + Android) ─────────────────────────────────
+
+/// When enabled, returning to the app checks the clipboard for a copied
+/// transaction (e.g. an amount copied from a bank app) and offers to launch it.
+/// Opt-in because reading the clipboard surfaces the iOS "pasted from…" banner.
+/// Persisted in SharedPreferences, defaults to false.
+final clipboardCaptureEnabledProvider =
+    StateNotifierProvider<_ClipboardCaptureNotifier, bool>(
+  (ref) => _ClipboardCaptureNotifier(),
+);
+
+class _ClipboardCaptureNotifier extends StateNotifier<bool> {
+  _ClipboardCaptureNotifier() : super(false) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool(_kClipboardCaptureKey) ?? false;
+  }
+
+  Future<void> setValue(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    state = value;
+    await prefs.setBool(_kClipboardCaptureKey, value);
   }
 }
 

@@ -339,6 +339,99 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
   }
 
+  /// Collections holding user-owned documents keyed by a `userId` field.
+  static const _userDataCollections = [
+    'transactions',
+    'categories',
+    'budgets',
+    'wallets',
+    'goals',
+    'recurring_transactions',
+    'notification_backlog',
+  ];
+
+  /// Deletes every Firestore document belonging to [uid] (LGPD/GDPR and
+  /// App Store guideline 5.1.1(v)). Must run while the user is still
+  /// authenticated — after `user.delete()` the security rules deny everything.
+  Future<void> _deleteAllUserData(String uid, String? email) async {
+    // ── As MASTER: detach each collaborator, then delete the invitations. ──
+    final asMaster = await _firestore
+        .collection('invitations')
+        .where('masterUserId', isEqualTo: uid)
+        .get();
+    for (final doc in asMaster.docs) {
+      final data = doc.data();
+      final collaboratorId = data['collaboratorUserId'] as String?;
+      if (collaboratorId != null && data['status'] == 'accepted') {
+        try {
+          await _firestore.collection('users').doc(collaboratorId).update({
+            'masterUserId': FieldValue.delete(),
+            'masterInvitationId': FieldValue.delete(),
+          });
+        } on FirebaseException catch (e) {
+          // not-found: collaborator already deleted their own account.
+          // permission-denied: collaborator already left (no masterUserId) or
+          // re-linked to another master — nothing for us to detach.
+          if (e.code != 'not-found' && e.code != 'permission-denied') rethrow;
+        }
+      }
+    }
+    await _deleteDocsInChunks(asMaster.docs);
+
+    // ── As COLLABORATOR: neutralize invitations addressed to us. We can't ──
+    // delete the master's invitation (their rule forbids it), but the invitee
+    // rule lets us set status to 'declined', which drops us from the master's
+    // active-collaborator list and prevents an unremovable "ghost" entry.
+    final normalizedEmail = email?.trim().toLowerCase();
+    if (normalizedEmail != null && normalizedEmail.isNotEmpty) {
+      final asCollaborator = await _firestore
+          .collection('invitations')
+          .where('inviteeEmail', isEqualTo: normalizedEmail)
+          .get();
+      for (final doc in asCollaborator.docs) {
+        if (doc.data()['status'] == 'declined') continue;
+        try {
+          await doc.reference.update({'status': 'declined'});
+        } on FirebaseException catch (e) {
+          if (e.code != 'not-found' && e.code != 'permission-denied') rethrow;
+        }
+      }
+    }
+
+    // User-owned documents, in chunks (Firestore batches cap at 500 ops).
+    for (final collection in _userDataCollections) {
+      while (true) {
+        final snap = await _firestore
+            .collection(collection)
+            .where('userId', isEqualTo: uid)
+            .limit(400)
+            .get();
+        if (snap.docs.isEmpty) break;
+        await _deleteDocsInChunks(snap.docs);
+        if (snap.docs.length < 400) break;
+      }
+    }
+
+    // Subscription doc (id == uid) and the profile itself go last, so a
+    // partial failure above leaves the account in a retryable state.
+    final batch = _firestore.batch();
+    batch.delete(_firestore.collection('subscriptions').doc(uid));
+    batch.delete(_firestore.collection('users').doc(uid));
+    await batch.commit();
+  }
+
+  /// Deletes [docs] in batches of 400 to stay under the 500-op batch limit.
+  Future<void> _deleteDocsInChunks(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
+    for (var i = 0; i < docs.length; i += 400) {
+      final batch = _firestore.batch();
+      for (final doc in docs.skip(i).take(400)) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
   @override
   Future<void> deleteAccount({String? password}) async {
     try {
@@ -384,6 +477,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           idToken: googleAuth.idToken,
         );
         await user.reauthenticateWithCredential(credential);
+      }
+
+      // Wipe all Firestore data BEFORE deleting the auth account — afterwards
+      // the security rules would deny every delete. If the wipe fails midway,
+      // the account still exists and the user can simply retry.
+      try {
+        await _deleteAllUserData(user.uid, user.email);
+      } on FirebaseException {
+        throw const AuthException(
+            'Erro ao apagar seus dados. Verifique sua conexão e tente novamente.');
       }
 
       await user.delete();

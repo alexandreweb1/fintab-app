@@ -21,6 +21,8 @@ import '../../../wallets/presentation/providers/wallets_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/dashboard_extra_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
+import '../../../../core/utils/animated_dialog.dart';
+import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const _kNavy = Color(0xFF1A2B4A);
@@ -45,6 +47,10 @@ class DashboardScreen extends ConsumerWidget {
     final budgetSummaries = ref.watch(dashboardBudgetSummaryProvider);
     final selectedMonth = ref.watch(dashboardSelectedMonthProvider);
     final config = ref.watch(dashboardConfigProvider);
+    // Whether the user has no transactions at all (new user) → show the
+    // welcome CTA that nudges the first transaction (activation).
+    final allTx = ref.watch(transactionsStreamProvider).value;
+    final isNewUser = allTx != null && allTx.isEmpty;
 
     final l10n = AppLocalizations.of(context);
     final dateLoc = ref.watch(dateLocaleProvider);
@@ -75,8 +81,7 @@ class DashboardScreen extends ConsumerWidget {
               } else {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const SettingsScreen()),
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
                 );
               }
             },
@@ -84,6 +89,12 @@ class DashboardScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 20),
+
+          // ── Boas-vindas / CTA da primeira transação (novo usuário) ──
+          if (isNewUser) ...[
+            const _WelcomeFirstTransactionCard(),
+            const SizedBox(height: 24),
+          ],
 
           // ── Seções dinâmicas ordenadas pelo usuário ──
           for (final section in config.visibleSections) ...[
@@ -109,8 +120,7 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 24),
             ],
             if (section == DashboardSection.recentTransactions) ...[
-              const _SectionHeader(
-                  title: 'Últimas Transações', subtitle: ''),
+              const _SectionHeader(title: 'Últimas Transações', subtitle: ''),
               const SizedBox(height: 8),
               const DashboardRecentTransactions(),
               const SizedBox(height: 24),
@@ -151,6 +161,70 @@ class DashboardScreen extends ConsumerWidget {
     final parts = displayName.trim().split(' ');
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+}
+
+// ─── Welcome / first-transaction CTA (novo usuário) ───────────────────────────
+class _WelcomeFirstTransactionCard extends StatelessWidget {
+  const _WelcomeFirstTransactionCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [_kGreen, Color(0xFF00B5C9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bem-vindo ao Fintab! 👋',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Comece lançando sua primeira transação — leva menos de um '
+              'minuto e seu painel ganha vida.',
+              style:
+                  TextStyle(color: Colors.white, fontSize: 13.5, height: 1.3),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _kNavy,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => showAnimatedDialog<void>(
+                  context: context,
+                  builder: (_) => const AddTransactionDialog(),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text(
+                  'Lançar primeira transação',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -372,17 +446,41 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
     final allZero =
         rawIncome.every((v) => v == 0) && rawExpenses.every((v) => v == 0);
     final incomeData = allZero
-        ? [40.0, 80.0, 60.0, 120.0, 100.0, 200.0, 180.0, 250.0, 220.0,
-           300.0, 350.0, 400.0]
+        ? [
+            40.0,
+            80.0,
+            60.0,
+            120.0,
+            100.0,
+            200.0,
+            180.0,
+            250.0,
+            220.0,
+            300.0,
+            350.0,
+            400.0
+          ]
         : rawIncome;
     final expenseData = allZero
-        ? [20.0, 40.0, 90.0, 50.0, 140.0, 80.0, 220.0, 100.0, 180.0,
-           150.0, 200.0, 250.0]
+        ? [
+            20.0,
+            40.0,
+            90.0,
+            50.0,
+            140.0,
+            80.0,
+            220.0,
+            100.0,
+            180.0,
+            150.0,
+            200.0,
+            250.0
+          ]
         : rawExpenses;
 
     // Index of the selected month within our months list (-1 if not found).
-    final selectedIdx = months.indexWhere((m) =>
-        m.year == selectedMonth.year && m.month == selectedMonth.month);
+    final selectedIdx = months.indexWhere(
+        (m) => m.year == selectedMonth.year && m.month == selectedMonth.month);
 
     const totalWidth = _kChartMonths * _kMonthColWidth;
 
@@ -430,7 +528,9 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
                     children: List.generate(months.length, (i) {
                       final month = months[i];
                       final isSelected = i == selectedIdx;
-                      final label = DateFormat('MMM', dateLoc).format(month).capitalizeMonth();
+                      final label = DateFormat('MMM', dateLoc)
+                          .format(month)
+                          .capitalizeMonth();
                       return GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
@@ -463,9 +563,8 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? _kGreen
-                                      : Colors.transparent,
+                                  color:
+                                      isSelected ? _kGreen : Colors.transparent,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -498,7 +597,8 @@ class _SparklinePainter extends CustomPainter {
     required this.selectedIndex,
   });
 
-  List<Offset> _toPoints(List<double> data, double minV, double maxV, Size size) {
+  List<Offset> _toPoints(
+      List<double> data, double minV, double maxV, Size size) {
     final range = (maxV - minV).abs();
     final effectiveRange = range < 1 ? 1.0 : range;
     return List.generate(data.length, (i) {
@@ -515,7 +615,8 @@ class _SparklinePainter extends CustomPainter {
     fill.lineTo(points.first.dx, points.first.dy);
     for (int i = 1; i < points.length; i++) {
       final cx = (points[i - 1].dx + points[i].dx) / 2;
-      fill.cubicTo(cx, points[i - 1].dy, cx, points[i].dy, points[i].dx, points[i].dy);
+      fill.cubicTo(
+          cx, points[i - 1].dy, cx, points[i].dy, points[i].dx, points[i].dy);
     }
     fill.lineTo(size.width, size.height);
     fill.close();
@@ -537,7 +638,8 @@ class _SparklinePainter extends CustomPainter {
     final line = Path()..moveTo(points.first.dx, points.first.dy);
     for (int i = 1; i < points.length; i++) {
       final cx = (points[i - 1].dx + points[i].dx) / 2;
-      line.cubicTo(cx, points[i - 1].dy, cx, points[i].dy, points[i].dx, points[i].dy);
+      line.cubicTo(
+          cx, points[i - 1].dy, cx, points[i].dy, points[i].dx, points[i].dy);
     }
     canvas.drawPath(
       line,
@@ -585,7 +687,8 @@ class _SparklinePainter extends CustomPainter {
 
     // Expense dot
     canvas.drawCircle(expensePoints[dotIdx], 4, Paint()..color = _kRed);
-    canvas.drawCircle(expensePoints[dotIdx], 2.5, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        expensePoints[dotIdx], 2.5, Paint()..color = Colors.white);
 
     // Income dot
     canvas.drawCircle(incomePoints[dotIdx], 5, Paint()..color = _kGreen);
@@ -785,8 +888,7 @@ class _DashboardBudgetSummary extends ConsumerWidget {
     final isOver = totalSpent > totalPlanned;
     final progress =
         totalPlanned > 0 ? (totalSpent / totalPlanned).clamp(0.0, 1.0) : 0.0;
-    final progressColor =
-        isOver ? const Color(0xFFE05252) : _kGreen;
+    final progressColor = isOver ? const Color(0xFFE05252) : _kGreen;
 
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
@@ -1144,8 +1246,7 @@ class _InvitationsSheet extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             'Alguém quer compartilhar as finanças com você.',
-            style:
-                TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
           ...invitations.map((inv) => _InvitationCard(invitation: inv)),
@@ -1167,19 +1268,24 @@ class _InvitationCard extends ConsumerStatefulWidget {
 
 class _InvitationCardState extends ConsumerState<_InvitationCard> {
   bool _loading = false;
+  String? _error;
 
   Future<void> _respond(bool accept) async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final notifier = ref.read(sharingNotifierProvider.notifier);
     final error = accept
         ? await notifier.acceptInvitation(widget.invitation)
         : await notifier.declineInvitation(widget.invitation.id);
     if (mounted) {
-      setState(() => _loading = false);
-      if (error != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error)));
-      }
+      setState(() {
+        _loading = false;
+        // Show the error inline: this card lives inside a modal bottom sheet,
+        // so a SnackBar would render behind the sheet and stay invisible.
+        _error = error;
+      });
     }
   }
 
@@ -1248,9 +1354,25 @@ class _InvitationCardState extends ConsumerState<_InvitationCard> {
           const SizedBox(height: 10),
           Text(
             '$displayName quer compartilhar as finanças com você.',
-            style:
-                TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 18, color: colorScheme.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(fontSize: 12, color: colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           if (_loading)
             const Center(child: CircularProgressIndicator())
@@ -1444,8 +1566,7 @@ class _SectionTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.drag_handle_rounded,
-              color: cs.onSurfaceVariant, size: 22),
+          Icon(Icons.drag_handle_rounded, color: cs.onSurfaceVariant, size: 22),
         ],
       ),
     );

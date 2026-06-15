@@ -1,9 +1,14 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/referral_service.dart';
+import '../../../../core/utils/platform_store.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/widgets/help_hint.dart';
@@ -84,8 +89,7 @@ class _ColorDots extends StatelessWidget {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                          color: Color(c).withValues(alpha: 0.5),
-                          blurRadius: 6)
+                          color: Color(c).withValues(alpha: 0.5), blurRadius: 6)
                     ]
                   : null,
             ),
@@ -293,7 +297,8 @@ class _ProfileInfoCard extends StatelessWidget {
                   if (email.isNotEmpty)
                     Text(
                       email,
-                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      style:
+                          TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -443,8 +448,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(settings.currency.label,
-                    style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 13)),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 20),
               ],
@@ -460,8 +465,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(settings.language.nativeLabel,
-                    style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 13)),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 20),
               ],
@@ -477,8 +482,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(_themeModeLabel(settings.themeMode, l10n),
-                    style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 13)),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 20),
               ],
@@ -491,14 +496,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 color: Color(0xFF8E24AA)),
             title: Text(l10n.literacyLevelSettingsTitle),
             subtitle: Text(l10n.literacyLevelSettingsSubtitle,
-                style: TextStyle(
-                    color: Colors.grey.shade500, fontSize: 12)),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(_literacyLevelLabel(settings.literacyLevel, l10n),
-                    style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 13)),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 20),
               ],
@@ -564,8 +568,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           title: const Text('Política de Privacidade'),
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (_) => const PrivacyPolicyScreen()),
+            MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
           ),
         ),
         const Divider(height: 1, indent: 56),
@@ -575,8 +578,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           title: const Text('Termos de Uso'),
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (_) => const TermsOfUseScreen()),
+            MaterialPageRoute(builder: (_) => const TermsOfUseScreen()),
           ),
         ),
       ]),
@@ -590,10 +592,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: _SettingsCard(children: [
           ListTile(
             leading: _IconBadge(Icons.logout, color: Colors.red.shade400),
-            title: Text(l10n.logout,
-                style: TextStyle(color: Colors.red.shade600)),
-            onTap: () =>
-                ref.read(authNotifierProvider.notifier).signOut(),
+            title:
+                Text(l10n.logout, style: TextStyle(color: Colors.red.shade600)),
+            onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
           ),
           const Divider(height: 1),
           ListTile(
@@ -637,11 +638,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ref.read(authNotifierProvider.notifier).signOut(),
                 onEditProfile: () => showAnimatedDialog(
                   context: context,
-                  builder: (_) =>
-                      _EditProfileDialog(currentName: displayName),
+                  builder: (_) => _EditProfileDialog(currentName: displayName),
                 ),
-                onBack: () =>
-                    ref.read(mainTabIndexProvider.notifier).state = 0,
+                onBack: () => ref.read(mainTabIndexProvider.notifier).state = 0,
               ),
             ),
             // ── Scrollable main content ─────────────────────────────
@@ -714,11 +713,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context: context, builder: (ctx) => _AppearanceDialog(l10n: l10n));
   }
 
-  void _showLiteracyLevelDialog(
-      BuildContext context, AppLocalizations l10n) {
+  void _showLiteracyLevelDialog(BuildContext context, AppLocalizations l10n) {
     showAnimatedDialog(
-        context: context,
-        builder: (ctx) => _LiteracyLevelDialog(l10n: l10n));
+        context: context, builder: (ctx) => _LiteracyLevelDialog(l10n: l10n));
   }
 
   String _themeModeLabel(AppThemeMode mode, AppLocalizations l10n) {
@@ -848,8 +845,7 @@ class _EditProfileDialog extends ConsumerStatefulWidget {
   const _EditProfileDialog({required this.currentName});
 
   @override
-  ConsumerState<_EditProfileDialog> createState() =>
-      _EditProfileDialogState();
+  ConsumerState<_EditProfileDialog> createState() => _EditProfileDialogState();
 }
 
 class _EditProfileDialogState extends ConsumerState<_EditProfileDialog> {
@@ -996,8 +992,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                   suffixIcon: IconButton(
                     icon: Icon(
                         _obscureNew ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscureNew = !_obscureNew),
+                    onPressed: () => setState(() => _obscureNew = !_obscureNew),
                   ),
                   border: const OutlineInputBorder(),
                 ),
@@ -1143,8 +1138,7 @@ class _SetPasswordDialog extends ConsumerStatefulWidget {
   const _SetPasswordDialog();
 
   @override
-  ConsumerState<_SetPasswordDialog> createState() =>
-      _SetPasswordDialogState();
+  ConsumerState<_SetPasswordDialog> createState() => _SetPasswordDialogState();
 }
 
 class _SetPasswordDialogState extends ConsumerState<_SetPasswordDialog> {
@@ -1196,8 +1190,7 @@ class _SetPasswordDialogState extends ConsumerState<_SetPasswordDialog> {
             decoration: InputDecoration(
               labelText: l10n.newPassword,
               suffixIcon: IconButton(
-                icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
               border: const OutlineInputBorder(),
@@ -1291,8 +1284,7 @@ class _CategorySection extends ConsumerWidget {
                             size: 20),
                         onPressed: () => showAnimatedDialog(
                           context: context,
-                          builder: (_) =>
-                              _EditCategoryDialog(category: cat),
+                          builder: (_) => _EditCategoryDialog(category: cat),
                         ),
                       ),
                       IconButton(
@@ -1307,17 +1299,14 @@ class _CategorySection extends ConsumerWidget {
                                   'Deseja excluir a categoria "${cat.name}"?'),
                               actions: [
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(false),
+                                  onPressed: () => Navigator.of(ctx).pop(false),
                                   child: const Text('Cancelar'),
                                 ),
                                 FilledButton(
                                   style: FilledButton.styleFrom(
-                                      backgroundColor: Theme.of(ctx)
-                                          .colorScheme
-                                          .error),
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(true),
+                                      backgroundColor:
+                                          Theme.of(ctx).colorScheme.error),
+                                  onPressed: () => Navigator.of(ctx).pop(true),
                                   child: const Text('Excluir'),
                                 ),
                               ],
@@ -1358,8 +1347,7 @@ class _AddCategoryDialog extends ConsumerStatefulWidget {
   const _AddCategoryDialog({required this.type});
 
   @override
-  ConsumerState<_AddCategoryDialog> createState() =>
-      _AddCategoryDialogState();
+  ConsumerState<_AddCategoryDialog> createState() => _AddCategoryDialogState();
 }
 
 class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
@@ -1407,9 +1395,10 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                    labelText: l10n.categoryName,
-                    border: const OutlineInputBorder(),
-                    ),              ),
+                  labelText: l10n.categoryName,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -1490,9 +1479,8 @@ class _EditCategoryDialogState extends ConsumerState<_EditCategoryDialog> {
       colorValue: _colorValue,
       isDefault: widget.category.isDefault,
     );
-    final success = await ref
-        .read(categoriesNotifierProvider.notifier)
-        .update(updated);
+    final success =
+        await ref.read(categoriesNotifierProvider.notifier).update(updated);
     if (!mounted) return;
     if (success) Navigator.of(context).pop();
   }
@@ -1513,9 +1501,10 @@ class _EditCategoryDialogState extends ConsumerState<_EditCategoryDialog> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                    labelText: l10n.categoryName,
-                    border: const OutlineInputBorder(),
-                    ),              ),
+                  labelText: l10n.categoryName,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -1577,15 +1566,24 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) return;
     setState(() => _sending = true);
-    final error = await ref
-        .read(sharingNotifierProvider.notifier)
-        .sendInvitation(email);
+    final error =
+        await ref.read(sharingNotifierProvider.notifier).sendInvitation(email);
     if (!mounted) return;
     setState(() => _sending = false);
     if (error == null) {
       _emailCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Convite enviado com sucesso!')),
+        SnackBar(
+          content: const Text('Convite enviado com sucesso!'),
+          action: SnackBarAction(
+            label: 'Compartilhar',
+            onPressed: () => Share.share(
+              'Te convidei pra organizar nossas finanças juntos no Fintab! '
+              'Baixe o app, cadastre-se com este e-mail ($email) e aceite o '
+              'convite: $storeUrl',
+            ),
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1595,6 +1593,67 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
         ),
       );
     }
+  }
+
+  /// Word-of-mouth referral: shares the app via the native share sheet
+  /// (WhatsApp, SMS, etc.) with a ready message + the store link. Available to
+  /// everyone (not Pro-gated) since it's how the app grows.
+  Future<void> _shareReferral() async {
+    final uid = ref.read(authStateProvider).value?.id;
+    var codeLine = '';
+    if (uid != null) {
+      final code = await ReferralService.instance.ensureReferralCode(uid);
+      codeLine = '\n\nUse meu código de indicação no app (Configurações → '
+          'Compartilhamento → "Tenho um código"): $code';
+    }
+    await Share.share(
+      'Tô usando o Fintab pra organizar minhas finanças e queria te convidar '
+      'a usar também. Baixe aqui: $storeUrl$codeLine',
+      subject: 'Conheça o Fintab',
+    );
+    AnalyticsService.instance.logEvent('invite_shared', {'origin': 'referral'});
+  }
+
+  Future<void> _redeemReferral() async {
+    final controller = TextEditingController();
+    final code = await showAnimatedDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tenho um código de indicação'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Código de indicação',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppLocalizations.of(ctx).cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('Resgatar'),
+          ),
+        ],
+      ),
+    );
+    if (code == null || code.trim().isEmpty) return;
+    final uid = ref.read(authStateProvider).value?.id;
+    if (uid == null) return;
+    final error = await ReferralService.instance.redeemCode(uid, code);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ??
+            'Código aplicado! Ao usar o app, quem te indicou ganha 1 mês de '
+                'Pro grátis.'),
+        backgroundColor: error != null ? Colors.red.shade700 : null,
+      ),
+    );
   }
 
   Future<void> _confirmLeave() async {
@@ -1609,8 +1668,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(AppLocalizations.of(context).cancel)),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: Colors.red.shade600),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Sair'),
           ),
@@ -1618,14 +1676,12 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
       ),
     );
     if (confirmed != true) return;
-    final error = await ref
-        .read(sharingNotifierProvider.notifier)
-        .leaveSharedAccount();
+    final error =
+        await ref.read(sharingNotifierProvider.notifier).leaveSharedAccount();
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(error), backgroundColor: Colors.red.shade700),
+        SnackBar(content: Text(error), backgroundColor: Colors.red.shade700),
       );
     }
   }
@@ -1645,6 +1701,31 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Convidar amigos (indicação — disponível para todos) ──────────
+        OutlinedButton.icon(
+          onPressed: _shareReferral,
+          icon: const Icon(Icons.ios_share, size: 18),
+          label: const Text('Convidar amigos para o Fintab'),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 10),
+          child: Text(
+            'Quando alguém usa seu código e começa a usar o app, '
+            'você ganha 1 mês de Pro grátis.',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextButton.icon(
+            onPressed: _redeemReferral,
+            icon: const Icon(Icons.redeem_outlined, size: 18),
+            label: const Text('Tenho um código de indicação'),
+          ),
+        ),
         // ── Pending received invitations (amber banner) ──────────────────
         if (pendingInvites.isNotEmpty) ...[
           Container(
@@ -1659,8 +1740,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                   child: Row(
                     children: [
                       Icon(Icons.mail_outline,
@@ -1680,8 +1760,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                       dense: true,
                       leading: CircleAvatar(
                         radius: 18,
-                        backgroundColor:
-                            colorScheme.primaryContainer,
+                        backgroundColor: colorScheme.primaryContainer,
                         child: Text(
                           (inv.masterName.isNotEmpty
                                   ? inv.masterName[0]
@@ -1711,9 +1790,16 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                           FilledButton(
                             style: FilledButton.styleFrom(
                                 visualDensity: VisualDensity.compact),
-                            onPressed: () => ref
-                                .read(sharingNotifierProvider.notifier)
-                                .acceptInvitation(inv),
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final error = await ref
+                                  .read(sharingNotifierProvider.notifier)
+                                  .acceptInvitation(inv);
+                              if (error != null) {
+                                messenger.showSnackBar(
+                                    SnackBar(content: Text(error)));
+                              }
+                            },
                             child: Text(AppLocalizations.of(context).accept),
                           ),
                         ],
@@ -1819,8 +1905,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white))
+                                      strokeWidth: 2, color: Colors.white))
                               : const Text('Convidar'),
                         ),
                       ],
@@ -1864,8 +1949,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                                   .read(sharingNotifierProvider.notifier)
                                   .removeCollaborator(
                                     invitationId: inv.id,
-                                    collaboratorUserId:
-                                        inv.collaboratorUserId!,
+                                    collaboratorUserId: inv.collaboratorUserId!,
                                   ),
                         ),
                       )),
@@ -1900,12 +1984,12 @@ class _WalletSection extends ConsumerWidget {
         final isVisible = !hiddenWalletIds.contains(w.id);
         return ListTile(
           leading: CircleAvatar(
-            backgroundColor: Color(w.colorValue)
-                .withValues(alpha: isVisible ? 0.15 : 0.06),
+            backgroundColor:
+                Color(w.colorValue).withValues(alpha: isVisible ? 0.15 : 0.06),
             child: Icon(
               categoryIcon(w.iconCodePoint),
-              color: Color(w.colorValue)
-                  .withValues(alpha: isVisible ? 1.0 : 0.35),
+              color:
+                  Color(w.colorValue).withValues(alpha: isVisible ? 1.0 : 0.35),
               size: 20,
             ),
           ),
@@ -1936,15 +2020,14 @@ class _WalletSection extends ConsumerWidget {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.all(8),
-                    child: Icon(Icons.lock_outline,
-                        size: 16, color: Colors.grey),
+                    child:
+                        Icon(Icons.lock_outline, size: 16, color: Colors.grey),
                   ),
                 )
               else ...[
                 IconButton(
                   icon: Icon(Icons.edit_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20),
+                      color: Theme.of(context).colorScheme.primary, size: 20),
                   onPressed: () => showAnimatedDialog(
                     context: context,
                     builder: (_) => _EditWalletDialog(wallet: w),
@@ -1958,8 +2041,7 @@ class _WalletSection extends ConsumerWidget {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Excluir carteira'),
-                        content:
-                            Text('Deseja excluir a carteira "${w.name}"?'),
+                        content: Text('Deseja excluir a carteira "${w.name}"?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(ctx).pop(false),
@@ -1976,9 +2058,7 @@ class _WalletSection extends ConsumerWidget {
                       ),
                     );
                     if (confirmed == true) {
-                      ref
-                          .read(walletsNotifierProvider.notifier)
-                          .delete(w.id);
+                      ref.read(walletsNotifierProvider.notifier).delete(w.id);
                     }
                   },
                 ),
@@ -1987,9 +2067,8 @@ class _WalletSection extends ConsumerWidget {
           ),
         );
       }).toList(),
-      loading: () => [
-        const ListTile(title: Center(child: CircularProgressIndicator()))
-      ],
+      loading: () =>
+          [const ListTile(title: Center(child: CircularProgressIndicator()))],
       error: (e, _) => [ListTile(title: Text('Erro: $e'))],
     );
 
@@ -2106,9 +2185,10 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
                 controller: _nameController,
                 autofocus: true,
                 decoration: InputDecoration(
-                    labelText: l10n.walletName,
-                    border: const OutlineInputBorder(),
-                    ),              ),
+                  labelText: l10n.walletName,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -2192,8 +2272,9 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
     _nameController = TextEditingController(text: widget.wallet.name);
     _iconCodePoint = widget.wallet.iconCodePoint;
     _colorValue = widget.wallet.colorValue;
-    _currency = AppCurrency.fromCode(
-        widget.wallet.currencyCode.isEmpty ? 'BRL' : widget.wallet.currencyCode);
+    _currency = AppCurrency.fromCode(widget.wallet.currencyCode.isEmpty
+        ? 'BRL'
+        : widget.wallet.currencyCode);
   }
 
   @override
@@ -2245,9 +2326,10 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                    labelText: l10n.walletName,
-                    border: const OutlineInputBorder(),
-                    ),              ),
+                  labelText: l10n.walletName,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 16),
               Text(l10n.selectIcon,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -2337,11 +2419,9 @@ class _AppearanceDialog extends ConsumerWidget {
                   value: AppThemeMode.system,
                   title: Text(l10n.themeModeSystem)),
               RadioListTile<AppThemeMode>(
-                  value: AppThemeMode.light,
-                  title: Text(l10n.themeModeLight)),
+                  value: AppThemeMode.light, title: Text(l10n.themeModeLight)),
               RadioListTile<AppThemeMode>(
-                  value: AppThemeMode.dark,
-                  title: Text(l10n.themeModeDark)),
+                  value: AppThemeMode.dark, title: Text(l10n.themeModeDark)),
             ],
           ),
         ),
@@ -2377,9 +2457,7 @@ class _LiteracyLevelDialog extends ConsumerWidget {
               : current,
           onChanged: (v) {
             if (v != null) {
-              ref
-                  .read(appSettingsProvider.notifier)
-                  .setLiteracyLevel(v);
+              ref.read(appSettingsProvider.notifier).setLiteracyLevel(v);
               Navigator.of(context).pop();
             }
           },
@@ -2622,107 +2700,138 @@ class _NotificationDetectionSectionState
 
   @override
   Widget build(BuildContext context) {
-    final enabled = ref.watch(notificationDetectionEnabledProvider);
-    final autoSave = ref.watch(notificationAutoSaveProvider);
+    // A detecção lê notificações de outros apps via NotificationListenerService
+    // — API exclusiva do Android. O iOS não permite ler notificações de
+    // terceiros, então lá exibimos apenas o histórico (sincronizado do
+    // Firestore, útil em contas compartilhadas com um Android).
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final enabled =
+        isAndroid ? ref.watch(notificationDetectionEnabledProvider) : false;
+    final autoSave =
+        isAndroid ? ref.watch(notificationAutoSaveProvider) : false;
+    final clipboardCapture = ref.watch(clipboardCaptureEnabledProvider);
     final cs = Theme.of(context).colorScheme;
 
     return _SettingsCard(children: [
-      // ── Toggle principal ──
-      SwitchListTile(
-        secondary: const _IconBadge(
-          Icons.notifications_active_outlined,
-          color: Color(0xFF29B6F6),
-        ),
-        title: Text(AppLocalizations.of(context).detectTransactions),
-        subtitle: Text(
-          AppLocalizations.of(context).detectTransactionsDesc,
-          style: const TextStyle(fontSize: 12),
-        ),
-        value: enabled,
-        onChanged: (v) =>
-            ref.read(notificationDetectionEnabledProvider.notifier).setValue(v),
-      ),
-      if (enabled) ...[
-        const Divider(height: 1, indent: 56),
-        // ── Permission status ──
-        ListTile(
-          leading: _IconBadge(
-            _permissionGranted
-                ? Icons.verified_outlined
-                : Icons.warning_amber_outlined,
-            color: _permissionGranted
-                ? Colors.green.shade600
-                : Colors.orange.shade700,
-          ),
-          title: Text(
-            _permissionGranted
-                ? 'Acesso a notificações ativo'
-                : 'Acesso a notificações necessário',
-          ),
-          subtitle: Text(
-            _permissionGranted
-                ? 'O app está monitorando notificações'
-                : 'Toque para abrir as configurações do sistema',
-            style: const TextStyle(fontSize: 12),
-          ),
-          trailing: _permissionGranted
-              ? Icon(Icons.check_circle_outline,
-                  color: Colors.green.shade600, size: 20)
-              : Icon(Icons.open_in_new_outlined,
-                  color: cs.primary, size: 20),
-          onTap: _permissionGranted
-              ? null
-              : () async {
-                  await NotificationListenerBridge.openPermissionSettings();
-                },
-        ),
-        const Divider(height: 1, indent: 56),
-        // ── Bank filter ──
-        Consumer(
-          builder: (ctx, r, _) {
-            final allowed = r.watch(allowedAppPackagesProvider);
-            final count = allowed.length;
-            return ListTile(
-              leading: const _IconBadge(
-                Icons.account_balance_outlined,
-                color: Color(0xFF7E57C2),
-              ),
-              title: const Text('Apps monitorados'),
-              subtitle: Text(
-                count > 0
-                    ? '$count ${count == 1 ? 'app ativo' : 'apps ativos'}'
-                    : 'Nenhum app monitorado',
-                style: const TextStyle(fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => Navigator.of(ctx).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const BankFilterScreen(),
-                ),
-              ),
-            );
-          },
-        ),
-        const Divider(height: 1, indent: 56),
-        // ── Auto-save toggle ──
+      if (isAndroid) ...[
+        // ── Toggle principal ──
         SwitchListTile(
           secondary: const _IconBadge(
-            Icons.flash_on_outlined,
-            color: Color(0xFFFFA726),
+            Icons.notifications_active_outlined,
+            color: Color(0xFF29B6F6),
           ),
-          title: const Text('Pré-lançamento automático'),
-          subtitle: const Text(
-            'Salva a transação automaticamente para categorizar depois',
-            style: TextStyle(fontSize: 12),
+          title: Text(AppLocalizations.of(context).detectTransactions),
+          subtitle: Text(
+            AppLocalizations.of(context).detectTransactionsDesc,
+            style: const TextStyle(fontSize: 12),
           ),
-          value: autoSave,
-          onChanged: (v) =>
-              ref.read(notificationAutoSaveProvider.notifier).setValue(v),
+          value: enabled,
+          onChanged: (v) => ref
+              .read(notificationDetectionEnabledProvider.notifier)
+              .setValue(v),
         ),
+        if (enabled) ...[
+          const Divider(height: 1, indent: 56),
+          // ── Permission status ──
+          ListTile(
+            leading: _IconBadge(
+              _permissionGranted
+                  ? Icons.verified_outlined
+                  : Icons.warning_amber_outlined,
+              color: _permissionGranted
+                  ? Colors.green.shade600
+                  : Colors.orange.shade700,
+            ),
+            title: Text(
+              _permissionGranted
+                  ? 'Acesso a notificações ativo'
+                  : 'Acesso a notificações necessário',
+            ),
+            subtitle: Text(
+              _permissionGranted
+                  ? 'O app está monitorando notificações'
+                  : 'Toque para abrir as configurações do sistema',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: _permissionGranted
+                ? Icon(Icons.check_circle_outline,
+                    color: Colors.green.shade600, size: 20)
+                : Icon(Icons.open_in_new_outlined, color: cs.primary, size: 20),
+            onTap: _permissionGranted
+                ? null
+                : () async {
+                    await NotificationListenerBridge.openPermissionSettings();
+                  },
+          ),
+          const Divider(height: 1, indent: 56),
+          // ── Bank filter ──
+          Consumer(
+            builder: (ctx, r, _) {
+              final allowed = r.watch(allowedAppPackagesProvider);
+              final count = allowed.length;
+              return ListTile(
+                leading: const _IconBadge(
+                  Icons.account_balance_outlined,
+                  color: Color(0xFF7E57C2),
+                ),
+                title: const Text('Apps monitorados'),
+                subtitle: Text(
+                  count > 0
+                      ? '$count ${count == 1 ? 'app ativo' : 'apps ativos'}'
+                      : 'Nenhum app monitorado',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BankFilterScreen(),
+                  ),
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 56),
+          // ── Auto-save toggle ──
+          SwitchListTile(
+            secondary: const _IconBadge(
+              Icons.flash_on_outlined,
+              color: Color(0xFFFFA726),
+            ),
+            title: const Text('Pré-lançamento automático'),
+            subtitle: const Text(
+              'Salva a transação automaticamente para categorizar depois',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: autoSave,
+            onChanged: (v) =>
+                ref.read(notificationAutoSaveProvider.notifier).setValue(v),
+          ),
+        ],
+        const Divider(height: 1, indent: 56),
       ],
 
-      // ── Backlog tile — always visible ─────────────────────────────────────
-      const Divider(height: 1, indent: 56),
+      // ── Captura do texto copiado (iOS e Android) ──────────────────────────
+      if (!kIsWeb) ...[
+        SwitchListTile(
+          secondary: const _IconBadge(
+            Icons.content_paste_outlined,
+            color: Color(0xFF66BB6A),
+          ),
+          title: const Text('Captura do texto copiado'),
+          subtitle: const Text(
+            'Ao copiar um valor (ex.: do app do banco) e voltar ao Fintab, '
+            'oferecemos lançar a transação já preenchida',
+            style: TextStyle(fontSize: 12),
+          ),
+          value: clipboardCapture,
+          onChanged: (v) =>
+              ref.read(clipboardCaptureEnabledProvider.notifier).setValue(v),
+        ),
+        const Divider(height: 1, indent: 56),
+      ],
+
+      // ── Backlog tile — sempre visível (Android e iOS) ─────────────────────
       Consumer(
         builder: (ctx, r, _) {
           final count = r.watch(unimportedBacklogCountProvider);
@@ -2754,7 +2863,6 @@ class _NotificationDetectionSectionState
       ),
     ]);
   }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2859,8 +2967,8 @@ class _WebFullSidebar extends StatelessWidget {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.edit, size: 13,
-                              color: _kDarkBlue),
+                          child: const Icon(Icons.edit,
+                              size: 13, color: _kDarkBlue),
                         ),
                       ),
                     ),
@@ -3051,8 +3159,8 @@ class _AppLockCard extends ConsumerWidget {
     if (!service.isPlatformSupported) {
       return _SettingsCard(children: [
         ListTile(
-          leading: const _IconBadge(Icons.lock_outline,
-              color: Color(0xFF7E57C2)),
+          leading:
+              const _IconBadge(Icons.lock_outline, color: Color(0xFF7E57C2)),
           title: Text(l10n.appLockTitle),
           subtitle: Text(l10n.appLockUnavailableWeb,
               style: const TextStyle(fontSize: 12)),
@@ -3063,11 +3171,11 @@ class _AppLockCard extends ConsumerWidget {
 
     return _SettingsCard(children: [
       SwitchListTile(
-        secondary: const _IconBadge(Icons.lock_outline,
-            color: Color(0xFF7E57C2)),
+        secondary:
+            const _IconBadge(Icons.lock_outline, color: Color(0xFF7E57C2)),
         title: Text(l10n.appLockTitle),
-        subtitle: Text(l10n.appLockSubtitle,
-            style: const TextStyle(fontSize: 12)),
+        subtitle:
+            Text(l10n.appLockSubtitle, style: const TextStyle(fontSize: 12)),
         value: state.enabled,
         onChanged: (v) => _toggle(context, ref, v),
       ),
@@ -3075,8 +3183,8 @@ class _AppLockCard extends ConsumerWidget {
         const Divider(height: 1, indent: 56),
         if (state.biometricAvailable)
           SwitchListTile(
-            secondary: const _IconBadge(Icons.fingerprint,
-                color: Color(0xFF26A69A)),
+            secondary:
+                const _IconBadge(Icons.fingerprint, color: Color(0xFF26A69A)),
             title: Text(l10n.useBiometrics),
             subtitle: Text(l10n.useBiometricsDesc,
                 style: const TextStyle(fontSize: 12)),
@@ -3084,11 +3192,10 @@ class _AppLockCard extends ConsumerWidget {
             onChanged: (v) =>
                 ref.read(appLockProvider.notifier).setBiometricEnabled(v),
           ),
-        if (state.biometricAvailable)
-          const Divider(height: 1, indent: 56),
+        if (state.biometricAvailable) const Divider(height: 1, indent: 56),
         ListTile(
-          leading: const _IconBadge(Icons.pin_outlined,
-              color: Color(0xFF42A5F5)),
+          leading:
+              const _IconBadge(Icons.pin_outlined, color: Color(0xFF42A5F5)),
           title: Text(l10n.changePin),
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.of(context).push(
@@ -3154,8 +3261,8 @@ class _DataIoCard extends ConsumerWidget {
             if (!isPro) const ProBadgeWidget(),
           ],
         ),
-        subtitle: Text(l10n.importSubtitle,
-            style: const TextStyle(fontSize: 12)),
+        subtitle:
+            Text(l10n.importSubtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
         onTap: () => _openImport(context, ref),
       ),
@@ -3170,8 +3277,8 @@ class _DataIoCard extends ConsumerWidget {
             if (!isPro) const ProBadgeWidget(),
           ],
         ),
-        subtitle: Text(l10n.exportSubtitle,
-            style: const TextStyle(fontSize: 12)),
+        subtitle:
+            Text(l10n.exportSubtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, size: 20),
         onTap: () => _openExport(context, ref),
       ),
@@ -3206,9 +3313,7 @@ class _FinancialHealthCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final isPro = ref.watch(isProProvider);
-    final score = isPro
-        ? ref.watch(financialScoreProvider).scoreRounded
-        : null;
+    final score = isPro ? ref.watch(financialScoreProvider).scoreRounded : null;
     return _SettingsCard(children: [
       ListTile(
         leading: const _IconBadge(Icons.monitor_heart_outlined,

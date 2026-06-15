@@ -118,30 +118,31 @@ class ProScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    // Mensal
-                    _PriceCard(
-                      planName: 'Mensal',
-                      price: priceFor(kIapMonthly, 'R\$ 4,90'),
-                      period: '/mês',
-                      detail: 'Renovação automática mensal',
-                      isHighlighted: false,
-                      isLoading: iapState.isLoading,
-                      onTap: () =>
-                          ref.read(iapNotifierProvider.notifier).buyMonthly(),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Anual (destaque)
+                    // Anual em cima (ancora a escolha no melhor valor)
                     _PriceCard(
                       planName: 'Anual',
                       price: priceFor(kIapAnnual, 'R\$ 49,90'),
                       period: '/ano',
-                      detail: '≈ R\$ 4,16/mês · Economize R\$ 8,90',
-                      savings: 'MAIS POPULAR',
+                      detail: 'Equivale a R\$ 4,16/mês · Economize 15%',
+                      savings: 'MELHOR VALOR',
                       isHighlighted: true,
                       isLoading: iapState.isLoading,
                       onTap: () =>
                           ref.read(iapNotifierProvider.notifier).buyAnnual(),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Mensal abaixo — com o gancho do teste grátis de 7 dias
+                    _PriceCard(
+                      planName: 'Mensal',
+                      price: priceFor(kIapMonthly, 'R\$ 4,90'),
+                      period: '/mês',
+                      detail: '7 dias grátis · depois renovação mensal',
+                      savings: '7 DIAS GRÁTIS',
+                      isHighlighted: false,
+                      isLoading: iapState.isLoading,
+                      onTap: () =>
+                          ref.read(iapNotifierProvider.notifier).buyMonthly(),
                     ),
                     const SizedBox(height: 20),
 
@@ -659,8 +660,7 @@ class _PriceCard extends StatelessWidget {
             top: -10,
             right: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: _kGreen,
                 borderRadius: BorderRadius.circular(20),
@@ -708,8 +708,8 @@ class _WebSubscriptionCard extends StatelessWidget {
               color: _kGreen.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.smartphone_rounded,
-                size: 28, color: _kGreen),
+            child:
+                const Icon(Icons.smartphone_rounded, size: 28, color: _kGreen),
           ),
           const SizedBox(height: 16),
           Text(

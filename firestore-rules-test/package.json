@@ -1,0 +1,11 @@
+{
+  "name": "fintab-firestore-rules-test",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Emulator-based security tests for firestore.rules (run with: firebase emulators:exec --project demo-fintab --only firestore \"node firestore-rules-test/rules.test.js\")",
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.0.0"
+  }
+}

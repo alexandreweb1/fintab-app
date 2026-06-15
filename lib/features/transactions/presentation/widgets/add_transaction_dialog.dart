@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,7 +15,9 @@ import '../../../../core/utils/money_input_formatter.dart';
 import '../../../../core/utils/icon_data_utils.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../domain/transaction_suggestions.dart';
 import '../providers/transactions_provider.dart';
+import '../../../../core/services/analytics_service.dart';
 
 const _kNewCategory = '__new__';
 const _kNewWallet = '__new_wallet__';
@@ -50,20 +54,43 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
   TransactionType _type = TransactionType.expense;
   String? _category;
+  // True only once the user actively picks a category (dropdown, suggestion or
+  // new-category). Distinguishes a real choice from the build-time default, so
+  // we never suppress the best suggestion just because it equals the default.
+  bool _categoryUserSelected = false;
   DateTime _date = DateTime.now();
-  String? _suggestedCategory;
   String _walletId = '';
   String? _goalId;
   List<String> _tags = [];
 
+  // --- Smart suggestions ---
+  Timer? _suggestDebounce;
+  List<CategorySuggestion> _suggestions = const [];
+  bool _suggestionsDismissed = false;
+  String _lastTitleNorm = '';
+  // Memoized per-type index, rebuilt only when the type, history size or the
+  // most-recent transaction changes (a cheap content signature).
+  List<SuggestionEntry>? _index;
+  TransactionType? _indexType;
+  String _indexSig = '';
+
   bool get _isEditing => widget.transaction != null;
 
   static const _staticIncomeCategories = [
-    'Salário', 'Freelance', 'Investimentos', 'Outros',
+    'Salário',
+    'Freelance',
+    'Investimentos',
+    'Outros',
   ];
   static const _staticExpenseCategories = [
-    'Alimentação', 'Moradia', 'Transporte', 'Saúde',
-    'Educação', 'Lazer', 'Vestuário', 'Outros',
+    'Alimentação',
+    'Moradia',
+    'Transporte',
+    'Saúde',
+    'Educação',
+    'Lazer',
+    'Vestuário',
+    'Outros',
   ];
 
   List<String> _categoryNames() {
@@ -80,55 +107,281 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
     }
   }
 
-  // --- Auto-suggest ---
+  /// Same as [_categoryNames] but uses `ref.read` — safe to call from event
+  /// and timer callbacks (the suggestion engine), not just from build().
+  List<String> _categoryNamesRead() {
+    final cats = _type == TransactionType.income
+        ? ref.read(incomeCategoriesProvider)
+        : ref.read(expenseCategoriesProvider);
+    if (cats.isNotEmpty) return cats.map((c) => c.name).toList();
+    return _type == TransactionType.income
+        ? _staticIncomeCategories
+        : _staticExpenseCategories;
+  }
 
-  String? _computeSuggestion(String input) {
-    if (_isEditing) return null;
-    final query = input.toLowerCase().trim();
-    if (query.length < 3) return null;
-    final transactions = ref.read(transactionsStreamProvider).value ?? [];
-    if (transactions.isEmpty) return null;
+  // --- Smart suggestions ─────────────────────────────────────────────────
+  // Searches the user's history (not just the last entry): ranks categories by
+  // how well past descriptions of the SAME type match what's being typed,
+  // weighted by frequency, with recency only as a tiebreak. Returns a list.
 
-    final queryWords =
-        query.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
-    String? bestCategory;
-    int bestScore = 0;
-
-    for (final t in transactions) {
-      final titleLower = t.title.toLowerCase();
-      final titleWords =
-          titleLower.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
-      final wordOverlap = queryWords.intersection(titleWords).length;
-      final substringMatch =
-          (titleLower.contains(query) || query.contains(titleLower)) ? 1 : 0;
-      final score = wordOverlap + substringMatch;
-      if (score > bestScore) {
-        bestScore = score;
-        bestCategory = t.category;
-      }
+  /// (Re)builds the per-type search index. Cheap to call: returns immediately
+  /// while the cache is still valid for the current type and history content.
+  void _ensureIndex() {
+    final all = ref.read(transactionsStreamProvider).value ?? const [];
+    // Cheap content signature: count + newest id. Closes the add+delete and
+    // most-recent-edit gaps that a bare length check would miss.
+    final sig = all.isEmpty ? '' : '${all.length}:${all.first.id}';
+    if (_index != null && _indexType == _type && _indexSig == sig) {
+      return;
     }
-    return bestScore > 0 ? bestCategory : null;
+    final entries = <SuggestionEntry>[];
+    var rank = 0;
+    // The stream is already most-recent-first; do not re-sort.
+    for (final t in all) {
+      if (t.type != _type) continue;
+      if (rank >= kSuggestionMaxScan) break;
+      final norm = normalizeForSearch('${t.title} ${t.description ?? ''}');
+      entries.add(SuggestionEntry(
+        category: t.category,
+        normText: norm,
+        tokens: suggestionTokens(norm),
+        recencyRank: rank,
+        exampleTitle: t.title,
+      ));
+      rank++;
+    }
+    _index = entries;
+    _indexType = _type;
+    _indexSig = sig;
+  }
+
+  void _recomputeSuggestions() {
+    if (!mounted) return;
+    if (_isEditing) {
+      if (_suggestions.isNotEmpty) setState(() => _suggestions = const []);
+      return;
+    }
+    _ensureIndex();
+    final result = rankCategorySuggestions(
+      query: _titleController.text,
+      index: _index!,
+      validCategories: _categoryNamesRead().toSet(),
+      // Only suppress a category the user actually chose — never the build-time
+      // default, or we'd hide the best suggestion when it equals that default.
+      currentCategory: _categoryUserSelected ? _category : null,
+    );
+
+    // Rebuild only when something the card renders actually changed.
+    final sameAsBefore = result.length == _suggestions.length &&
+        () {
+          for (var i = 0; i < result.length; i++) {
+            final a = result[i], b = _suggestions[i];
+            if (a.category != b.category ||
+                a.hits != b.hits ||
+                a.example != b.example) {
+              return false;
+            }
+          }
+          return true;
+        }();
+    if (!sameAsBefore) setState(() => _suggestions = result);
   }
 
   void _onTitleChanged(String value) {
-    final suggestion = _computeSuggestion(value);
-    if (suggestion != _suggestedCategory) {
-      setState(() => _suggestedCategory = suggestion);
-    }
+    final n = normalizeForSearch(value);
+    final changed = n != _lastTitleNorm;
+    _lastTitleNorm = n;
+    _suggestDebounce?.cancel();
+    _suggestDebounce =
+        Timer(const Duration(milliseconds: kSuggestionDebounceMs), () {
+      if (!mounted) return;
+      if (changed && _suggestionsDismissed) {
+        setState(() => _suggestionsDismissed = false);
+      }
+      _recomputeSuggestions();
+    });
   }
 
-  void _acceptSuggestion() {
-    if (_suggestedCategory == null) return;
-    final categories = _categoryNames();
-    if (categories.contains(_suggestedCategory)) {
-      setState(() {
-        _category = _suggestedCategory;
-        _suggestedCategory = null;
+  void _acceptSuggestion(String category) {
+    if (!_categoryNamesRead().contains(category)) return;
+    setState(() {
+      _category = category;
+      _categoryUserSelected = true;
+      _suggestions = const [];
+      _suggestionsDismissed = true;
+    });
+  }
+
+  void _dismissSuggestions() => setState(() {
+        _suggestions = const [];
+        _suggestionsDismissed = true;
       });
-    }
+
+  void _changeType(TransactionType type) {
+    setState(() {
+      _type = type;
+      _category = null;
+      _categoryUserSelected = false;
+      _suggestions = const [];
+      _suggestionsDismissed = false;
+      _index = null; // income/expense categories differ — rebuild the index
+      _indexType = null;
+    });
+    // Repopulate for the new type if the title still has text.
+    _onTitleChanged(_titleController.text);
   }
 
-  void _dismissSuggestion() => setState(() => _suggestedCategory = null);
+  /// 8px dot of the category's color, or a fallback icon if not found.
+  Widget _categoryDot(String name) {
+    final cats = _type == TransactionType.income
+        ? ref.read(incomeCategoriesProvider)
+        : ref.read(expenseCategoriesProvider);
+    for (final c in cats) {
+      if (c.name == name) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Color(c.colorValue),
+            shape: BoxShape.circle,
+          ),
+        );
+      }
+    }
+    return const Icon(Icons.label_outline, size: 16, color: _kGreen);
+  }
+
+  Widget _buildSuggestionsCard(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    final rows = <Widget>[];
+    for (var i = 0; i < _suggestions.length; i++) {
+      final s = _suggestions[i];
+      if (i > 0) {
+        rows.add(Divider(
+          height: 1,
+          thickness: 0.5,
+          color: cs.onSurface.withValues(alpha: 0.06),
+        ));
+      }
+      rows.add(InkWell(
+        onTap: () => _acceptSuggestion(s.category),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              _categoryDot(s.category),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            s.category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight:
+                                  i == 0 ? FontWeight.w700 : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (s.hits >= 2) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: _kGreen.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${s.hits}x',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _kGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (s.example.trim().isNotEmpty)
+                      Text(
+                        '${l10n.suggestExample}"${s.example}"',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.use,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: _kGreen,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ));
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: _kGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kGreen.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 2),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 14, color: _kGreen),
+                const SizedBox(width: 6),
+                Text(
+                  l10n.suggestedCategories,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: _dismissSuggestions,
+                  borderRadius: BorderRadius.circular(20),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(Icons.close, size: 14, color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...rows,
+        ],
+      ),
+    );
+  }
 
   void _addTag() {
     final tag = _tagController.text.trim();
@@ -192,7 +445,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
     if (!mounted) return;
     if (success) {
-      setState(() => _category = created);
+      setState(() {
+        _category = created;
+        _categoryUserSelected = true;
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erro ao criar categoria.')),
@@ -284,6 +540,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
   @override
   void dispose() {
+    _suggestDebounce?.cancel();
     _titleController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
@@ -332,7 +589,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).errorDeletingTransaction)),
+        SnackBar(
+            content:
+                Text(AppLocalizations.of(context).errorDeletingTransaction)),
       );
     }
   }
@@ -362,6 +621,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
     final notifier = ref.read(transactionsNotifierProvider.notifier);
     final bool success;
+    bool wasFirstTransaction = false;
 
     if (_isEditing) {
       final updated = TransactionEntity(
@@ -381,6 +641,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       );
       success = await notifier.update(updated);
     } else {
+      wasFirstTransaction =
+          (ref.read(transactionsStreamProvider).value ?? const []).isEmpty;
       success = await notifier.add(
         title: _titleController.text.trim(),
         amount: amount,
@@ -398,6 +660,13 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
     if (!mounted) return;
     if (success) {
+      if (!_isEditing) {
+        if (wasFirstTransaction) {
+          AnalyticsService.instance.logFirstTransaction();
+        }
+        AnalyticsService.instance
+            .logTransactionAdded(type: _type.name, source: 'manual');
+      }
       // Smart alert: notify when expenses exceed last month's total
       if (isCurrentMonthExpense && prevMonthExpense > 0) {
         final newTotal = curMonthExpense + amount;
@@ -460,16 +729,15 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       _walletId = wallets.first.id;
     }
 
-    final showSuggestion = _suggestedCategory != null &&
-        categories.contains(_suggestedCategory) &&
-        _suggestedCategory != _category;
+    final showSuggestions =
+        _suggestions.isNotEmpty && !_suggestionsDismissed && !_isEditing;
 
     return AlertDialog(
       title: Row(
         children: [
           Expanded(
-            child: Text(
-                _isEditing ? l10n.editTransaction : l10n.newTransaction),
+            child:
+                Text(_isEditing ? l10n.editTransaction : l10n.newTransaction),
           ),
           HelpHint(
             title: l10n.hintIncomeExpenseTitle,
@@ -494,11 +762,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                         icon: Icons.arrow_downward_rounded,
                         isSelected: _type == TransactionType.expense,
                         activeColor: const Color(0xFFEF4444),
-                        onTap: () => setState(() {
-                          _type = TransactionType.expense;
-                          _category = null;
-                          _suggestedCategory = null;
-                        }),
+                        onTap: () => _changeType(TransactionType.expense),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -508,11 +772,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                         icon: Icons.arrow_upward_rounded,
                         isSelected: _type == TransactionType.income,
                         activeColor: const Color(0xFF10B981),
-                        onTap: () => setState(() {
-                          _type = TransactionType.income;
-                          _category = null;
-                          _suggestedCategory = null;
-                        }),
+                        onTap: () => _changeType(TransactionType.income),
                       ),
                     ),
                   ],
@@ -580,71 +840,23 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                   ),
                 ),
 
-                // Auto-suggest banner
+                // Smart suggestions list (history-based, ranked)
                 AnimatedSize(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
-                  child: showSuggestion
+                  alignment: Alignment.topCenter, // grow downward, predictably
+                  child: showSuggestions
                       ? Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: _kGreen.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: _kGreen.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.auto_awesome,
-                                    size: 16, color: _kGreen),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${l10n.suggestCategory}: $_suggestedCategory',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: _acceptSuggestion,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: Text(
-                                      l10n.use,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: _kGreen,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: _dismissSuggestion,
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(left: 8),
-                                    child: Icon(Icons.close,
-                                        size: 16, color: Colors.grey),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          child: _buildSuggestionsCard(context, l10n),
                         )
                       : const SizedBox.shrink(),
                 ),
 
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: categories.contains(_category) ? _category : null,
+                  initialValue:
+                      categories.contains(_category) ? _category : null,
                   decoration: InputDecoration(
                     labelText: l10n.categoryField,
                     border: const OutlineInputBorder(),
@@ -688,7 +900,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                       }
                       _showNewCategoryDialog();
                     } else {
-                      setState(() => _category = v);
+                      setState(() {
+                        _category = v;
+                        _categoryUserSelected = true;
+                      });
                     }
                   },
                 ),
@@ -770,7 +985,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String?>(
                     key: ValueKey('goal_$_goalId'),
-                    initialValue: goals.any((g) => g.id == _goalId) ? _goalId : null,
+                    initialValue:
+                        goals.any((g) => g.id == _goalId) ? _goalId : null,
                     decoration: const InputDecoration(
                       labelText: 'Vincular à meta (opcional)',
                       prefixIcon: Icon(Icons.savings_rounded, size: 20),
@@ -825,13 +1041,18 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: _tags.map((tag) => Chip(
-                          label: Text(tag, style: const TextStyle(fontSize: 12)),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () => setState(() => _tags.remove(tag)),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        )).toList(),
+                        children: _tags
+                            .map((tag) => Chip(
+                                  label: Text(tag,
+                                      style: const TextStyle(fontSize: 12)),
+                                  deleteIcon: const Icon(Icons.close, size: 14),
+                                  onDeleted: () =>
+                                      setState(() => _tags.remove(tag)),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                ))
+                            .toList(),
                       ),
                     ),
                   // Add tag input
@@ -840,7 +1061,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     decoration: InputDecoration(
                       labelText: 'Tags (opcional)',
                       hintText: 'Digite e pressione Enter',
-                      prefixIcon: const Icon(Icons.label_outline_rounded, size: 20),
+                      prefixIcon:
+                          const Icon(Icons.label_outline_rounded, size: 20),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.add, size: 20),
                         onPressed: _addTag,
@@ -933,9 +1155,8 @@ class _TypeButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isSelected
-                  ? activeColor
-                  : activeColor.withValues(alpha: 0.6),
+              color:
+                  isSelected ? activeColor : activeColor.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 6),
             Text(

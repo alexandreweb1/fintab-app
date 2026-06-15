@@ -31,3 +31,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Firestore rules tests
+firestore-rules-test/node_modules/
+*-debug.log

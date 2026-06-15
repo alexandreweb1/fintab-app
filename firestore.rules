@@ -32,14 +32,81 @@ service cloud.firestore {
       return 'masterUserId' in profile && profile.masterUserId == request.resource.data.userId;
     }
 
+    // Lower-cased email of the caller. Errors (no email on the token) make the
+    // calling rule evaluate to false, which is the safe default.
+    function callerEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    // True when the profile write that sets masterUserId is authorized by an
+    // accepted invitation addressed to the caller. The profile write must
+    // reference the invitation via masterInvitationId. getAfter() sees the
+    // state after the whole batch, so the acceptInvitation batch (invitation
+    // update + profile write) validates atomically.
+    function invitationAuthorizesLink() {
+      let inv = getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.masterInvitationId)).data;
+      return inv.masterUserId == request.resource.data.masterUserId
+          && inv.inviteeEmail == callerEmail()
+          && inv.status == 'accepted'
+          && inv.collaboratorUserId == request.auth.uid;
+    }
+
+    // Validates client writes to the subscription doc. This does NOT replace
+    // server-side receipt validation (a forged write can still claim a short
+    // subscription) — it caps the damage: no perpetual expiry, no arbitrary
+    // fields, no fake products, and updatedAt must be the server timestamp.
+    //
+    // We deliberately do NOT gate on purchaseToken length: a restored purchase
+    // may deliver an empty/short serverVerificationData on some platforms, and
+    // rejecting it here would lock a paying user out of Pro. The length check
+    // also adds ~no security (an attacker pads a longer string trivially) —
+    // the real boundary is server-side receipt validation.
+    // Purchase fields (type/productId/expiryDate/purchaseToken) are required and
+    // validated ONLY when status == 'active'. An 'expired' write (e.g. clearing a
+    // lapsed subscription) may legitimately carry just {status, updatedAt}, so we
+    // must not dereference the purchase fields unconditionally — doing so would
+    // raise an evaluation error and deny the clear.
+    function validSubscription() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['type', 'status', 'purchaseToken', 'productId', 'expiryDate', 'updatedAt'])
+          && d.get('status', '') in ['active', 'expired']
+          && d.updatedAt == request.time
+          && (d.get('status', '') != 'active' || (
+                'type' in d && d.type in ['monthly', 'annual']
+                && 'purchaseToken' in d && d.purchaseToken is string
+                && 'productId' in d && d.productId in ['pro_monthly', 'pro_annual']
+                && 'expiryDate' in d && d.expiryDate is timestamp
+                && d.expiryDate < request.time + duration.value(400, 'd')
+             ));
+    }
+
     // ── /users/{userId} ───────────────────────────────────────────────────────
-    // Each user can only read / write their own profile document.
-    // Exception: the master may remove masterUserId from a collaborator's profile.
+    // Each user can read/write their own profile, BUT masterUserId may only be
+    // set when an accepted invitation authorizes the link — otherwise any user
+    // could point masterUserId at a victim's uid and gain full access to their
+    // data through the collaborator rules below.
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() && request.auth.uid == userId
+        && (!('masterUserId' in request.resource.data) || invitationAuthorizesLink());
+
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && (
+          // masterUserId untouched by this write
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['masterUserId'])
+          // leaving a shared account (field removed)
+          || !('masterUserId' in request.resource.data)
+          // linking to a master — requires a matching accepted invitation
+          || invitationAuthorizesLink()
+        );
+
+      // The master may detach a collaborator: remove the link fields, nothing else.
       allow update: if isSignedIn()
         && resource.data.masterUserId == request.auth.uid
-        && !('masterUserId' in request.resource.data);
+        && !('masterUserId' in request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['masterUserId', 'masterInvitationId']);
     }
 
     // ── /transactions/{transactionId} ─────────────────────────────────────────
@@ -81,8 +148,12 @@ service cloud.firestore {
 
     // ── /subscriptions/{userId} ───────────────────────────────────────────────
     // Document ID == userId; only the owner can read/write their subscription.
+    // Writes are field-validated (see validSubscription). Delete is allowed so
+    // account deletion can wipe the doc.
     match /subscriptions/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId
+        && validSubscription();
     }
 
     // ── /notification_backlog/{docId} ────────────────────────────────────────
@@ -93,22 +164,69 @@ service cloud.firestore {
     }
 
     // ── /invitations/{invitationId} ───────────────────────────────────────────
-    // Master: can create, read, update and delete their own invitations.
-    // Invitee: can read and update (accept/decline) invitations sent to their email.
+    // Master: creates 'pending' invitations for their own account, may change
+    //         only the status afterwards (e.g. 'removed'), and may delete.
+    // Invitee: can read invitations sent to their email and answer a pending
+    //          one (accept/decline), recording only their own uid. The
+    //          masterUserId and inviteeEmail fields are immutable — otherwise
+    //          an invitee could redirect an invitation at a victim's account.
     match /invitations/{invitationId} {
       allow create: if isSignedIn()
-                    && request.resource.data.masterUserId == request.auth.uid;
+                    && request.resource.data.masterUserId == request.auth.uid
+                    && request.resource.data.status == 'pending';
 
       allow read:   if isSignedIn()
                     && (resource.data.masterUserId == request.auth.uid
-                        || resource.data.inviteeEmail == request.auth.token.email);
+                        || resource.data.inviteeEmail == callerEmail());
 
+      // Master: status changes only.
       allow update: if isSignedIn()
-                    && (resource.data.masterUserId == request.auth.uid
-                        || resource.data.inviteeEmail == request.auth.token.email);
+                    && resource.data.masterUserId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status']);
+
+      // Invitee: answer a pending invitation (or re-confirm their own accept).
+      allow update: if isSignedIn()
+                    && resource.data.inviteeEmail == callerEmail()
+                    && (resource.data.status == 'pending'
+                        || (resource.data.status == 'accepted'
+                            && resource.data.collaboratorUserId == request.auth.uid))
+                    && request.resource.data.status in ['accepted', 'declined']
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'collaboratorUserId'])
+                    && (!('collaboratorUserId' in request.resource.data)
+                        || request.resource.data.collaboratorUserId == request.auth.uid);
 
       allow delete: if isSignedIn()
                     && resource.data.masterUserId == request.auth.uid;
+    }
+
+    // ── /referralCodes/{code} ─────────────────────────────────────────────────
+    // Public code → uid map so an invitee can resolve who referred them.
+    // Holds no PII. Each user creates only their own code; codes are immutable.
+    match /referralCodes/{code} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ── /referralRewards/{inviteeId} ──────────────────────────────────────────
+    // Ledger of granted referral rewards. Written ONLY by the Cloud Function
+    // (Admin SDK bypasses rules); clients may read their own entry, never write.
+    match /referralRewards/{inviteeId} {
+      allow read:  if isSignedIn()
+                   && (request.auth.uid == inviteeId
+                       || resource.data.referrerId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // ── /referralStats/{userId} ───────────────────────────────────────────────
+    // Anti-fraud reward counter. Written ONLY by the Cloud Function so a
+    // referrer can't reset it from the client to bypass the cap.
+    match /referralStats/{userId} {
+      allow read:  if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
     }
   }
 }

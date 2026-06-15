@@ -117,22 +117,32 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
     required String inviteeUserId,
     required String masterUserId,
   }) async {
-    final batch = _firestore.batch();
+    // Use a transaction instead of a WriteBatch on purpose. On iOS/Android,
+    // offline persistence makes batch.commit() resolve from the LOCAL cache,
+    // so a server-side rejection (e.g. a Firestore-rules denial when the
+    // installed app predates a rules change) passes silently and is only
+    // rolled back later — the user sees the button reappear with no error.
+    // A transaction always commits on the backend and its Future reflects the
+    // real outcome, so a rejection surfaces here as a thrown exception.
+    await _firestore.runTransaction((tx) async {
+      // Mark invitation as accepted and record the collaborator's uid.
+      tx.update(_invitations.doc(invitationId), {
+        'status': 'accepted',
+        'collaboratorUserId': inviteeUserId,
+      });
 
-    // Mark invitation as accepted and record the collaborator's uid
-    batch.update(_invitations.doc(invitationId), {
-      'status': 'accepted',
-      'collaboratorUserId': inviteeUserId,
+      // Set masterUserId on the collaborator's user profile. The security rules
+      // only accept this write when masterInvitationId points at an accepted
+      // invitation addressed to the caller (validated atomically in the commit).
+      tx.set(
+        _firestore.collection('users').doc(inviteeUserId),
+        {
+          'masterUserId': masterUserId,
+          'masterInvitationId': invitationId,
+        },
+        SetOptions(merge: true),
+      );
     });
-
-    // Set masterUserId on the collaborator's user profile
-    batch.set(
-      _firestore.collection('users').doc(inviteeUserId),
-      {'masterUserId': masterUserId},
-      SetOptions(merge: true),
-    );
-
-    await batch.commit();
   }
 
   @override
@@ -153,7 +163,10 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
     // Clear masterUserId from collaborator's profile
     batch.update(
       _firestore.collection('users').doc(collaboratorUserId),
-      {'masterUserId': FieldValue.delete()},
+      {
+        'masterUserId': FieldValue.delete(),
+        'masterInvitationId': FieldValue.delete(),
+      },
     );
 
     await batch.commit();
@@ -164,9 +177,9 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
     // Clear masterUserId from the user's profile — this detaches them immediately.
     // The invitation document is left as 'accepted' on Firestore (harmless;
     // the master can see they left because their profile no longer has masterUserId).
-    await _firestore
-        .collection('users')
-        .doc(userId)
-        .update({'masterUserId': FieldValue.delete()});
+    await _firestore.collection('users').doc(userId).update({
+      'masterUserId': FieldValue.delete(),
+      'masterInvitationId': FieldValue.delete(),
+    });
   }
 }

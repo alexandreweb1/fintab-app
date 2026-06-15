@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/l10n/app_localizations.dart';
 import 'core/providers/app_settings_provider.dart';
+import 'core/services/analytics_service.dart';
 import 'core/utils/firebase_options.dart';
 import 'features/app_lock/presentation/widgets/app_lock_gate.dart';
 import 'features/auth/domain/entities/user_entity.dart';
@@ -30,8 +31,7 @@ Future<void> main() async {
   ]);
 
   // Detect device language for first-launch locale defaulting.
-  final deviceLanguageCode =
-      binding.platformDispatcher.locale.languageCode;
+  final deviceLanguageCode = binding.platformDispatcher.locale.languageCode;
 
   // Load persisted settings (currency + language) before first frame.
   final settings =
@@ -103,6 +103,7 @@ class MyFinanceApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Fintab',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [AnalyticsService.instance.navigatorObserver],
       theme: _lightTheme,
       darkTheme: _darkTheme,
       themeMode: settings.themeMode.flutterThemeMode,
@@ -155,7 +156,8 @@ class AppRouter extends ConsumerWidget {
 
     return authAsync.when(
       data: (UserEntity? user) => user != null
-          ? const AppLockGate(child: _LiteracyOnboardingGate(child: MainScreen()))
+          ? const AppLockGate(
+              child: _LiteracyOnboardingGate(child: MainScreen()))
           : const LoginScreen(),
       loading: () => const _SplashScreen(),
       error: (error, _) => _FirebaseErrorScreen(error: error.toString()),
@@ -206,8 +208,7 @@ class _LiteracyOnboardingGateState
       appSettingsProvider.select((s) => s.literacyLevel),
       (prev, next) {
         if (next == FinancialLiteracyLevel.unset) {
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _maybeShow());
+          WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
         }
       },
     );

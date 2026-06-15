@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:quick_actions/quick_actions.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/navigation_provider.dart';
@@ -17,6 +20,7 @@ import '../../../../core/services/home_widget_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../../../../core/services/notification_providers.dart';
 import '../../../../core/services/notification_suggestion.dart';
+import '../../../../core/services/transaction_text_parser.dart';
 import '../../../budget/presentation/screens/planning_screen.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../reports/presentation/screens/reports_screen.dart';
@@ -35,7 +39,6 @@ import '../../../../core/providers/effective_user_provider.dart';
 
 const _kGreen = Color(0xFF00D887);
 
-
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -50,12 +53,23 @@ class _MainScreenState extends ConsumerState<MainScreen>
   bool _tabAnimating = false;
   StreamSubscription<NotificationSuggestion>? _notifSub;
 
+  /// Last clipboard text already offered as a suggestion — avoids re-prompting
+  /// for the same copy every time the app resumes.
+  String? _lastClipboardText;
+
+  /// Subscription to text/links shared into the app (iOS Share Extension and
+  /// Android share sheet) while it is running.
+  StreamSubscription<List<SharedMediaFile>>? _shareSub;
+
   Future<void> _changeTab(int newIndex) async {
     if (newIndex == _currentIndex || _tabAnimating) return;
     _tabAnimating = true;
     setState(() => _tabOpacity = 0.0);
     await Future<void>.delayed(const Duration(milliseconds: 130));
-    if (!mounted) { _tabAnimating = false; return; }
+    if (!mounted) {
+      _tabAnimating = false;
+      return;
+    }
     setState(() {
       _currentIndex = newIndex;
       _tabOpacity = 1.0;
@@ -84,6 +98,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initNotificationFeature();
+    _initShareIntent();
+    _initQuickActions();
     _initInAppUpdate();
   }
 
@@ -91,6 +107,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
   void dispose() {
     _notifSub?.cancel();
     _notifSub = null;
+    _shareSub?.cancel();
+    _shareSub = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -106,8 +124,113 @@ class _MainScreenState extends ConsumerState<MainScreen>
       // Check if the user tapped a native notification while app was in background
       _checkIntentSuggestion();
       _checkOpenAddDialogIntent();
+      // Offer to launch a transaction copied to the clipboard (opt-in).
+      _checkClipboardSuggestion();
       // Kick the outbox sync in case items piled up while the app was killed.
       ref.read(backlogSyncWorkerProvider).tickNow();
+    }
+  }
+
+  /// When clipboard capture is enabled, parses the clipboard text and, if it
+  /// looks like a transaction, shows a non-blocking prompt to launch it
+  /// pre-filled. Works on iOS and Android with no special permission.
+  Future<void> _checkClipboardSuggestion() async {
+    if (kIsWeb) return;
+    if (!ref.read(clipboardCaptureEnabledProvider)) return;
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim();
+      if (text == null || text.isEmpty || text == _lastClipboardText) return;
+
+      final suggestion =
+          TransactionTextParser.parse(text, sourceApp: 'clipboard');
+      if (suggestion == null) return;
+
+      // Mark handled even after parsing so an unrelated copy isn't re-checked.
+      _lastClipboardText = text;
+      if (!mounted) return;
+
+      final amountStr =
+          suggestion.amount.toStringAsFixed(2).replaceAll('.', ',');
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('💰 Detectamos R\$ $amountStr no texto copiado'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Lançar',
+            onPressed: () =>
+                ref.read(pendingSuggestionProvider.notifier).state = suggestion,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Clipboard] check error: $e');
+    }
+  }
+
+  // ── Shared text (iOS Share Extension / Android share sheet) ────────────────
+
+  /// Listens for text/links shared into the app and, when one parses into a
+  /// transaction, opens the AddTransactionDialog pre-filled. Handles both the
+  /// app-already-running case (stream) and the launched-from-share case.
+  void _initShareIntent() {
+    if (kIsWeb) return;
+    _shareSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+          _handleSharedFiles,
+          onError: (Object e) => debugPrint('[Share] stream error: $e'),
+        );
+    ReceiveSharingIntent.instance.getInitialMedia().then((files) {
+      _handleSharedFiles(files);
+      // Tell the plugin we consumed the initial share so it isn't redelivered.
+      ReceiveSharingIntent.instance.reset();
+    });
+  }
+
+  // ── Home-screen quick action ───────────────────────────────────────────────
+
+  /// Registers a long-press app-icon shortcut ("Novo lançamento") that opens
+  /// the AddTransactionDialog. Works on iOS and Android, configured from Dart.
+  void _initQuickActions() {
+    if (kIsWeb) return;
+    const quickActions = QuickActions();
+    quickActions.initialize((shortcutType) {
+      if (shortcutType != 'new_transaction') return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showAnimatedDialog<void>(
+          context: context,
+          builder: (_) => const AddTransactionDialog(),
+        );
+      });
+    });
+    quickActions.setShortcutItems(const [
+      ShortcutItem(type: 'new_transaction', localizedTitle: 'Novo lançamento'),
+    ]);
+  }
+
+  void _handleSharedFiles(List<SharedMediaFile> files) {
+    if (!mounted || files.isEmpty) return;
+    // For text/url shares the shared string is carried in `path`.
+    final shared = files.firstWhere(
+      (f) => f.type == SharedMediaType.text || f.type == SharedMediaType.url,
+      orElse: () => files.first,
+    );
+    final text = shared.path.trim();
+    if (text.isEmpty) return;
+
+    final suggestion = TransactionTextParser.parse(text, sourceApp: 'share');
+    if (suggestion != null) {
+      // Opens the pre-filled dialog via the existing pendingSuggestion listener.
+      ref.read(pendingSuggestionProvider.notifier).state = suggestion;
+    } else {
+      // The user shared into Fintab on purpose — open an empty entry dialog so
+      // they can fill it in, rather than silently dropping the share.
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => const AddTransactionDialog(),
+      );
     }
   }
 
@@ -173,8 +296,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
   Future<void> _checkOpenAddDialogIntent() async {
     if (kIsWeb) return;
     try {
-      final shouldOpen =
-          await HomeWidgetService.consumeOpenAddDialogIntent();
+      final shouldOpen = await HomeWidgetService.consumeOpenAddDialogIntent();
       if (shouldOpen && mounted) {
         await showAnimatedDialog<void>(
           context: context,
@@ -224,7 +346,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
         NotificationListenerBridge.resetStream();
         if (mounted) {
           Future.delayed(const Duration(seconds: 3), () {
-            if (mounted && _notifSub == null &&
+            if (mounted &&
+                _notifSub == null &&
                 ref.read(notificationDetectionEnabledProvider)) {
               debugPrint('[Notif] Retrying stream subscription...');
               _startListening();
@@ -238,7 +361,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
         NotificationListenerBridge.resetStream();
         if (mounted) {
           Future.delayed(const Duration(seconds: 3), () {
-            if (mounted && _notifSub == null &&
+            if (mounted &&
+                _notifSub == null &&
                 ref.read(notificationDetectionEnabledProvider)) {
               debugPrint('[Notif] Retrying stream subscription...');
               _startListening();
@@ -287,22 +411,22 @@ class _MainScreenState extends ConsumerState<MainScreen>
     }
   }
 
-  Future<String?> _autoSaveTransaction(NotificationSuggestion suggestion) async {
+  Future<String?> _autoSaveTransaction(
+      NotificationSuggestion suggestion) async {
     try {
       final type = suggestion.type ?? TransactionType.expense;
-      final id = await ref
-          .read(transactionsNotifierProvider.notifier)
-          .addAndReturnId(
-            title: suggestion.rawText.length > 60
-                ? suggestion.rawText.substring(0, 60)
-                : suggestion.rawText,
-            amount: suggestion.amount,
-            type: type,
-            category: 'A categorizar',
-            date: DateTime.now(),
-            description: 'Via ${suggestion.sourceApp}',
-            isPending: true,
-          );
+      final id =
+          await ref.read(transactionsNotifierProvider.notifier).addAndReturnId(
+                title: suggestion.rawText.length > 60
+                    ? suggestion.rawText.substring(0, 60)
+                    : suggestion.rawText,
+                amount: suggestion.amount,
+                type: type,
+                category: 'A categorizar',
+                date: DateTime.now(),
+                description: 'Via ${suggestion.sourceApp}',
+                isPending: true,
+              );
       debugPrint('[Notif] Auto-saved transaction id=$id');
       return id;
     } catch (e) {
@@ -316,7 +440,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
     ref.watch(categoriesSeedProvider);
     ref.watch(walletsSeedProvider);
     ref.watch(iapInitProvider); // inicializa IAP e restaura compras ao logar
-    ref.watch(recurringGeneratorProvider); // gera transações de recorrências pendentes
+    ref.watch(
+        recurringGeneratorProvider); // gera transações de recorrências pendentes
 
     // React to detection toggle changes (start/stop listener dynamically)
     ref.listen<bool>(notificationDetectionEnabledProvider, (_, next) {

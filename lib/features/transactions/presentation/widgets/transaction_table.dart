@@ -51,22 +51,22 @@ class _TransactionTableState extends ConsumerState<TransactionTable> {
               bottom: BorderSide(color: borderColor, width: 1.5),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 11),
             child: Row(
               children: [
                 _HeaderCell('Tipo', flex: 2),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _HeaderCell('Descrição', flex: 4),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _HeaderCell('Categoria', flex: 3),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _HeaderCell('Carteira', flex: 2),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _HeaderCell('Data', flex: 2),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 _HeaderCell('Valor', flex: 2, align: TextAlign.right),
-                const SizedBox(width: 40), // actions column
+                SizedBox(width: 40), // actions column
               ],
             ),
           ),

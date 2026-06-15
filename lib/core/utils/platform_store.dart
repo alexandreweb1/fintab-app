@@ -31,3 +31,15 @@ String get storeNameFull {
   if (isAndroidPlatform) return 'Google Play Store';
   return 'Apple App Store';
 }
+
+/// Public store URL for the running platform, used in share/referral messages.
+///
+/// Platform-aware on purpose: the iOS build must not reference Google Play
+/// (App Store Review Guideline 2.3.10), so a share started on iOS links only to
+/// the App Store, and one started on Android links only to Google Play.
+String get storeUrl {
+  if (isAndroidPlatform) {
+    return 'https://play.google.com/store/apps/details?id=com.alexdev.myfinanceapp';
+  }
+  return 'https://apps.apple.com/app/id6776314028';
+}

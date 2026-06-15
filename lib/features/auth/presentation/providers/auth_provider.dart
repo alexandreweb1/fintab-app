@@ -9,6 +9,7 @@ import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import '../../domain/usecases/sign_up_usecase.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/usecases/usecase.dart';
 
 // --- Infrastructure Providers ---
@@ -98,10 +99,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> signIn(String email, String password) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    final result = await _signIn(SignInParams(email: email, password: password));
+    final result =
+        await _signIn(SignInParams(email: email, password: password));
     result.fold(
       (failure) => state = AuthState(errorMessage: failure.message),
-      (user) => state = AuthState(user: user),
+      (user) {
+        state = AuthState(user: user);
+        AnalyticsService.instance.logLogin('email');
+      },
     );
   }
 
@@ -112,7 +117,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
     result.fold(
       (failure) => state = AuthState(errorMessage: failure.message),
-      (user) => state = AuthState(user: user),
+      (user) {
+        state = AuthState(user: user);
+        AnalyticsService.instance.logSignUp('email');
+      },
     );
   }
 
@@ -127,6 +135,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           state = const AuthState();
         } else {
           state = AuthState(user: user);
+          AnalyticsService.instance.logLogin('google');
         }
       },
     );
@@ -142,6 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           state = const AuthState();
         } else {
           state = AuthState(user: user);
+          AnalyticsService.instance.logLogin('apple');
         }
       },
     );

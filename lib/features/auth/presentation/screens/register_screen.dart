@@ -183,7 +183,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           const SizedBox(width: 10),
                           Text(
                             l10n.continueWithGoogle,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),

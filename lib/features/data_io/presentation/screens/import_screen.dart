@@ -329,7 +329,7 @@ class _DefaultsCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: targetWalletId,
+              initialValue: targetWalletId,
               items: walletItems,
               decoration: InputDecoration(
                 labelText: l10n.importTargetWallet,
@@ -340,7 +340,7 @@ class _DefaultsCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: incomeCategoryNames.contains(incomeCategory)
+              initialValue: incomeCategoryNames.contains(incomeCategory)
                   ? incomeCategory
                   : (incomeCategoryNames.isNotEmpty
                       ? incomeCategoryNames.first
@@ -360,7 +360,7 @@ class _DefaultsCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: expenseCategoryNames.contains(expenseCategory)
+              initialValue: expenseCategoryNames.contains(expenseCategory)
                   ? expenseCategory
                   : (expenseCategoryNames.isNotEmpty
                       ? expenseCategoryNames.first

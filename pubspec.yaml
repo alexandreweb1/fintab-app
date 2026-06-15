@@ -2,7 +2,7 @@ name: my_finance_app
 description: Personal finance management app with Clean Architecture.
 publish_to: 'none'
 
-version: 1.0.3+136
+version: 1.0.5+141
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -15,6 +15,7 @@ dependencies:
   firebase_core: ^3.6.0
   cloud_firestore: ^5.4.4
   firebase_auth: ^5.3.1
+  firebase_analytics: ^11.3.0
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^6.1.4
 
@@ -41,6 +42,12 @@ dependencies:
 
   # Local Notifications (notification-to-transaction feature)
   flutter_local_notifications: ^18.0.0
+
+  # Receive shared text (iOS Share Extension + Android share sheet → transaction)
+  receive_sharing_intent: ^1.8.1
+
+  # Home-screen quick action (long-press app icon → "Novo lançamento")
+  quick_actions: ^1.0.7
 
   # App update check
   package_info_plus: ^8.0.0

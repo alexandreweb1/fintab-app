@@ -75,7 +75,8 @@ class AppLocalizations {
   String get enterAmount => _t('Informe o valor', 'Enter the amount', 'Ingrese el monto');
   String get selectCategory => _t('Selecione uma categoria', 'Select a category', 'Seleccione una categoría');
   String get maxAmount => _t('Valor máximo: R\$ 1.000.000.000,00', 'Max: \$ 1,000,000,000.00', 'Máx: \$ 1.000.000.000,00');
-  String get suggestCategory => _t('Sugestão', 'Suggestion', 'Sugerencia');
+  String get suggestedCategories => _t('Categorias sugeridas', 'Suggested categories', 'Categorías sugeridas');
+  String get suggestExample => _t('ex.: ', 'e.g. ', 'ej.: ');
   String get use => _t('Usar', 'Use', 'Usar');
   String get newCategory => _t('Nova categoria...', 'New category...', 'Nueva categoría...');
   String get newCategoryTitle => _t('Nova Categoria', 'New Category', 'Nueva Categoría');

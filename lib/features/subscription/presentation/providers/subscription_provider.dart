@@ -54,9 +54,7 @@ final subscriptionStreamProvider = StreamProvider<SubscriptionEntity>((ref) {
   return authState.when(
     data: (user) {
       if (user == null) return Stream.value(SubscriptionEntity.none());
-      return ref
-          .watch(watchSubscriptionUseCaseProvider)
-          .call(userId: user.id);
+      return ref.watch(watchSubscriptionUseCaseProvider).call(userId: user.id);
     },
     loading: () => Stream.value(SubscriptionEntity.none()),
     error: (_, __) => Stream.value(SubscriptionEntity.none()),
@@ -69,8 +67,8 @@ final subscriptionStreamProvider = StreamProvider<SubscriptionEntity>((ref) {
 
 final isProProvider = Provider<bool>((ref) {
   return ref.watch(subscriptionStreamProvider).whenOrNull(
-        data: (entity) => entity.isActive,
-      ) ??
+            data: (entity) => entity.isActive,
+          ) ??
       false;
 });
 
@@ -166,7 +164,8 @@ class IAPNotifier extends StateNotifier<IAPState> {
     final response =
         await InAppPurchase.instance.queryProductDetails(_kProductIds);
     assert(() {
-      debugPrint('[IAP] encontrados: ${response.productDetails.map((p) => p.id).toList()}');
+      debugPrint(
+          '[IAP] encontrados: ${response.productDetails.map((p) => p.id).toList()}');
       debugPrint('[IAP] não encontrados: ${response.notFoundIDs}');
       debugPrint('[IAP] erro: ${response.error}');
       return true;
@@ -181,29 +180,41 @@ class IAPNotifier extends StateNotifier<IAPState> {
     await InAppPurchase.instance.restorePurchases();
   }
 
-  void _onPurchaseUpdates(List<PurchaseDetails> purchases) {
+  Future<void> _onPurchaseUpdates(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
+      // Only acknowledge the purchase with the store after the Pro status has
+      // been persisted. If we complete first and the Firestore write fails,
+      // the user paid and never receives Pro; by not completing, the store
+      // redelivers the purchase on the next restore/app start and we retry.
+      var persisted = true;
+
       if (purchase.status == PurchaseStatus.pending) {
         state = state.copyWith(isLoading: true);
       } else if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        _verifyAndSave(purchase);
+        persisted = await _verifyAndSave(purchase);
       } else if (purchase.status == PurchaseStatus.error) {
         state = state.copyWith(
           isLoading: false,
           errorMessage: purchase.error?.message ?? 'Erro ao processar compra.',
         );
+      } else if (purchase.status == PurchaseStatus.canceled) {
+        // User dismissed the store sheet — clear the spinner, no error message.
+        state = state.copyWith(isLoading: false);
       }
 
-      if (purchase.pendingCompletePurchase) {
-        InAppPurchase.instance.completePurchase(purchase);
+      if (persisted && purchase.pendingCompletePurchase) {
+        await InAppPurchase.instance.completePurchase(purchase);
       }
     }
   }
 
-  Future<void> _verifyAndSave(PurchaseDetails purchase) async {
+  /// Persists the purchase as the user's subscription. Returns true on
+  /// success; on failure the caller must NOT complete the purchase so the
+  /// store redelivers it later.
+  Future<bool> _verifyAndSave(PurchaseDetails purchase) async {
     final userId = _ref.read(authStateProvider).value?.id;
-    if (userId == null) return;
+    if (userId == null) return false;
 
     final type = _productIdToType(purchase.productID);
     final expiryDate = _computeExpiry(type);
@@ -217,11 +228,33 @@ class IAPNotifier extends StateNotifier<IAPState> {
       updatedAt: DateTime.now(),
     );
 
-    await _ref
-        .read(saveSubscriptionUseCaseProvider)
-        .call(userId: userId, entity: entity);
+    try {
+      final result = await _ref
+          .read(saveSubscriptionUseCaseProvider)
+          .call(userId: userId, entity: entity);
 
-    state = state.copyWith(isLoading: false, purchaseSuccess: true);
+      return result.fold(
+        (failure) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Compra confirmada, mas houve falha ao ativar o '
+                'Pro. Toque em "Restaurar compras" para tentar novamente.',
+          );
+          return false;
+        },
+        (_) {
+          state = state.copyWith(isLoading: false, purchaseSuccess: true);
+          return true;
+        },
+      );
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Compra confirmada, mas houve falha ao ativar o '
+            'Pro. Toque em "Restaurar compras" para tentar novamente.',
+      );
+      return false;
+    }
   }
 
   static SubscriptionType _productIdToType(String productId) {
@@ -250,14 +283,33 @@ class IAPNotifier extends StateNotifier<IAPState> {
   Future<void> buyMonthly() => _buy(kIapMonthly);
   Future<void> buyAnnual() => _buy(kIapAnnual);
 
+  /// On Android a subscription is returned once per offer. Picks the offer that
+  /// includes a free-trial phase (price 0) so the buyer actually gets the 7-day
+  /// trial; falls back to the first available offer (e.g. the bare base plan).
+  GooglePlayProductDetails? _androidProductWithTrial(String productId) {
+    final matches = state.products
+        .whereType<GooglePlayProductDetails>()
+        .where((p) => p.id == productId)
+        .toList();
+    if (matches.isEmpty) return null;
+    for (final p in matches) {
+      final offers = p.productDetails.subscriptionOfferDetails;
+      final idx = p.subscriptionIndex;
+      if (offers == null || idx == null || idx >= offers.length) continue;
+      final hasFreePhase =
+          offers[idx].pricingPhases.any((ph) => ph.priceAmountMicros == 0);
+      if (hasFreePhase) return p;
+    }
+    return matches.first;
+  }
+
   Future<void> _buy(String productId) async {
     if (kIsWeb) {
       state = state.copyWith(
           errorMessage: 'Compras não disponíveis na versão web.');
       return;
     }
-    final product =
-        state.products.where((p) => p.id == productId).firstOrNull;
+    final product = state.products.where((p) => p.id == productId).firstOrNull;
     if (product == null) {
       state = state.copyWith(
           errorMessage: 'Produto não encontrado. Tente novamente.');
@@ -268,14 +320,15 @@ class IAPNotifier extends StateNotifier<IAPState> {
       final PurchaseParam param;
       if (!kIsWeb && Platform.isAndroid) {
         // Google Play Billing v5+: assinaturas requerem GooglePlayPurchaseParam
-        // com o offerToken do plano base da assinatura.
-        final googleProduct = product as GooglePlayProductDetails;
+        // com o offerToken da oferta. Preferimos a oferta com avaliação
+        // gratuita para que o comprador receba os 7 dias grátis.
+        final googleProduct = _androidProductWithTrial(productId) ??
+            product as GooglePlayProductDetails;
         final offerToken = googleProduct.offerToken;
         if (offerToken == null) {
           state = state.copyWith(
             isLoading: false,
-            errorMessage:
-                'Plano de assinatura não configurado na Play Store. '
+            errorMessage: 'Plano de assinatura não configurado na Play Store. '
                 'Certifique-se de que o produto tem um plano base ativo.',
           );
           return;
@@ -310,8 +363,7 @@ class IAPNotifier extends StateNotifier<IAPState> {
   }
 }
 
-final iapNotifierProvider =
-    StateNotifierProvider<IAPNotifier, IAPState>((ref) {
+final iapNotifierProvider = StateNotifierProvider<IAPNotifier, IAPState>((ref) {
   return IAPNotifier(ref);
 });
 

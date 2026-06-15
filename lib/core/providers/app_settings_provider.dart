@@ -170,7 +170,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   static const _keyHiddenWallets = 'hidden_wallet_ids';
   static const _keyLiteracyLevel = 'app_literacy_level';
 
-  AppSettingsNotifier(AppSettings initial) : super(initial);
+  AppSettingsNotifier(super.initial);
 
   Future<void> setCurrency(AppCurrency currency) async {
     state = state.copyWith(currency: currency);
