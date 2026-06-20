@@ -59,13 +59,15 @@ class CategorySuggestion {
   final double score;
   final int hits; // how many past transactions reinforced this category
   final int recencyRank; // smallest recencyRank contributing (final tiebreak)
-  final String example; // example past title shown as subtitle
+  final String example; // example past title shown as subtitle ('' if none)
+  final String fillTitle; // text dropped into the title field when accepted
   const CategorySuggestion({
     required this.category,
     required this.score,
     required this.hits,
     required this.recencyRank,
     required this.example,
+    required this.fillTitle,
   });
 }
 
@@ -132,6 +134,7 @@ List<CategorySuggestion> rankCategorySuggestions({
   final bestTxScore = <String, double>{};
   final example = <String, String>{};
 
+  // 1) History-based scoring: how past descriptions of this kind match.
   for (final e in index) {
     if (!validCategories.contains(e.category)) continue;
     final raw = scoreSuggestionEntry(normQuery, queryTokens, e);
@@ -147,17 +150,43 @@ List<CategorySuggestion> rankCategorySuggestions({
     }
   }
 
+  // 2) Category-NAME scoring: the typed text may itself be (a prefix of) a
+  //    category name even when no past transaction matches it. Score each
+  //    selectable category's own name as a one-line pseudo-entry and fold it in,
+  //    so e.g. typing "comb" surfaces a "Combustível" category directly.
+  for (final c in validCategories) {
+    final cn = normalizeForSearch(c);
+    if (cn.isEmpty) continue;
+    final raw = scoreSuggestionEntry(
+      normQuery,
+      queryTokens,
+      SuggestionEntry(
+        category: c,
+        normText: cn,
+        tokens: suggestionTokens(cn),
+        recencyRank: 0,
+        exampleTitle: c,
+      ),
+    );
+    if (raw < kSuggestionMinTxScore) continue;
+    score[c] = (score[c] ?? 0) + raw;
+  }
+
   var candidates = <CategorySuggestion>[];
   for (final c in score.keys) {
-    final h = hits[c] ?? 1;
+    final h = hits[c] ?? 0;
     final finalScore = score[c]! * (1 + 0.10 * _log2(1 + h));
     if (finalScore < kSuggestionMinAggScore) continue;
+    final ex = example[c] ?? '';
     candidates.add(CategorySuggestion(
       category: c,
       score: finalScore,
       hits: h,
       recencyRank: bestRank[c] ?? 1 << 30,
-      example: example[c] ?? '',
+      example: ex,
+      // Accepting fills the title with the best past description, or the
+      // category name itself when the match came only from the name.
+      fillTitle: ex.isNotEmpty ? ex : c,
     ));
   }
 

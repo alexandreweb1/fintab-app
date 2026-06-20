@@ -463,6 +463,28 @@ class AppLocalizations {
       'Controla quando o app mostra dicas explicativas',
       'Controls when the app shows explanatory tips',
       'Controla cuándo la app muestra consejos explicativos');
+  String get categorySortSettingsTitle => _t(
+      'Ordem das categorias',
+      'Category order',
+      'Orden de las categorías');
+  String get categorySortSettingsSubtitle => _t(
+      'Como ordenar despesas e receitas ao lançar',
+      'How expenses and income are ordered when adding',
+      'Cómo se ordenan gastos e ingresos al registrar');
+  String get categorySortTitle => _t(
+      'Ordem das categorias',
+      'Category order',
+      'Orden de las categorías');
+  String get categorySortMostUsed =>
+      _t('Mais usadas', 'Most used', 'Más usadas');
+  String get categorySortMostUsedDesc => _t(
+      'As categorias que você mais usa aparecem primeiro',
+      'The categories you use most appear first',
+      'Las categorías que más usas aparecen primero');
+  String get categorySortAlphabetical =>
+      _t('Alfabética', 'Alphabetical', 'Alfabética');
+  String get categorySortAlphabeticalDesc =>
+      _t('De A a Z', 'From A to Z', 'De la A a la Z');
   String get helpHintLabel =>
       _t('Saiba mais', 'Learn more', 'Saber más');
   String get gotIt => _t('Entendi', 'Got it', 'Entendido');

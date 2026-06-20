@@ -8,6 +8,8 @@ import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/widgets/help_hint.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
+import '../../../category_rules/domain/category_rule_matcher.dart';
+import '../../../category_rules/presentation/providers/category_rules_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
@@ -58,6 +60,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   // new-category). Distinguishes a real choice from the build-time default, so
   // we never suppress the best suggestion just because it equals the default.
   bool _categoryUserSelected = false;
+  // True while the category was auto-filled by a matching auto-categorization
+  // rule (not an explicit user choice), so we can clear it if the rule stops
+  // matching as the user keeps typing.
+  bool _ruleApplied = false;
   DateTime _date = DateTime.now();
   String _walletId = '';
   String? _goalId;
@@ -67,6 +73,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   Timer? _suggestDebounce;
   List<CategorySuggestion> _suggestions = const [];
   bool _suggestionsDismissed = false;
+  // True while we programmatically rewrite the title after accepting a
+  // suggestion, so the title listener doesn't bounce the suggestions back open.
+  bool _applyingSuggestion = false;
   String _lastTitleNorm = '';
   // Memoized per-type index, rebuilt only when the type, history size or the
   // most-recent transaction changes (a cheap content signature).
@@ -161,6 +170,34 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       if (_suggestions.isNotEmpty) setState(() => _suggestions = const []);
       return;
     }
+
+    // Auto-categorization rules take precedence over the fuzzy ranker. If a
+    // user-defined rule matches the title and the user hasn't actively picked a
+    // category, apply the rule's category and skip the suggestion list.
+    if (!_categoryUserSelected) {
+      final ruleCat = matchCategory(
+        text: _titleController.text,
+        rules: ref.read(categoryRulesProvider),
+        type: _type,
+      );
+      if (ruleCat != null && _categoryNamesRead().contains(ruleCat)) {
+        if (_category != ruleCat || !_ruleApplied || _suggestions.isNotEmpty) {
+          setState(() {
+            _category = ruleCat;
+            _ruleApplied = true;
+            _suggestions = const [];
+          });
+        }
+        return;
+      } else if (_ruleApplied) {
+        // A rule was auto-applied before but no longer matches — undo it.
+        setState(() {
+          _ruleApplied = false;
+          _category = null;
+        });
+      }
+    }
+
     _ensureIndex();
     final result = rankCategorySuggestions(
       query: _titleController.text,
@@ -188,6 +225,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   }
 
   void _onTitleChanged(String value) {
+    if (_applyingSuggestion) return;
     final n = normalizeForSearch(value);
     final changed = n != _lastTitleNorm;
     _lastTitleNorm = n;
@@ -202,10 +240,21 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
     });
   }
 
-  void _acceptSuggestion(String category) {
-    if (!_categoryNamesRead().contains(category)) return;
+  void _acceptSuggestion(CategorySuggestion s) {
+    if (!_categoryNamesRead().contains(s.category)) return;
+    _suggestDebounce?.cancel();
+    final fill = s.fillTitle.trim();
+    if (fill.isNotEmpty && fill != _titleController.text) {
+      // Guard the listener so this programmatic write doesn't reopen the box.
+      _applyingSuggestion = true;
+      _titleController.text = fill;
+      _titleController.selection =
+          TextSelection.collapsed(offset: fill.length);
+      _applyingSuggestion = false;
+      _lastTitleNorm = normalizeForSearch(fill);
+    }
     setState(() {
-      _category = category;
+      _category = s.category;
       _categoryUserSelected = true;
       _suggestions = const [];
       _suggestionsDismissed = true;
@@ -222,6 +271,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       _type = type;
       _category = null;
       _categoryUserSelected = false;
+      _ruleApplied = false;
       _suggestions = const [];
       _suggestionsDismissed = false;
       _index = null; // income/expense categories differ — rebuild the index
@@ -264,7 +314,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         ));
       }
       rows.add(InkWell(
-        onTap: () => _acceptSuggestion(s.category),
+        onTap: () => _acceptSuggestion(s),
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

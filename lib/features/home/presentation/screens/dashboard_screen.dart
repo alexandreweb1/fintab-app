@@ -19,7 +19,9 @@ import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/insights_provider.dart';
 import '../widgets/dashboard_extra_cards.dart';
+import '../widgets/dashboard_insights_card.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
@@ -47,6 +49,10 @@ class DashboardScreen extends ConsumerWidget {
     final budgetSummaries = ref.watch(dashboardBudgetSummaryProvider);
     final selectedMonth = ref.watch(dashboardSelectedMonthProvider);
     final config = ref.watch(dashboardConfigProvider);
+    final insights = ref.watch(dashboardInsightsProvider);
+    final projection = ref.watch(monthProjectionProvider);
+    final hasInsightsSection =
+        projection.showProjection || insights.isNotEmpty;
     // Whether the user has no transactions at all (new user) → show the
     // welcome CTA that nudges the first transaction (activation).
     final allTx = ref.watch(transactionsStreamProvider).value;
@@ -60,6 +66,8 @@ class DashboardScreen extends ConsumerWidget {
 
     final monthLabel =
         DateFormat('MMM yyyy', dateLoc).format(selectedMonth).capitalizeMonth();
+    final monthName =
+        DateFormat('MMMM', dateLoc).format(selectedMonth).capitalizeMonth();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -98,6 +106,17 @@ class DashboardScreen extends ConsumerWidget {
 
           // ── Seções dinâmicas ordenadas pelo usuário ──
           for (final section in config.visibleSections) ...[
+            if (section == DashboardSection.insights &&
+                hasInsightsSection) ...[
+              _SectionHeader(title: 'Insights', subtitle: monthLabel),
+              const SizedBox(height: 8),
+              DashboardInsightsCard(
+                insights: insights,
+                projection: projection,
+                monthName: monthName,
+              ),
+              const SizedBox(height: 24),
+            ],
             if (section == DashboardSection.incomeExpense) ...[
               _IncomeExpenseRow(income: income, expense: expense),
               const SizedBox(height: 24),
@@ -1574,6 +1593,8 @@ class _SectionTile extends StatelessWidget {
 
   IconData _sectionIcon(DashboardSection s) {
     switch (s) {
+      case DashboardSection.insights:
+        return Icons.auto_awesome_outlined;
       case DashboardSection.incomeExpense:
         return Icons.swap_vert_rounded;
       case DashboardSection.financialHealth:

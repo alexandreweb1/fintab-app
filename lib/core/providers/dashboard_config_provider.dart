@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ─── Section enum ─────────────────────────────────────────────────────────────
 
 enum DashboardSection {
+  insights,
   incomeExpense,
   financialHealth,
   budgets,
@@ -17,6 +18,8 @@ enum DashboardSection {
 
   String get label {
     switch (this) {
+      case DashboardSection.insights:
+        return 'Insights & Projeção';
       case DashboardSection.incomeExpense:
         return 'Receitas & Despesas';
       case DashboardSection.financialHealth:
@@ -34,6 +37,8 @@ enum DashboardSection {
 
   String get description {
     switch (this) {
+      case DashboardSection.insights:
+        return 'Alertas de orçamento e projeção de fim de mês';
       case DashboardSection.incomeExpense:
         return 'Cards de receita e despesa do mês';
       case DashboardSection.financialHealth:

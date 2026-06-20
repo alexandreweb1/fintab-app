@@ -166,6 +166,35 @@ void main() {
       );
     });
 
+    test('history match fills the title with the matched past description', () {
+      final index = reindex([
+        for (var i = 0; i < 4; i++) entry('Combustível posto', 'Transporte', i),
+      ]);
+      final result = rankCategorySuggestions(
+        query: 'comb',
+        index: index,
+        validCategories: valid,
+      );
+      expect(result.single.category, 'Transporte');
+      expect(result.single.fillTitle, 'Combustível posto',
+          reason: 'accepting should complete the title, not just the category');
+    });
+
+    test('matches a category by name even with no history', () {
+      final cats = {'Combustível', 'Alimentação', 'Outros'};
+      final result = rankCategorySuggestions(
+        query: 'comb',
+        index: const [], // nothing in history
+        validCategories: cats,
+      );
+      expect(result.single.category, 'Combustível');
+      expect(result.single.hits, 0);
+      expect(result.single.example, '',
+          reason: 'no past example to show for a name-only match');
+      expect(result.single.fillTitle, 'Combustível',
+          reason: 'a name match still fills the title with the category name');
+    });
+
     test('caps the result at kSuggestionMaxRows', () {
       final cats = {'C1', 'C2', 'C3', 'C4', 'C5', 'C6'};
       final index = <SuggestionEntry>[];

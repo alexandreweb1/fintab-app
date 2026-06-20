@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../data/repositories/category_repository_impl.dart';
 import '../../domain/entities/category_entity.dart';
@@ -60,24 +62,79 @@ final categoriesStreamProvider =
   );
 });
 
+// --- Usage counts (for the "mais usadas" sort mode) ---
+
+/// How many times each category name has been used, split by transaction type.
+/// Drives the [CategorySortMode.mostUsed] ordering. Income and expense are kept
+/// apart because a name like "Outros" exists in both and must not be conflated.
+final categoryUsageCountsProvider =
+    Provider<({Map<String, int> income, Map<String, int> expense})>((ref) {
+  final transactions = ref.watch(transactionsStreamProvider).value ?? const [];
+  final income = <String, int>{};
+  final expense = <String, int>{};
+  for (final t in transactions) {
+    if (t.isIncome) {
+      income[t.category] = (income[t.category] ?? 0) + 1;
+    } else if (t.isExpense) {
+      expense[t.category] = (expense[t.category] ?? 0) + 1;
+    }
+  }
+  return (income: income, expense: expense);
+});
+
+/// Orders [categories] according to [mode]. For [CategorySortMode.mostUsed] the
+/// primary key is the usage count (desc) with an alphabetical tie-break, so
+/// categories the user never touched still come out in a predictable order.
+List<CategoryEntity> sortCategoriesByMode(
+  List<CategoryEntity> categories,
+  CategorySortMode mode,
+  Map<String, int> usageCounts,
+) {
+  int byName(CategoryEntity a, CategoryEntity b) =>
+      a.name.toLowerCase().trim().compareTo(b.name.toLowerCase().trim());
+
+  final sorted = [...categories];
+  if (mode == CategorySortMode.mostUsed) {
+    sorted.sort((a, b) {
+      final ua = usageCounts[a.name] ?? 0;
+      final ub = usageCounts[b.name] ?? 0;
+      if (ua != ub) return ub.compareTo(ua);
+      return byName(a, b);
+    });
+  } else {
+    sorted.sort(byName);
+  }
+  return sorted;
+}
+
 // --- Filtered Providers ---
 
 final incomeCategoriesProvider = Provider<List<CategoryEntity>>((ref) {
-  final all = ref.watch(categoriesStreamProvider).value?.where((c) => c.isIncome).toList() ?? [];
-  all.sort((a, b) {
-    final aName = a.name.toLowerCase().trim();
-    final bName = b.name.toLowerCase().trim();
-    final aIsSalary = aName == 'salário' || aName == 'salario';
-    final bIsSalary = bName == 'salário' || bName == 'salario';
-    if (aIsSalary && !bIsSalary) return -1;
-    if (!aIsSalary && bIsSalary) return 1;
-    return a.name.compareTo(b.name);
-  });
-  return all;
+  final all = ref
+          .watch(categoriesStreamProvider)
+          .value
+          ?.where((c) => c.isIncome)
+          .toList() ??
+      [];
+  final mode = ref.watch(appSettingsProvider).categorySortMode;
+  final usage = mode == CategorySortMode.mostUsed
+      ? ref.watch(categoryUsageCountsProvider).income
+      : const <String, int>{};
+  return sortCategoriesByMode(all, mode, usage);
 });
 
 final expenseCategoriesProvider = Provider<List<CategoryEntity>>((ref) {
-  return ref.watch(categoriesStreamProvider).value?.where((c) => c.isExpense).toList() ?? [];
+  final all = ref
+          .watch(categoriesStreamProvider)
+          .value
+          ?.where((c) => c.isExpense)
+          .toList() ??
+      [];
+  final mode = ref.watch(appSettingsProvider).categorySortMode;
+  final usage = mode == CategorySortMode.mostUsed
+      ? ref.watch(categoryUsageCountsProvider).expense
+      : const <String, int>{};
+  return sortCategoriesByMode(all, mode, usage);
 });
 
 // --- Seed initializer (activate in MainScreen) ---

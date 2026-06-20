@@ -421,14 +421,31 @@ class DashboardFinancialHealthCard extends ConsumerWidget {
                     color: color,
                     trackColor: cs.outlineVariant.withValues(alpha: 0.4),
                   ),
+                  // O medidor é a única fonte do número — daí o texto ao lado
+                  // não repete "/100" (antes mostrava "· 50/100").
                   child: Center(
-                    child: Text(
-                      '${score.scoreRounded}',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${score.scoreRounded}',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                            height: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '/100',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -438,23 +455,13 @@ class DashboardFinancialHealthCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: color,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '· ${score.scoreRounded}/100',
-                          style: TextStyle(
-                              fontSize: 12, color: cs.onSurfaceVariant),
-                        ),
-                      ],
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(

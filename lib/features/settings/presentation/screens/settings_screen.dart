@@ -27,6 +27,7 @@ import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
+import '../../../category_rules/presentation/screens/category_rules_screen.dart';
 import '../../../sharing/presentation/providers/sharing_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/screens/pro_screen.dart';
@@ -509,6 +510,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             onTap: () => _showLiteracyLevelDialog(context, l10n),
           ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const _IconBadge(Icons.sort_rounded,
+                color: Color(0xFF26C6DA)),
+            title: Text(l10n.categorySortSettingsTitle),
+            subtitle: Text(l10n.categorySortSettingsSubtitle,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_categorySortLabel(settings.categorySortMode, l10n),
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 20),
+              ],
+            ),
+            onTap: () => _showCategorySortDialog(context, l10n),
+          ),
         ]),
       ),
       const SizedBox(height: 20),
@@ -556,6 +576,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         key: _keyNotifications,
         child: const _NotificationDetectionSection(),
       ),
+      const SizedBox(height: 12),
+      _SettingsCard(children: [
+        ListTile(
+          leading: const _IconBadge(Icons.rule_folder_outlined,
+              color: Color(0xFF00B894)),
+          title: const Text('Regras de categorização'),
+          subtitle: const Text(
+            'Categorize automaticamente por palavra-chave',
+            style: TextStyle(fontSize: 12),
+          ),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CategoryRulesScreen()),
+          ),
+        ),
+      ]),
       const SizedBox(height: 20),
 
       // ── SOBRE ──────────────────────────────────────────────────────────
@@ -716,6 +752,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showLiteracyLevelDialog(BuildContext context, AppLocalizations l10n) {
     showAnimatedDialog(
         context: context, builder: (ctx) => _LiteracyLevelDialog(l10n: l10n));
+  }
+
+  void _showCategorySortDialog(BuildContext context, AppLocalizations l10n) {
+    showAnimatedDialog(
+        context: context, builder: (ctx) => _CategorySortDialog(l10n: l10n));
+  }
+
+  String _categorySortLabel(CategorySortMode mode, AppLocalizations l10n) {
+    switch (mode) {
+      case CategorySortMode.mostUsed:
+        return l10n.categorySortMostUsed;
+      case CategorySortMode.alphabetical:
+        return l10n.categorySortAlphabetical;
+    }
   }
 
   String _themeModeLabel(AppThemeMode mode, AppLocalizations l10n) {
@@ -2480,6 +2530,58 @@ class _LiteracyLevelDialog extends ConsumerWidget {
                 value: FinancialLiteracyLevel.advanced,
                 title: Text(l10n.literacyLevelAdvanced),
                 subtitle: Text(l10n.literacyLevelAdvancedDesc,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.cancel)),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category Sort Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CategorySortDialog extends ConsumerWidget {
+  final AppLocalizations l10n;
+  const _CategorySortDialog({required this.l10n});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(appSettingsProvider).categorySortMode;
+    return AlertDialog(
+      title: Text(l10n.categorySortTitle),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      content: SizedBox(
+        width: 360,
+        child: RadioGroup<CategorySortMode>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v != null) {
+              ref.read(appSettingsProvider.notifier).setCategorySortMode(v);
+              Navigator.of(context).pop();
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<CategorySortMode>(
+                value: CategorySortMode.mostUsed,
+                title: Text(l10n.categorySortMostUsed),
+                subtitle: Text(l10n.categorySortMostUsedDesc,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              RadioListTile<CategorySortMode>(
+                value: CategorySortMode.alphabetical,
+                title: Text(l10n.categorySortAlphabetical),
+                subtitle: Text(l10n.categorySortAlphabeticalDesc,
                     style: const TextStyle(fontSize: 12)),
               ),
             ],

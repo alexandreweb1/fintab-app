@@ -23,6 +23,8 @@ import '../../../../core/services/notification_suggestion.dart';
 import '../../../../core/services/transaction_text_parser.dart';
 import '../../../budget/presentation/screens/planning_screen.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
+import '../../../category_rules/domain/category_rule_matcher.dart';
+import '../../../category_rules/presentation/providers/category_rules_provider.dart';
 import '../../../reports/presentation/screens/reports_screen.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
 import '../../../financial_health/presentation/providers/financial_health_provider.dart';
@@ -415,6 +417,14 @@ class _MainScreenState extends ConsumerState<MainScreen>
       NotificationSuggestion suggestion) async {
     try {
       final type = suggestion.type ?? TransactionType.expense;
+      // Auto-categorization rules: if the notification text matches a
+      // user-defined rule, pre-fill its category instead of "A categorizar".
+      // The item stays pending so the user can still review it.
+      final matchedCategory = matchCategory(
+        text: suggestion.rawText,
+        rules: ref.read(categoryRulesProvider),
+        type: suggestion.type,
+      );
       final id =
           await ref.read(transactionsNotifierProvider.notifier).addAndReturnId(
                 title: suggestion.rawText.length > 60
@@ -422,7 +432,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
                     : suggestion.rawText,
                 amount: suggestion.amount,
                 type: type,
-                category: 'A categorizar',
+                category: matchedCategory ?? 'A categorizar',
                 date: DateTime.now(),
                 description: 'Via ${suggestion.sourceApp}',
                 isPending: true,
@@ -439,6 +449,9 @@ class _MainScreenState extends ConsumerState<MainScreen>
   Widget build(BuildContext context) {
     ref.watch(categoriesSeedProvider);
     ref.watch(walletsSeedProvider);
+    // Keep the auto-categorization rules stream warm so they're available when
+    // a bank notification is auto-saved in the background.
+    ref.watch(categoryRulesStreamProvider);
     ref.watch(iapInitProvider); // inicializa IAP e restaura compras ao logar
     ref.watch(
         recurringGeneratorProvider); // gera transações de recorrências pendentes

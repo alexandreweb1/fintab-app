@@ -146,6 +146,13 @@ service cloud.firestore {
       allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
     }
 
+    // ── /category_rules/{ruleId} ─────────────────────────────────────────────
+    // Auto-categorization rules (keyword → category). Owner or collaborator.
+    match /category_rules/{ruleId} {
+      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
     // ── /subscriptions/{userId} ───────────────────────────────────────────────
     // Document ID == userId; only the owner can read/write their subscription.
     // Writes are field-validated (see validSubscription). Delete is allowed so

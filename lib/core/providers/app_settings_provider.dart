@@ -125,6 +125,24 @@ enum FinancialLiteracyLevel {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Category sort mode (ordem das categorias nos seletores de despesa/receita)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CategorySortMode {
+  /// Mais usadas primeiro (com base no histórico de transações). Padrão.
+  mostUsed,
+
+  /// Ordem alfabética.
+  alphabetical;
+
+  static CategorySortMode fromString(String? value) =>
+      CategorySortMode.values.firstWhere(
+        (m) => m.name == value,
+        orElse: () => CategorySortMode.mostUsed,
+      );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Settings state
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -134,6 +152,7 @@ class AppSettings {
   final AppThemeMode themeMode;
   final Set<String> hiddenWalletIds;
   final FinancialLiteracyLevel literacyLevel;
+  final CategorySortMode categorySortMode;
 
   const AppSettings({
     this.currency = AppCurrency.brl,
@@ -141,6 +160,7 @@ class AppSettings {
     this.themeMode = AppThemeMode.system,
     this.hiddenWalletIds = const {},
     this.literacyLevel = FinancialLiteracyLevel.unset,
+    this.categorySortMode = CategorySortMode.mostUsed,
   });
 
   AppSettings copyWith({
@@ -149,6 +169,7 @@ class AppSettings {
     AppThemeMode? themeMode,
     Set<String>? hiddenWalletIds,
     FinancialLiteracyLevel? literacyLevel,
+    CategorySortMode? categorySortMode,
   }) =>
       AppSettings(
         currency: currency ?? this.currency,
@@ -156,6 +177,7 @@ class AppSettings {
         themeMode: themeMode ?? this.themeMode,
         hiddenWalletIds: hiddenWalletIds ?? this.hiddenWalletIds,
         literacyLevel: literacyLevel ?? this.literacyLevel,
+        categorySortMode: categorySortMode ?? this.categorySortMode,
       );
 }
 
@@ -169,6 +191,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   static const _keyThemeMode = 'app_theme_mode';
   static const _keyHiddenWallets = 'hidden_wallet_ids';
   static const _keyLiteracyLevel = 'app_literacy_level';
+  static const _keyCategorySortMode = 'app_category_sort_mode';
 
   AppSettingsNotifier(super.initial);
 
@@ -196,6 +219,12 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     await prefs.setString(_keyLiteracyLevel, level.name);
   }
 
+  Future<void> setCategorySortMode(CategorySortMode mode) async {
+    state = state.copyWith(categorySortMode: mode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCategorySortMode, mode.name);
+  }
+
   Future<void> toggleWalletVisibility(String walletId) async {
     final hidden = Set<String>.from(state.hiddenWalletIds);
     if (hidden.contains(walletId)) {
@@ -218,6 +247,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final themeModeStr = prefs.getString(_keyThemeMode) ?? 'system';
     final hiddenList = prefs.getStringList(_keyHiddenWallets) ?? [];
     final literacyLevelStr = prefs.getString(_keyLiteracyLevel);
+    final categorySortModeStr = prefs.getString(_keyCategorySortMode);
 
     final AppLanguage language;
     if (savedLanguageCode != null) {
@@ -242,6 +272,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       themeMode: AppThemeMode.fromString(themeModeStr),
       hiddenWalletIds: Set<String>.from(hiddenList),
       literacyLevel: FinancialLiteracyLevel.fromString(literacyLevelStr),
+      categorySortMode: CategorySortMode.fromString(categorySortModeStr),
     );
   }
 }
