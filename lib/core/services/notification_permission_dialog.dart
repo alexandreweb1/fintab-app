@@ -5,10 +5,14 @@ import '../l10n/app_localizations.dart';
 import 'notification_listener_service.dart';
 
 /// Shows an explanation dialog and redirects to Android's Notification Access
-/// settings when the user hasnds't granted the permission yet.
+/// settings when the user hasn't granted the permission yet.
+///
+/// Reading notifications to detect transactions is an Android-only feature, so
+/// the dialog is never shown on iOS/macOS/web — otherwise it would prompt on
+/// every launch (permission can never be granted on those platforms).
 Future<void> showNotificationPermissionDialogIfNeeded(
     BuildContext context) async {
-  if (kIsWeb) return;
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
   final granted = await NotificationListenerBridge.isPermissionGranted();
   if (granted) return;
   if (!context.mounted) return;

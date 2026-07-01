@@ -112,6 +112,9 @@ class WalletsNotifier extends StateNotifier<AsyncValue<void>> {
     String currencyCode = '',
     WalletType type = WalletType.regular,
     double targetAmount = 0,
+    double creditLimit = 0,
+    int closingDay = 1,
+    int dueDay = 10,
   }) async {
     state = const AsyncValue.loading();
     final wallet = WalletEntity(
@@ -123,6 +126,9 @@ class WalletsNotifier extends StateNotifier<AsyncValue<void>> {
       currencyCode: currencyCode,
       type: type,
       targetAmount: targetAmount,
+      creditLimit: creditLimit,
+      closingDay: closingDay,
+      dueDay: dueDay,
     );
     final result = await _addWallet(AddWalletParams(wallet: wallet));
     return result.fold(

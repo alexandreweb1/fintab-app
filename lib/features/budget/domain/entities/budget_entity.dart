@@ -74,6 +74,10 @@ class BudgetEntity extends Equatable {
   /// period budget so the relationship can be tracked.
   final String? parentBudgetId;
 
+  /// When true, the leftover (or overspend) of the previous period is carried
+  /// into this period's effective limit. Only meaningful for monthly budgets.
+  final bool rollover;
+
   const BudgetEntity({
     required this.id,
     required this.userId,
@@ -84,6 +88,7 @@ class BudgetEntity extends Equatable {
     this.isAnnual = false,
     this.period = BudgetPeriod.monthly,
     this.parentBudgetId,
+    this.rollover = false,
   });
 
   /// First day of the budget period (alias of [month]).
@@ -104,6 +109,7 @@ class BudgetEntity extends Equatable {
         isAnnual,
         period,
         parentBudgetId,
+        rollover,
       ];
 }
 
@@ -112,21 +118,31 @@ class BudgetSummary {
   final BudgetEntity budget;
   final double spentAmount;
 
-  const BudgetSummary({required this.budget, required this.spentAmount});
+  /// Amount carried into this period from the previous one (rollover). Can be
+  /// negative when the previous period was overspent. Zero when rollover is off.
+  final double carryIn;
+
+  const BudgetSummary({
+    required this.budget,
+    required this.spentAmount,
+    this.carryIn = 0,
+  });
+
+  /// The limit actually available this period, including any rollover carry-in.
+  double get effectiveLimit => budget.limitAmount + carryIn;
 
   /// Visual progress for the bar — capped at 1.0 so the indicator
   /// doesn't overflow.
-  double get progress =>
-      budget.limitAmount > 0
-          ? (spentAmount / budget.limitAmount).clamp(0.0, 1.0)
-          : 0.0;
+  double get progress => effectiveLimit > 0
+      ? (spentAmount / effectiveLimit).clamp(0.0, 1.0)
+      : 0.0;
 
   /// Real percentage of the budget consumed — can exceed 100% when
   /// the user has spent more than the limit.
   double get percentage =>
-      budget.limitAmount > 0 ? (spentAmount / budget.limitAmount) * 100 : 0.0;
+      effectiveLimit > 0 ? (spentAmount / effectiveLimit) * 100 : 0.0;
 
-  bool get isOverBudget => spentAmount > budget.limitAmount;
+  bool get isOverBudget => spentAmount > effectiveLimit;
 
-  double get remaining => budget.limitAmount - spentAmount;
+  double get remaining => effectiveLimit - spentAmount;
 }

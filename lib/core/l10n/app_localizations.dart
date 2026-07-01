@@ -145,6 +145,13 @@ class AppLocalizations {
   String get budgetPlanned => _t('Previsto', 'Planned', 'Previsto');
   String get budgetRemaining => _t('Restante', 'Remaining', 'Restante');
   String get budgetExceeded => _t('Excedido', 'Exceeded', 'Excedido');
+  String get budgetRollover => _t('Acumular saldo do mês anterior', 'Roll over last month\'s balance', 'Acumular saldo del mes anterior');
+  String get budgetRolloverDesc => _t(
+      'A sobra (ou o excesso) do mês anterior é somada ao limite deste mês.',
+      'Last month\'s leftover (or overspend) is added to this month\'s limit.',
+      'El sobrante (o exceso) del mes anterior se suma al límite de este mes.');
+  String budgetCarriedOver(String amount) => _t(
+      'Acumulado: $amount', 'Carried over: $amount', 'Acumulado: $amount');
   String get createManually => _t('Criar manualmente', 'Create manually', 'Crear manualmente');
   String get createManuallyDesc => _t('Define o limite de cada categoria individualmente', 'Set each category limit individually', 'Define el límite de cada categoría individualmente');
 
@@ -228,6 +235,107 @@ class AppLocalizations {
       'Permita que la app lea sus notificaciones para identificar montos de cobros y pagos y sugerir el registro automáticamente.\n\nNinguna notificación se almacena ni se envía a servidores.');
   String get notNow => _t('Agora não', 'Not now', 'Ahora no');
   String get enable => _t('Ativar', 'Enable', 'Activar');
+
+  // ── Subscriptions (detected recurring charges) ─────────────────────────────
+  String get subscriptions => _t('Assinaturas', 'Subscriptions', 'Suscripciones');
+  String get subscriptionsDesc => _t(
+      'Cobranças recorrentes detectadas nos seus lançamentos',
+      'Recurring charges detected in your transactions',
+      'Cargos recurrentes detectados en tus transacciones');
+  String get subscriptionsMonthlyTotal => _t(
+      'Total mensal estimado', 'Estimated monthly total', 'Total mensual estimado');
+  String get subscriptionsEmpty => _t(
+      'Nenhuma assinatura detectada',
+      'No subscriptions detected',
+      'No se detectaron suscripciones');
+  String get subscriptionsEmptyDesc => _t(
+      'Conforme você registra cobranças que se repetem (streaming, academia, seguros…), elas aparecem aqui automaticamente.',
+      'As you record charges that repeat (streaming, gym, insurance…), they show up here automatically.',
+      'A medida que registras cargos que se repiten (streaming, gimnasio, seguros…), aparecen aquí automáticamente.');
+  String get subscriptionCreateRecurring =>
+      _t('Criar recorrência', 'Create recurring', 'Crear recurrencia');
+  String get subscriptionIgnore => _t('Ignorar', 'Ignore', 'Ignorar');
+  String subscriptionOccurrences(int n) =>
+      _t('$n cobranças', '$n charges', '$n cargos');
+  String get subscriptionLastCharge => _t('Última', 'Last', 'Último');
+  String get subscriptionNextCharge => _t('Próxima', 'Next', 'Próximo');
+  String get subscriptionRecurringCreated => _t(
+      'Recorrência criada com sucesso',
+      'Recurring transaction created',
+      'Recurrencia creada con éxito');
+  String get subscriptionIgnored =>
+      _t('Assinatura ignorada', 'Subscription ignored', 'Suscripción ignorada');
+  String get undo => _t('Desfazer', 'Undo', 'Deshacer');
+
+  // ── Receipt attachments (Pro) ──────────────────────────────────────────────
+  String get attachReceipt =>
+      _t('Anexar comprovante', 'Attach receipt', 'Adjuntar comprobante');
+  String get attachReceiptDesc => _t(
+      'Guarde a foto ou o PDF do comprovante junto ao lançamento.',
+      'Keep a photo or PDF of the receipt with the transaction.',
+      'Guarda la foto o el PDF del comprobante junto a la transacción.');
+  String get attachments => _t('Comprovantes', 'Receipts', 'Comprobantes');
+  String get takePhoto => _t('Tirar foto', 'Take photo', 'Tomar foto');
+  String get chooseFromGallery =>
+      _t('Escolher da galeria', 'Choose from gallery', 'Elegir de la galería');
+  String get choosePdf => _t('Escolher PDF', 'Choose PDF', 'Elegir PDF');
+  String get attachReceiptError => _t(
+      'Não foi possível anexar o comprovante',
+      'Could not attach the receipt',
+      'No se pudo adjuntar el comprobante');
+
+  // ── Credit card (invoices/faturas) ─────────────────────────────────────────
+  String get creditCard =>
+      _t('Cartão de crédito', 'Credit card', 'Tarjeta de crédito');
+  String get creditLimit =>
+      _t('Limite do cartão', 'Credit limit', 'Límite de la tarjeta');
+  String get availableLimit =>
+      _t('Limite disponível', 'Available limit', 'Límite disponible');
+  String get closingDay => _t('Dia de fechamento', 'Closing day', 'Día de cierre');
+  String get dueDay => _t('Dia de vencimento', 'Due day', 'Día de vencimiento');
+  String get invoices => _t('Faturas', 'Invoices', 'Facturas');
+  String get currentInvoice =>
+      _t('Fatura atual', 'Current invoice', 'Factura actual');
+  String get invoiceOpen => _t('Aberta', 'Open', 'Abierta');
+  String get invoiceClosed => _t('Fechada', 'Closed', 'Cerrada');
+  String get invoicePaid => _t('Paga', 'Paid', 'Pagada');
+  String get invoiceOverdue => _t('Vencida', 'Overdue', 'Vencida');
+  String get invoiceCloses => _t('Fecha em', 'Closes', 'Cierra el');
+  String get invoiceDue => _t('Vence em', 'Due', 'Vence el');
+  String get invoiceRemaining =>
+      _t('Falta pagar', 'Remaining', 'Falta pagar');
+  String get payInvoice => _t('Pagar fatura', 'Pay invoice', 'Pagar factura');
+  String get payInvoiceFrom =>
+      _t('Pagar com', 'Pay from', 'Pagar con');
+  String get invoicePaidSuccess =>
+      _t('Fatura paga com sucesso', 'Invoice paid', 'Factura pagada');
+  String get noInvoiceTransactions => _t('Nenhum lançamento nesta fatura',
+      'No transactions in this invoice', 'Sin transacciones en esta factura');
+  String get installments => _t('Parcelas', 'Installments', 'Cuotas');
+  String get installmentSingle => _t('À vista', 'Single', 'Al contado');
+  String get viewInvoices => _t('Ver faturas', 'View invoices', 'Ver facturas');
+  String get creditCardNoWallet => _t(
+      'Selecione uma carteira para pagar a fatura',
+      'Select a wallet to pay the invoice',
+      'Selecciona una billetera para pagar la factura');
+
+  // ── Currency converter (Pro) ───────────────────────────────────────────────
+  String get currencyConverter =>
+      _t('Conversor de moedas', 'Currency converter', 'Conversor de monedas');
+  String get currencyConverterDesc => _t(
+      'Converta valores entre moedas com cotação real',
+      'Convert amounts between currencies with live rates',
+      'Convierte montos entre monedas con cotización real');
+  String get amount => _t('Valor', 'Amount', 'Monto');
+  String get currencyFrom => _t('De', 'From', 'De');
+  String get currencyTo => _t('Para', 'To', 'A');
+  String get currencySwap => _t('Inverter', 'Swap', 'Invertir');
+  String get currencyRefreshRates =>
+      _t('Atualizar cotações', 'Refresh rates', 'Actualizar cotizaciones');
+  String get currencyRatesUpdatedAt =>
+      _t('Cotações de', 'Rates from', 'Cotizaciones de');
+  String get currencyRatesLoading => _t(
+      'Buscando cotações…', 'Fetching rates…', 'Buscando cotizaciones…');
 
   // ── Common ────────────────────────────────────────────────────────────────
   String get clear => _t('Limpar', 'Clear', 'Limpiar');

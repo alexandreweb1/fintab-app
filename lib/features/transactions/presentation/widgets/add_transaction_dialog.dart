@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/receipt_storage_service.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/widgets/help_hint.dart';
 import '../../../categories/domain/entities/category_entity.dart';
@@ -11,6 +17,7 @@ import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../category_rules/domain/category_rule_matcher.dart';
 import '../../../category_rules/presentation/providers/category_rules_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
+import '../../../subscription/presentation/widgets/pro_badge_widget.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
 import '../../../../core/utils/money_input_formatter.dart';
@@ -68,6 +75,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   String _walletId = '';
   String? _goalId;
   List<String> _tags = [];
+  List<String> _attachmentUrls = [];
+  bool _uploadingAttachment = false;
+  int _installments = 1;
 
   // --- Smart suggestions ---
   Timer? _suggestDebounce;
@@ -575,6 +585,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       _walletId = t.walletId;
       _goalId = t.goalId;
       _tags = [...t.tags];
+      _attachmentUrls = [...t.attachmentUrls];
     }
     // Pre-fill from notification suggestion
     if (!_isEditing) {
@@ -646,6 +657,220 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
     }
   }
 
+  // ── Receipt attachments (Pro) ──────────────────────────────────────────────
+
+  Future<void> _addAttachment() async {
+    final l10n = AppLocalizations.of(context);
+    if (!ref.read(isProProvider)) {
+      showProGateBottomSheet(
+        context,
+        featureName: l10n.attachReceipt,
+        featureDescription: l10n.attachReceiptDesc,
+        featureIcon: Icons.attach_file_rounded,
+      );
+      return;
+    }
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(l10n.takePhoto),
+              onTap: () => Navigator.of(ctx).pop('camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(l10n.chooseFromGallery),
+              onTap: () => Navigator.of(ctx).pop('gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: Text(l10n.choosePdf),
+              onTap: () => Navigator.of(ctx).pop('pdf'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    switch (source) {
+      case 'camera':
+        await _pickImage(ImageSource.camera);
+      case 'gallery':
+        await _pickImage(ImageSource.gallery);
+      case 'pdf':
+        await _pickPdf();
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: source, imageQuality: 70);
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final name = file.name.isNotEmpty ? file.name : 'foto.jpg';
+      await _uploadBytes(bytes, name, 'image/jpeg');
+    } catch (e) {
+      _showAttachmentError();
+    }
+  }
+
+  Future<void> _pickPdf() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: true,
+      );
+      final file = result?.files.firstOrNull;
+      final bytes = file?.bytes;
+      if (file == null || bytes == null) return;
+      await _uploadBytes(bytes, file.name, 'application/pdf');
+    } catch (e) {
+      _showAttachmentError();
+    }
+  }
+
+  Future<void> _uploadBytes(
+      Uint8List bytes, String filename, String contentType) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    setState(() => _uploadingAttachment = true);
+    try {
+      final url = await ReceiptStorageService.upload(
+        uid: uid,
+        bytes: bytes,
+        filename: filename,
+        contentType: contentType,
+      );
+      if (!mounted) return;
+      setState(() => _attachmentUrls = [..._attachmentUrls, url]);
+    } catch (e) {
+      _showAttachmentError();
+    } finally {
+      if (mounted) setState(() => _uploadingAttachment = false);
+    }
+  }
+
+  void _showAttachmentError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).attachReceiptError)),
+    );
+  }
+
+  Future<void> _removeAttachment(String url) async {
+    setState(() => _attachmentUrls =
+        _attachmentUrls.where((u) => u != url).toList());
+    // Best-effort cleanup in storage (ignored on failure).
+    unawaited(ReceiptStorageService.deleteByUrl(url));
+  }
+
+  Future<void> _openAttachment(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Widget _buildAttachments() {
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.attach_file_rounded, size: 18, color: cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(l10n.attachments,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant)),
+            if (!ref.watch(isProProvider)) ...[
+              const SizedBox(width: 6),
+              const ProBadgeWidget(),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ..._attachmentUrls.map((url) => _AttachmentThumb(
+                  url: url,
+                  onOpen: () => _openAttachment(url),
+                  onRemove: () => _removeAttachment(url),
+                )),
+            // Add button / loading indicator.
+            InkWell(
+              onTap: _uploadingAttachment ? null : _addAttachment,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                child: _uploadingAttachment
+                    ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Icon(Icons.add_a_photo_outlined,
+                        color: cs.onSurfaceVariant, size: 24),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Creates one transaction per installment on a credit card. The purchase
+  /// total is split evenly (cents remainder absorbed by the last one) and each
+  /// installment is dated one month apart so it lands in consecutive invoices.
+  Future<bool> _addInstallments(
+      TransactionsNotifier notifier, double total) async {
+    final n = _installments;
+    final perAmount = ((total / n) * 100).floor() / 100.0;
+    final lastAmount = total - perAmount * (n - 1);
+    final baseTitle = _titleController.text.trim();
+    final desc = _descriptionController.text.trim().isEmpty
+        ? null
+        : _descriptionController.text.trim();
+    for (var i = 0; i < n; i++) {
+      final normMonthIndex = _date.month - 1 + i;
+      final y = _date.year + normMonthIndex ~/ 12;
+      final m = normMonthIndex % 12 + 1;
+      final day = _date.day.clamp(1, DateTime(y, m + 1, 0).day);
+      final ok = await notifier.add(
+        title: '$baseTitle (${i + 1}/$n)',
+        amount: i == n - 1 ? lastAmount : perAmount,
+        type: _type,
+        category: _category!,
+        date: DateTime(y, m, day),
+        description: desc,
+        walletId: _walletId,
+        tags: _tags,
+        attachmentUrls: i == 0 ? _attachmentUrls : const [],
+      );
+      if (!ok) return false;
+    }
+    return true;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final amount = moneyTextToDouble(_amountController.text);
@@ -688,24 +913,36 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         walletId: _walletId,
         goalId: _type == TransactionType.income ? _goalId : null,
         tags: _tags,
+        attachmentUrls: _attachmentUrls,
       );
       success = await notifier.update(updated);
     } else {
       wasFirstTransaction =
           (ref.read(transactionsStreamProvider).value ?? const []).isEmpty;
-      success = await notifier.add(
-        title: _titleController.text.trim(),
-        amount: amount,
-        type: _type,
-        category: _category!,
-        date: _date,
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        walletId: _walletId,
-        goalId: _type == TransactionType.income ? _goalId : null,
-        tags: _tags,
-      );
+      final selectedWallet = (ref.read(walletsStreamProvider).value ?? const [])
+          .where((w) => w.id == _walletId)
+          .firstOrNull;
+      final isCardInstallment = _type == TransactionType.expense &&
+          (selectedWallet?.isCreditCard ?? false) &&
+          _installments > 1;
+      if (isCardInstallment) {
+        success = await _addInstallments(notifier, amount);
+      } else {
+        success = await notifier.add(
+          title: _titleController.text.trim(),
+          amount: amount,
+          type: _type,
+          category: _category!,
+          date: _date,
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          walletId: _walletId,
+          goalId: _type == TransactionType.income ? _goalId : null,
+          tags: _tags,
+          attachmentUrls: _attachmentUrls,
+        );
+      }
     }
 
     if (!mounted) return;
@@ -1030,6 +1267,33 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     }
                   },
                 ),
+                // ── Installments (credit-card expenses only) ──────────
+                if (!_isEditing &&
+                    _type == TransactionType.expense &&
+                    (wallets
+                            .where((w) => w.id == _walletId)
+                            .firstOrNull
+                            ?.isCreditCard ??
+                        false)) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: _installments,
+                    decoration: InputDecoration(
+                      labelText: l10n.installments,
+                      prefixIcon: const Icon(Icons.credit_card_rounded, size: 20),
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: List.generate(24, (i) => i + 1)
+                        .map((n) => DropdownMenuItem(
+                              value: n,
+                              child: Text(
+                                  n == 1 ? l10n.installmentSingle : '${n}x'),
+                            ))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _installments = v ?? 1),
+                  ),
+                ],
                 // ── Goal selector (income only) ──────────────────────
                 if (_type == TransactionType.income && goals.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -1122,6 +1386,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     onFieldSubmitted: (_) => _addTag(),
                   ),
                 ],
+                // ── Comprovantes (Pro) ──
+                const SizedBox(height: 12),
+                _buildAttachments(),
                 if (_isEditing) ...[
                   const SizedBox(height: 20),
                   const Divider(),
@@ -1221,6 +1488,86 @@ class _TypeButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A 64×64 thumbnail for a receipt attachment. Shows the image itself for
+/// image URLs, otherwise a file icon. Tapping opens it; the small ✕ removes it.
+class _AttachmentThumb extends StatelessWidget {
+  final String url;
+  final VoidCallback onOpen;
+  final VoidCallback onRemove;
+
+  const _AttachmentThumb({
+    required this.url,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isImage = ReceiptStorageService.isImageUrl(url);
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          InkWell(
+            onTap: onOpen,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 64,
+              height: 64,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: isImage
+                  ? Image.network(
+                      url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                          Icons.broken_image_outlined,
+                          color: cs.onSurfaceVariant),
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                              ? child
+                              : const Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                ),
+                    )
+                  : Icon(Icons.picture_as_pdf_rounded,
+                      color: cs.error, size: 30),
+            ),
+          ),
+          Positioned(
+            top: -6,
+            right: -6,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cs.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: cs.surface, width: 1.5),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Icon(Icons.close, size: 12, color: cs.onError),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -47,6 +47,10 @@ class TransactionEntity extends Equatable {
   /// Free-form tags for extra classification beyond categories.
   final List<String> tags;
 
+  /// Download URLs of receipt attachments (photos/PDFs) stored in Firebase
+  /// Storage.
+  final List<String> attachmentUrls;
+
   const TransactionEntity({
     required this.id,
     required this.userId,
@@ -61,6 +65,7 @@ class TransactionEntity extends Equatable {
     this.goalId,
     this.isPending = false,
     this.tags = const [],
+    this.attachmentUrls = const [],
   });
 
   bool get isIncome => type == TransactionType.income;
@@ -82,5 +87,6 @@ class TransactionEntity extends Equatable {
         goalId,
         isPending,
         tags,
+        attachmentUrls,
       ];
 }

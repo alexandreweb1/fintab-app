@@ -263,16 +263,41 @@ final budgetSummaryProvider = Provider<List<BudgetSummary>>((ref) {
       .toList();
 });
 
+/// Rollover carry-in for a monthly budget: the leftover (or overspend) of the
+/// same category's budget in the immediately preceding month. Positive when
+/// the previous month was under budget, negative when overspent. Returns 0 when
+/// rollover is off, the budget isn't monthly, or there was no previous budget.
+double _carryInFor(
+  BudgetEntity b,
+  List<BudgetEntity> previousBudgets,
+  Iterable<TransactionEntity> transactions,
+) {
+  if (!b.rollover || b.period != BudgetPeriod.monthly) return 0;
+  final prev = previousBudgets
+      .where((p) => p.categoryId == b.categoryId && p.period == BudgetPeriod.monthly)
+      .toList();
+  if (prev.isEmpty) return 0;
+  final prevBudget = prev.first;
+  final prevSpent = _spentForBudget(prevBudget, transactions);
+  return prevBudget.limitAmount - prevSpent;
+}
+
 /// Summaries for the budgets currently displayed on the Planning screen,
 /// based on the active view mode. Spent amount is summed across the budget's
-/// full period.
+/// full period. Monthly budgets with rollover enabled also carry the previous
+/// month's leftover into their effective limit.
 final activeBudgetSummariesProvider = Provider<List<BudgetSummary>>((ref) {
   final budgets = ref.watch(activeBudgetsProvider);
   final transactions = ref.watch(visibleTransactionsProvider);
+  final viewMode = ref.watch(budgetViewModeProvider);
+  final previousBudgets = viewMode == BudgetPeriod.monthly
+      ? (ref.watch(previousMonthBudgetsProvider).value ?? const [])
+      : const <BudgetEntity>[];
   return budgets
       .map((b) => BudgetSummary(
             budget: b,
             spentAmount: _spentForBudget(b, transactions),
+            carryIn: _carryInFor(b, previousBudgets, transactions),
           ))
       .toList();
 });
@@ -309,6 +334,7 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
     BudgetPeriod period = BudgetPeriod.monthly,
     bool isAnnual = false,
     String? parentBudgetId,
+    bool rollover = false,
   }) async {
     state = const AsyncValue.loading();
     final periodStart = normalizePeriodStart(month, period);
@@ -327,6 +353,7 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
       isAnnual: isAnnual,
       period: period,
       parentBudgetId: parentBudgetId,
+      rollover: rollover,
     );
     final result = await _setBudget(SetBudgetParams(budget: budget));
     return result.fold(

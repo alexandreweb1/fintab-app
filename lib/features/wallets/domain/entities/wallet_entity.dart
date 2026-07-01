@@ -1,12 +1,16 @@
 import 'package:equatable/equatable.dart';
 
-/// Categoriza a carteira para separar fluxo de caixa, reservas e investimentos.
+/// Categoriza a carteira para separar fluxo de caixa, reservas, investimentos
+/// e cartões de crédito.
 enum WalletType {
   regular,
   reserve,
-  investment;
+  investment,
+  creditCard;
 
   String get id => name;
+
+  bool get isCreditCard => this == WalletType.creditCard;
 
   static WalletType fromId(String? id) {
     if (id == null) return WalletType.regular;
@@ -30,6 +34,13 @@ class WalletEntity extends Equatable {
   /// Optional target amount (used by reserve/investment wallets to render progress).
   final double targetAmount;
 
+  /// Credit limit — only meaningful for [WalletType.creditCard].
+  final double creditLimit;
+  /// Day of month (1-31) the invoice closes — credit cards only.
+  final int closingDay;
+  /// Day of month (1-31) the invoice is due — credit cards only.
+  final int dueDay;
+
   const WalletEntity({
     required this.id,
     required this.userId,
@@ -40,7 +51,12 @@ class WalletEntity extends Equatable {
     this.currencyCode = '',
     this.type = WalletType.regular,
     this.targetAmount = 0,
+    this.creditLimit = 0,
+    this.closingDay = 1,
+    this.dueDay = 10,
   });
+
+  bool get isCreditCard => type.isCreditCard;
 
   WalletEntity copyWith({
     String? id,
@@ -52,6 +68,9 @@ class WalletEntity extends Equatable {
     String? currencyCode,
     WalletType? type,
     double? targetAmount,
+    double? creditLimit,
+    int? closingDay,
+    int? dueDay,
   }) {
     return WalletEntity(
       id: id ?? this.id,
@@ -63,6 +82,9 @@ class WalletEntity extends Equatable {
       currencyCode: currencyCode ?? this.currencyCode,
       type: type ?? this.type,
       targetAmount: targetAmount ?? this.targetAmount,
+      creditLimit: creditLimit ?? this.creditLimit,
+      closingDay: closingDay ?? this.closingDay,
+      dueDay: dueDay ?? this.dueDay,
     );
   }
 
@@ -77,5 +99,8 @@ class WalletEntity extends Equatable {
         currencyCode,
         type,
         targetAmount,
+        creditLimit,
+        closingDay,
+        dueDay,
       ];
 }

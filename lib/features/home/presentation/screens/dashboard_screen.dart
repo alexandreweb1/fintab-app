@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/providers/consolidated_balance_provider.dart';
 import '../../../../core/providers/dashboard_config_provider.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
@@ -42,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).value;
-    final balance = ref.watch(balanceProvider);
+    final balance = ref.watch(convertedBalanceProvider);
     final income = ref.watch(dashboardMonthIncomeProvider);
     final expense = ref.watch(dashboardMonthExpenseProvider);
     final visibleTxs = ref.watch(visibleTransactionsProvider);

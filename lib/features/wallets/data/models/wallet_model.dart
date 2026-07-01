@@ -13,6 +13,9 @@ class WalletModel extends WalletEntity {
     super.currencyCode,
     super.type,
     super.targetAmount,
+    super.creditLimit,
+    super.closingDay,
+    super.dueDay,
   });
 
   factory WalletModel.fromFirestore(DocumentSnapshot doc) {
@@ -27,6 +30,9 @@ class WalletModel extends WalletEntity {
       currencyCode: data['currencyCode'] as String? ?? '',
       type: WalletType.fromId(data['type'] as String?),
       targetAmount: (data['targetAmount'] as num?)?.toDouble() ?? 0,
+      creditLimit: (data['creditLimit'] as num?)?.toDouble() ?? 0,
+      closingDay: (data['closingDay'] as num?)?.toInt() ?? 1,
+      dueDay: (data['dueDay'] as num?)?.toInt() ?? 10,
     );
   }
 
@@ -39,6 +45,9 @@ class WalletModel extends WalletEntity {
         'currencyCode': currencyCode,
         'type': type.id,
         'targetAmount': targetAmount,
+        'creditLimit': creditLimit,
+        'closingDay': closingDay,
+        'dueDay': dueDay,
       };
 
   factory WalletModel.fromEntity(WalletEntity entity) => WalletModel(
@@ -51,5 +60,8 @@ class WalletModel extends WalletEntity {
         currencyCode: entity.currencyCode,
         type: entity.type,
         targetAmount: entity.targetAmount,
+        creditLimit: entity.creditLimit,
+        closingDay: entity.closingDay,
+        dueDay: entity.dueDay,
       );
 }

@@ -17,6 +17,7 @@ class TransactionModel extends TransactionEntity {
     super.goalId,
     super.isPending,
     super.tags,
+    super.attachmentUrls,
   });
 
   factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
@@ -35,6 +36,9 @@ class TransactionModel extends TransactionEntity {
       goalId: data['goalId'] as String?,
       isPending: data['isPending'] as bool? ?? false,
       tags: (data['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      attachmentUrls:
+          (data['attachmentUrls'] as List<dynamic>?)?.cast<String>() ??
+              const [],
     );
   }
 
@@ -52,6 +56,7 @@ class TransactionModel extends TransactionEntity {
       'goalId': goalId,
       'isPending': isPending,
       'tags': tags,
+      'attachmentUrls': attachmentUrls,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -71,6 +76,7 @@ class TransactionModel extends TransactionEntity {
       goalId: entity.goalId,
       isPending: entity.isPending,
       tags: entity.tags,
+      attachmentUrls: entity.attachmentUrls,
     );
   }
 }

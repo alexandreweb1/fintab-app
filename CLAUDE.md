@@ -21,3 +21,10 @@ vantagens** em `lib/features/subscription/presentation/screens/pro_screen.dart`
 | Importação de extratos (OFX/CSV) | `settings_screen.dart` (`_DataIoCard._openImport`) |
 | Exportação de relatórios (PDF/Excel) | `settings_screen.dart` (`_DataIoCard._openExport`) |
 | Saúde financeira (score 0–100) | `settings_screen.dart` (`_FinancialHealthCard._open`) |
+| Cartão de crédito (fatura/parcelas) | `settings_screen.dart` (`_AddWalletDialog`), `add_transaction_dialog.dart` (parcelas), `credit_card_screen.dart` |
+| Anexar comprovante (foto/PDF) | `add_transaction_dialog.dart` (`_addAttachment`) |
+| Conversor de moedas (cotação real) | `settings_screen.dart` (tools card → gate), `currency_converter_screen.dart` |
+
+> Notas:
+> - Rollover de orçamento é sub-recurso de Orçamentos (já Pro), togglado no `_AddBudgetDialog`.
+> - Detecção de assinaturas (`subscriptions_screen.dart`) é **gratuita** (engajamento), não entra no gate Pro.

@@ -702,12 +702,28 @@ class _BudgetCard extends ConsumerWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${fmt(summary.spentAmount)} / ${fmt(budget.limitAmount)}',
+                              '${fmt(summary.spentAmount)} / ${fmt(summary.effectiveLimit)}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                   fontSize: 12, color: cs.onSurfaceVariant),
                             ),
+                            if (summary.carryIn != 0) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                AppLocalizations.of(context).budgetCarriedOver(
+                                    fmt(summary.carryIn)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: summary.carryIn > 0
+                                      ? const Color(0xFF00A86B)
+                                      : cs.error,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1173,6 +1189,7 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
   final _amountController = TextEditingController();
   CategoryEntity? _selectedCategory;
   bool _isAnnual = false;
+  bool _rollover = false;
 
   /// For annual: true → apply to the full year (Jan–Dec). false → apply only
   /// from the current month forward.
@@ -1191,6 +1208,7 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
     if (_isEditing) {
       _amountController.text = doubleToMoneyText(widget.budget!.limitAmount);
       _isAnnual = widget.budget!.isAnnual;
+      _rollover = widget.budget!.rollover;
     }
   }
 
@@ -1269,6 +1287,7 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
         period: old.period,
         isAnnual: old.isAnnual,
         parentBudgetId: old.parentBudgetId,
+        rollover: old.period == BudgetPeriod.monthly && _rollover,
       );
     } else if (_isMonthly) {
       success = await notifier.set(
@@ -1277,6 +1296,7 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
         limitAmount: amount,
         month: widget.month,
         isAnnual: _isAnnual,
+        rollover: _rollover,
       );
     } else {
       // Period budget creation (quarterly / semestral / annual).
@@ -1410,6 +1430,20 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
                   return null;
                 },
               ),
+              if (widget.period == BudgetPeriod.monthly) ...[
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: _rollover,
+                  onChanged: (v) => setState(() => _rollover = v),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(l10n.budgetRollover),
+                  subtitle: Text(
+                    l10n.budgetRolloverDesc,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ),
+              ],
               if (!_isEditing && widget.period == BudgetPeriod.annual) ...[
                 const SizedBox(height: 12),
                 _AnnualScopeSelector(

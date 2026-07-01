@@ -28,6 +28,10 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../category_rules/presentation/screens/category_rules_screen.dart';
+import '../../../subscriptions/presentation/screens/subscriptions_screen.dart';
+import '../../../wallets/presentation/screens/credit_card_screen.dart';
+import '../../../../core/utils/money_input_formatter.dart';
+import 'currency_converter_screen.dart';
 import '../../../sharing/presentation/providers/sharing_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/screens/pro_screen.dart';
@@ -590,6 +594,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CategoryRulesScreen()),
           ),
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.autorenew_rounded,
+              color: Color(0xFF6C5CE7)),
+          title: Text(l10n.subscriptions),
+          subtitle: Text(
+            l10n.subscriptionsDesc,
+            style: const TextStyle(fontSize: 12),
+          ),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SubscriptionsScreen()),
+          ),
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.currency_exchange_rounded,
+              color: Color(0xFF0EA5A5)),
+          title: Row(
+            children: [
+              Flexible(child: Text(l10n.currencyConverter)),
+              if (!ref.watch(isProProvider)) ...[
+                const SizedBox(width: 6),
+                const ProBadgeWidget(),
+              ],
+            ],
+          ),
+          subtitle: Text(
+            l10n.currencyConverterDesc,
+            style: const TextStyle(fontSize: 12),
+          ),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () {
+            if (!ref.read(isProProvider)) {
+              showProGateBottomSheet(
+                context,
+                featureName: l10n.currencyConverter,
+                featureDescription: l10n.currencyConverterDesc,
+                featureIcon: Icons.currency_exchange_rounded,
+              );
+              return;
+            }
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const CurrencyConverterScreen()),
+            );
+          },
         ),
       ]),
       const SizedBox(height: 20),
@@ -2054,6 +2106,19 @@ class _WalletSection extends ConsumerWidget {
                       .withValues(alpha: 0.4),
             ),
           ),
+          subtitle: w.isCreditCard
+              ? Text(l10n.viewInvoices,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary))
+              : null,
+          onTap: w.isCreditCard
+              ? () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CreditCardScreen(walletId: w.id),
+                    ),
+                  )
+              : null,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2182,14 +2247,21 @@ class _AddWalletDialog extends ConsumerStatefulWidget {
 
 class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
   final _nameController = TextEditingController();
+  final _limitController = TextEditingController();
   int _iconCodePoint = 0xe4c9; // account_balance_wallet
   int _colorValue = 0xFF1976D2;
   AppCurrency _currency = AppCurrency.brl;
+  WalletType _type = WalletType.regular;
+  int _closingDay = 1;
+  int _dueDay = 10;
   bool _isLoading = false;
+
+  bool get _isCard => _type == WalletType.creditCard;
 
   @override
   void dispose() {
     _nameController.dispose();
+    _limitController.dispose();
     super.dispose();
   }
 
@@ -2202,9 +2274,13 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
     final success = await ref.read(walletsNotifierProvider.notifier).add(
           userId: effectiveUserId,
           name: name,
-          iconCodePoint: _iconCodePoint,
+          iconCodePoint: _isCard ? 0xe19f : _iconCodePoint,
           colorValue: _colorValue,
           currencyCode: _currency.code,
+          type: _type,
+          creditLimit: _isCard ? moneyTextToDouble(_limitController.text) : 0,
+          closingDay: _isCard ? _closingDay : 1,
+          dueDay: _isCard ? _dueDay : 10,
         );
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -2240,12 +2316,64 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(l10n.selectIcon,
-                  style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 8),
-              _IconPickerGrid(
-                  selected: _iconCodePoint,
-                  onSelected: (v) => setState(() => _iconCodePoint = v)),
+              SegmentedButton<WalletType>(
+                segments: [
+                  ButtonSegment(
+                    value: WalletType.regular,
+                    icon: const Icon(Icons.account_balance_wallet_outlined,
+                        size: 18),
+                    label: Text(l10n.wallet),
+                  ),
+                  ButtonSegment(
+                    value: WalletType.creditCard,
+                    icon: const Icon(Icons.credit_card_rounded, size: 18),
+                    label: Text(l10n.creditCard),
+                  ),
+                ],
+                selected: {_type},
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
+              if (_isCard) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _limitController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration: InputDecoration(
+                    labelText: l10n.creditLimit,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DayDropdown(
+                        label: l10n.closingDay,
+                        value: _closingDay,
+                        onChanged: (v) => setState(() => _closingDay = v),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DayDropdown(
+                        label: l10n.dueDay,
+                        value: _dueDay,
+                        onChanged: (v) => setState(() => _dueDay = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (!_isCard) ...[
+                const SizedBox(height: 16),
+                Text(l10n.selectIcon,
+                    style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 8),
+                _IconPickerGrid(
+                    selected: _iconCodePoint,
+                    onSelected: (v) => setState(() => _iconCodePoint = v)),
+              ],
               const SizedBox(height: 16),
               Text(l10n.selectColor,
                   style: Theme.of(context).textTheme.labelMedium),
@@ -2301,6 +2429,39 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
 // Edit Wallet Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Dropdown to pick a day-of-month (1–31) — used for credit-card closing/due.
+class _DayDropdown extends StatelessWidget {
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _DayDropdown({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<int>(
+      initialValue: value.clamp(1, 31),
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      items: List.generate(31, (i) => i + 1)
+          .map((d) => DropdownMenuItem(value: d, child: Text('$d')))
+          .toList(),
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+    );
+  }
+}
+
 class _EditWalletDialog extends ConsumerStatefulWidget {
   final WalletEntity wallet;
   const _EditWalletDialog({required this.wallet});
@@ -2311,17 +2472,28 @@ class _EditWalletDialog extends ConsumerStatefulWidget {
 
 class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
   late final TextEditingController _nameController;
+  late final TextEditingController _limitController;
   late int _iconCodePoint;
   late int _colorValue;
   late AppCurrency _currency;
+  late int _closingDay;
+  late int _dueDay;
   bool _isLoading = false;
+
+  bool get _isCard => widget.wallet.isCreditCard;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.wallet.name);
+    _limitController = TextEditingController(
+        text: widget.wallet.creditLimit > 0
+            ? doubleToMoneyText(widget.wallet.creditLimit)
+            : '');
     _iconCodePoint = widget.wallet.iconCodePoint;
     _colorValue = widget.wallet.colorValue;
+    _closingDay = widget.wallet.closingDay;
+    _dueDay = widget.wallet.dueDay;
     _currency = AppCurrency.fromCode(widget.wallet.currencyCode.isEmpty
         ? 'BRL'
         : widget.wallet.currencyCode);
@@ -2330,20 +2502,22 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _limitController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    final updated = WalletEntity(
-      id: widget.wallet.id,
-      userId: widget.wallet.userId,
+    final updated = widget.wallet.copyWith(
       name: name,
       iconCodePoint: _iconCodePoint,
       colorValue: _colorValue,
-      isDefault: widget.wallet.isDefault,
       currencyCode: _currency.code,
+      creditLimit:
+          _isCard ? moneyTextToDouble(_limitController.text) : null,
+      closingDay: _isCard ? _closingDay : null,
+      dueDay: _isCard ? _dueDay : null,
     );
     setState(() => _isLoading = true);
     final success =
@@ -2380,13 +2554,47 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
                   border: const OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(l10n.selectIcon,
-                  style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 8),
-              _IconPickerGrid(
-                  selected: _iconCodePoint,
-                  onSelected: (v) => setState(() => _iconCodePoint = v)),
+              if (_isCard) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _limitController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration: InputDecoration(
+                    labelText: l10n.creditLimit,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DayDropdown(
+                        label: l10n.closingDay,
+                        value: _closingDay,
+                        onChanged: (v) => setState(() => _closingDay = v),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DayDropdown(
+                        label: l10n.dueDay,
+                        value: _dueDay,
+                        onChanged: (v) => setState(() => _dueDay = v),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (!_isCard) ...[
+                const SizedBox(height: 16),
+                Text(l10n.selectIcon,
+                    style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 8),
+                _IconPickerGrid(
+                    selected: _iconCodePoint,
+                    onSelected: (v) => setState(() => _iconCodePoint = v)),
+              ],
               const SizedBox(height: 16),
               Text(l10n.selectColor,
                   style: Theme.of(context).textTheme.labelMedium),

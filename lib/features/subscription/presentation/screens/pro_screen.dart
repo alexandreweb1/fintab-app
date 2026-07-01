@@ -428,6 +428,24 @@ class _FeaturesCard extends StatelessWidget {
               title: 'Saúde financeira',
               description:
                   'Score de 0 a 100 com análise de poupança, reserva, orçamentos, metas e diversificação de gastos.',
+            ),
+            const _FeatureRow(
+              icon: Icons.credit_card_rounded,
+              title: 'Cartão de crédito',
+              description:
+                  'Controle faturas por ciclo, limite, fechamento e vencimento, compras parceladas e pagamento da fatura.',
+            ),
+            const _FeatureRow(
+              icon: Icons.attach_file_rounded,
+              title: 'Anexar comprovantes',
+              description:
+                  'Guarde a foto ou o PDF do comprovante junto de cada lançamento.',
+            ),
+            const _FeatureRow(
+              icon: Icons.currency_exchange_rounded,
+              title: 'Conversor de moedas',
+              description:
+                  'Converta valores entre moedas com cotação real e consolide o saldo de carteiras em moedas diferentes.',
               isLast: true,
             ),
           ],

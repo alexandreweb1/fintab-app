@@ -121,12 +121,14 @@ class TypedWalletsTab extends ConsumerWidget {
         WalletType.reserve => 'Reservas',
         WalletType.investment => 'Investimentos',
         WalletType.regular => 'Carteiras',
+        WalletType.creditCard => 'Cartões',
       };
 
   String get _typeSingular => switch (type) {
         WalletType.reserve => 'Reserva',
         WalletType.investment => 'Investimento',
         WalletType.regular => 'Carteira',
+        WalletType.creditCard => 'Cartão',
       };
 
   String get _emptyHint => switch (type) {
@@ -135,18 +137,21 @@ class TypedWalletsTab extends ConsumerWidget {
         WalletType.investment =>
           'Cadastre suas aplicações para acompanhar aportes e patrimônio.',
         WalletType.regular => '',
+        WalletType.creditCard => '',
       };
 
   IconData get _typeIcon => switch (type) {
         WalletType.reserve => Icons.shield_outlined,
         WalletType.investment => Icons.trending_up_rounded,
         WalletType.regular => Icons.account_balance_wallet_outlined,
+        WalletType.creditCard => Icons.credit_card_rounded,
       };
 
   Color _accent(BuildContext context) => switch (type) {
         WalletType.reserve => const Color(0xFF00796B),
         WalletType.investment => const Color(0xFF6A1B9A),
         WalletType.regular => Theme.of(context).colorScheme.primary,
+        WalletType.creditCard => const Color(0xFF6C5CE7),
       };
 
   @override

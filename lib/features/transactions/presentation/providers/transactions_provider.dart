@@ -423,6 +423,7 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
     String? goalId,
     bool isPending = false,
     List<String> tags = const [],
+    List<String> attachmentUrls = const [],
   }) async {
     state = const AsyncValue.loading();
     final transaction = TransactionEntity(
@@ -439,6 +440,7 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
       goalId: goalId,
       isPending: isPending,
       tags: tags,
+      attachmentUrls: attachmentUrls,
     );
     final result = await _addTransaction(
         AddTransactionParams(transaction: transaction));
