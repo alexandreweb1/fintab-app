@@ -2,7 +2,7 @@ name: my_finance_app
 description: Personal finance management app with Clean Architecture.
 publish_to: 'none'
 
-version: 1.0.8+145
+version: 1.0.9+148
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -40,8 +40,10 @@ dependencies:
   in_app_purchase: ^3.2.0
   in_app_purchase_android: ^0.4.0
 
-  # Local Notifications (notification-to-transaction feature)
+  # Local Notifications (notification-to-transaction feature + bill reminders)
   flutter_local_notifications: ^18.0.0
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.1
 
   # Receive shared text (iOS Share Extension + Android share sheet → transaction)
   receive_sharing_intent: ^1.8.1

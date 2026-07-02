@@ -153,6 +153,16 @@ service cloud.firestore {
       allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
     }
 
+    // ── /bills/{billId} ──────────────────────────────────────────────────────
+    // Bills to pay/receive with due dates. Owner or collaborator. userId is
+    // pinned on create and immutable on update (prevents cross-user re-homing).
+    match /bills/{billId} {
+      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
+                          && request.resource.data.userId == resource.data.userId;
+      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
     // ── /subscriptions/{userId} ───────────────────────────────────────────────
     // Document ID == userId; only the owner can read/write their subscription.
     // Writes are field-validated (see validSubscription). Delete is allowed so

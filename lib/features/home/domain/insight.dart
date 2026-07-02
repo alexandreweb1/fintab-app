@@ -15,6 +15,12 @@ enum InsightKind {
   /// A category whose month-to-date spending jumped vs. the same window of the
   /// previous month.
   spendingSpike,
+
+  /// A bill that is overdue or due very soon.
+  billDue,
+
+  /// Spendable cash may not cover the outflows still committed this month.
+  lowBalance,
 }
 
 /// A single actionable insight surfaced on the dashboard.

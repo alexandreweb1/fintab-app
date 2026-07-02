@@ -70,6 +70,7 @@ class AppLocalizations {
   String get save => _t('Salvar', 'Save', 'Guardar');
   String get cancel => _t('Cancelar', 'Cancel', 'Cancelar');
   String get delete => _t('Excluir', 'Delete', 'Eliminar');
+  String get edit => _t('Editar', 'Edit', 'Editar');
   String get invalidAmount => _t('Valor inválido', 'Invalid amount', 'Monto inválido');
   String get enterTitle => _t('Informe o título', 'Enter a title', 'Ingrese un título');
   String get enterAmount => _t('Informe o valor', 'Enter the amount', 'Ingrese el monto');
@@ -318,6 +319,48 @@ class AppLocalizations {
       'Selecione uma carteira para pagar a fatura',
       'Select a wallet to pay the invoice',
       'Selecciona una billetera para pagar la factura');
+
+  // ── Bills / due-date reminders (contas a pagar e receber) ──────────────────
+  String get bills => _t('Contas a pagar', 'Bills', 'Cuentas por pagar');
+  String get billsDesc => _t(
+      'Contas a pagar e receber com lembrete de vencimento',
+      'Bills to pay and receive with due-date reminders',
+      'Cuentas por pagar y cobrar con recordatorio de vencimiento');
+  String get billAdd => _t('Nova conta', 'New bill', 'Nueva cuenta');
+  String get billEdit => _t('Editar conta', 'Edit bill', 'Editar cuenta');
+  String get billNameField => _t('Descrição', 'Description', 'Descripción');
+  String get billDueDate => _t('Vencimento', 'Due date', 'Vencimiento');
+  String get billType => _t('Tipo', 'Type', 'Tipo');
+  String get billPayable => _t('A pagar', 'To pay', 'Por pagar');
+  String get billReceivable => _t('A receber', 'To receive', 'Por cobrar');
+  String get billReminder => _t('Lembrete', 'Reminder', 'Recordatorio');
+  String get billReminderNone =>
+      _t('Sem lembrete', 'No reminder', 'Sin recordatorio');
+  String get billReminderSameDay => _t('No dia', 'Same day', 'El mismo día');
+  String billReminderDaysBefore(int n) => _t(
+      '$n dia${n > 1 ? 's' : ''} antes', '$n day${n > 1 ? 's' : ''} before',
+      '$n día${n > 1 ? 's' : ''} antes');
+  String get billRepeatMonthly =>
+      _t('Repetir todo mês', 'Repeat monthly', 'Repetir cada mes');
+  String get billMarkPaid => _t('Marcar como paga', 'Mark as paid', 'Marcar como pagada');
+  String get billMarkReceived =>
+      _t('Marcar como recebida', 'Mark as received', 'Marcar como cobrada');
+  String get billPaid => _t('Paga', 'Paid', 'Pagada');
+  String get billOverdue => _t('Vencida', 'Overdue', 'Vencida');
+  String get billDueToday => _t('Vence hoje', 'Due today', 'Vence hoy');
+  String billDueInDays(int n) =>
+      _t('Vence em $n dias', 'Due in $n days', 'Vence en $n días');
+  String get billsEmpty =>
+      _t('Nenhuma conta cadastrada', 'No bills yet', 'Sin cuentas registradas');
+  String get billsEmptyDesc => _t(
+      'Cadastre contas a pagar ou receber e o app te lembra antes do vencimento.',
+      'Add bills to pay or receive and the app reminds you before the due date.',
+      'Agrega cuentas por pagar o cobrar y la app te recuerda antes del vencimiento.');
+  String get billPaidSuccess => _t(
+      'Conta baixada e lançada', 'Bill settled and recorded',
+      'Cuenta liquidada y registrada');
+  String get billsUpcoming => _t('A vencer', 'Upcoming', 'Por vencer');
+  String get billsPaidSection => _t('Pagas', 'Paid', 'Pagadas');
 
   // ── Currency converter (Pro) ───────────────────────────────────────────────
   String get currencyConverter =>

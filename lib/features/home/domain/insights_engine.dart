@@ -1,3 +1,4 @@
+import '../../bills/domain/bill_entity.dart';
 import '../../budget/domain/entities/budget_entity.dart';
 import '../../transactions/domain/entities/transaction_entity.dart';
 import 'insight.dart';
@@ -20,8 +21,54 @@ List<Insight> generateInsights({
   required DateTime selectedMonth,
   required DateTime now,
   required String Function(double) fmt,
+  List<BillEntity> upcomingBills = const [],
+  double? spendableBalance,
+  double committedThisMonth = 0,
 }) {
   final insights = <Insight>[];
+
+  // ── Bill alerts — overdue first, then due within 3 days ──
+  final billsToFlag = upcomingBills.where((b) => !b.isPaid).toList()
+    ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  var billCount = 0;
+  for (final b in billsToFlag) {
+    if (billCount >= 3) break;
+    final d = b.daysUntilDue(now);
+    final verb = b.isReceivable ? 'a receber' : 'a pagar';
+    if (d < 0) {
+      insights.add(Insight(
+        kind: InsightKind.billDue,
+        severity: InsightSeverity.critical,
+        title: b.title,
+        message: 'Conta $verb vencida há ${-d} dia${d == -1 ? '' : 's'}: '
+            '${fmt(b.amount)}.',
+      ));
+      billCount++;
+    } else if (d <= 3) {
+      insights.add(Insight(
+        kind: InsightKind.billDue,
+        severity: InsightSeverity.warning,
+        title: b.title,
+        message: d == 0
+            ? 'Conta $verb vence hoje: ${fmt(b.amount)}.'
+            : 'Conta $verb vence em $d dia${d == 1 ? '' : 's'}: ${fmt(b.amount)}.',
+      ));
+      billCount++;
+    }
+  }
+
+  // ── Low balance — spendable cash may not cover this month's commitments ──
+  if (spendableBalance != null &&
+      committedThisMonth > 0 &&
+      spendableBalance < committedThisMonth) {
+    insights.add(Insight(
+      kind: InsightKind.lowBalance,
+      severity: InsightSeverity.critical,
+      title: 'Saldo baixo',
+      message: 'Seu saldo disponível (${fmt(spendableBalance)}) pode não cobrir '
+          'as contas ainda previstas para o mês (${fmt(committedThisMonth)}).',
+    ));
+  }
   final isCurrentMonth =
       selectedMonth.year == now.year && selectedMonth.month == now.month;
   final daysInMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;

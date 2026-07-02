@@ -226,6 +226,10 @@ class _InsightRow extends StatelessWidget {
         return Icons.speed_rounded;
       case InsightKind.spendingSpike:
         return Icons.trending_up_rounded;
+      case InsightKind.billDue:
+        return Icons.event_busy_rounded;
+      case InsightKind.lowBalance:
+        return Icons.account_balance_wallet_outlined;
     }
   }
 }

@@ -23,6 +23,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/insights_provider.dart';
 import '../widgets/dashboard_extra_cards.dart';
 import '../widgets/dashboard_insights_card.dart';
+import '../widgets/dashboard_metric_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
@@ -116,6 +117,18 @@ class DashboardScreen extends ConsumerWidget {
                 projection: projection,
                 monthName: monthName,
               ),
+              const SizedBox(height: 24),
+            ],
+            if (section == DashboardSection.safeToSpend) ...[
+              const SafeToSpendCard(),
+              const SizedBox(height: 24),
+            ],
+            if (section == DashboardSection.netWorth) ...[
+              const NetWorthCard(),
+              const SizedBox(height: 24),
+            ],
+            if (section == DashboardSection.bills) ...[
+              const BillsSummaryCard(),
               const SizedBox(height: 24),
             ],
             if (section == DashboardSection.incomeExpense) ...[
@@ -1596,6 +1609,12 @@ class _SectionTile extends StatelessWidget {
     switch (s) {
       case DashboardSection.insights:
         return Icons.auto_awesome_outlined;
+      case DashboardSection.safeToSpend:
+        return Icons.savings_outlined;
+      case DashboardSection.netWorth:
+        return Icons.trending_up_rounded;
+      case DashboardSection.bills:
+        return Icons.event_note_outlined;
       case DashboardSection.incomeExpense:
         return Icons.swap_vert_rounded;
       case DashboardSection.financialHealth:

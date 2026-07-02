@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../bills/presentation/providers/bills_provider.dart';
 import '../../../recurring/presentation/providers/recurring_provider.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../domain/insight.dart';
 import '../../domain/insights_engine.dart';
 import '../../domain/month_projection.dart';
 import 'dashboard_provider.dart';
+import 'money_metrics_provider.dart';
 
 /// Forward-looking projection for the dashboard's selected month. Mirrors the
 /// math behind the "Fluxo" report tab so both surfaces stay consistent.
@@ -35,5 +37,8 @@ final dashboardInsightsProvider = Provider<List<Insight>>((ref) {
     selectedMonth: month,
     now: DateTime.now(),
     fmt: fmt,
+    upcomingBills: ref.watch(upcomingBillsProvider),
+    spendableBalance: ref.watch(spendableBalanceProvider),
+    committedThisMonth: ref.watch(committedBillsThisMonthProvider),
   );
 });

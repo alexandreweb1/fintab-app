@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
@@ -64,9 +65,25 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   @override
   void initState() {
     super.initState();
-    _initFuture = Firebase.initializeApp(
+    _initFuture = _initFirebase();
+  }
+
+  /// Initializes Firebase and enables Firestore offline persistence so the app
+  /// keeps working (read + queued writes) without connectivity. On mobile this
+  /// is on by default; setting it explicitly also covers web.
+  Future<FirebaseApp> _initFirebase() async {
+    final app = await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    try {
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    } catch (_) {
+      // Settings can only be applied once; ignore if already configured.
+    }
+    return app;
   }
 
   @override

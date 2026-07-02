@@ -28,6 +28,7 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../category_rules/presentation/screens/category_rules_screen.dart';
+import '../../../bills/presentation/screens/bills_screen.dart';
 import '../../../subscriptions/presentation/screens/subscriptions_screen.dart';
 import '../../../wallets/presentation/screens/credit_card_screen.dart';
 import '../../../../core/utils/money_input_formatter.dart';
@@ -593,6 +594,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CategoryRulesScreen()),
+          ),
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.event_note_outlined,
+              color: Color(0xFF00B894)),
+          title: Text(l10n.bills),
+          subtitle: Text(
+            l10n.billsDesc,
+            style: const TextStyle(fontSize: 12),
+          ),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const BillsScreen()),
           ),
         ),
         const Divider(height: 1, indent: 56),

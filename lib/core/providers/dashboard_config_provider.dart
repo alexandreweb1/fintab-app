@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum DashboardSection {
   insights,
+  safeToSpend,
+  netWorth,
   incomeExpense,
   financialHealth,
   budgets,
+  bills,
   wallets,
   recentTransactions,
   upcomingRecurring;
@@ -20,6 +23,12 @@ enum DashboardSection {
     switch (this) {
       case DashboardSection.insights:
         return 'Insights & Projeção';
+      case DashboardSection.safeToSpend:
+        return 'Pode Gastar';
+      case DashboardSection.netWorth:
+        return 'Patrimônio';
+      case DashboardSection.bills:
+        return 'Contas a pagar';
       case DashboardSection.incomeExpense:
         return 'Receitas & Despesas';
       case DashboardSection.financialHealth:
@@ -39,6 +48,12 @@ enum DashboardSection {
     switch (this) {
       case DashboardSection.insights:
         return 'Alertas de orçamento e projeção de fim de mês';
+      case DashboardSection.safeToSpend:
+        return 'Quanto você pode gastar com segurança';
+      case DashboardSection.netWorth:
+        return 'Seu patrimônio e a evolução nos últimos meses';
+      case DashboardSection.bills:
+        return 'Próximas contas a pagar e receber';
       case DashboardSection.incomeExpense:
         return 'Cards de receita e despesa do mês';
       case DashboardSection.financialHealth:
