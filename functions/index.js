@@ -1,4 +1,5 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onRequest} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {initializeApp} = require("firebase-admin/app");
 const {
@@ -9,6 +10,49 @@ const {
 
 initializeApp();
 const db = getFirestore();
+
+// ── Market-data CORS proxy ───────────────────────────────────────────────────
+// Browsers block direct calls to Yahoo Finance / CoinGecko (no CORS headers),
+// so the web build routes quote/search/history requests through this function.
+// Native apps call the upstreams directly and never hit this.
+const ALLOWED_QUOTE_HOSTS = new Set([
+  "query1.finance.yahoo.com",
+  "query2.finance.yahoo.com",
+  "api.coingecko.com",
+]);
+
+exports.quoteProxy = onRequest(
+    {cors: true, region: "us-central1", memory: "128MiB", timeoutSeconds: 20},
+    async (req, res) => {
+      const target = req.query.url;
+      if (!target || typeof target !== "string") {
+        res.status(400).json({error: "missing url param"});
+        return;
+      }
+      let host;
+      try {
+        host = new URL(target).host;
+      } catch (e) {
+        res.status(400).json({error: "invalid url"});
+        return;
+      }
+      if (!ALLOWED_QUOTE_HOSTS.has(host)) {
+        res.status(403).json({error: "host not allowed"});
+        return;
+      }
+      try {
+        const upstream = await fetch(target, {
+          headers: {"User-Agent": "Mozilla/5.0 (Fintab)"},
+        });
+        const body = await upstream.text();
+        res.set("Cache-Control", "public, max-age=60");
+        res.status(upstream.status).type("application/json").send(body);
+      } catch (err) {
+        logger.error("quoteProxy failed", {target, err: String(err)});
+        res.status(502).json({error: "upstream failed"});
+      }
+    },
+);
 
 // How many days of Pro the referrer earns per accepted referral, and the
 // yearly cap that stops someone farming free Pro with fake accounts.

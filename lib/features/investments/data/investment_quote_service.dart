@@ -61,7 +61,18 @@ class AssetSearchResult {
 ///  - Crypto via CoinGecko (priced directly in BRL + USD).
 class InvestmentQuoteService {
   static const _timeout = Duration(seconds: 12);
-  static const _ua = {'User-Agent': 'Mozilla/5.0 (Fintab)'};
+  // Browsers forbid overriding User-Agent; the proxy adds it upstream anyway.
+  static const Map<String, String> _ua =
+      kIsWeb ? {} : {'User-Agent': 'Mozilla/5.0 (Fintab)'};
+
+  /// Firebase CORS proxy for the web build. Browsers block direct calls to
+  /// Yahoo/CoinGecko (no CORS headers); native apps call them directly.
+  static const _proxy =
+      'https://us-central1-my-finance-app-flutter.cloudfunctions.net/quoteProxy';
+
+  static Uri _uri(String url) => kIsWeb
+      ? Uri.parse('$_proxy?url=${Uri.encodeQueryComponent(url)}')
+      : Uri.parse(url);
 
   // ── Stocks (Yahoo chart) ───────────────────────────────────────────────────
 
@@ -72,7 +83,7 @@ class InvestmentQuoteService {
         '?range=1d&interval=1d';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return null;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final result = (data['chart']?['result'] as List?)?.firstOrNull;
@@ -107,7 +118,7 @@ class InvestmentQuoteService {
         '?ids=${ids.join(',')}&vs_currencies=brl,usd&include_24hr_change=true';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return {};
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final out = <String, AssetQuote>{};
@@ -142,7 +153,7 @@ class InvestmentQuoteService {
         '?range=$range&interval=$interval';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return [];
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final result = (data['chart']?['result'] as List?)?.firstOrNull;
@@ -165,7 +176,7 @@ class InvestmentQuoteService {
         '/market_chart?vs_currency=brl&days=$days';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return [];
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final prices = (data['prices'] as List?) ?? [];
@@ -188,7 +199,7 @@ class InvestmentQuoteService {
         '?q=${Uri.encodeQueryComponent(query)}&quotesCount=10&newsCount=0';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return [];
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final quotes = (data['quotes'] as List?) ?? [];
@@ -215,7 +226,7 @@ class InvestmentQuoteService {
         'https://api.coingecko.com/api/v3/search?query=${Uri.encodeQueryComponent(query)}';
     try {
       final resp =
-          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+          await http.get(_uri(url), headers: _ua).timeout(_timeout);
       if (resp.statusCode != 200) return [];
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final coins = (data['coins'] as List?) ?? [];

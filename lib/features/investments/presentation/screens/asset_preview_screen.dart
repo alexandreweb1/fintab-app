@@ -71,11 +71,14 @@ class _AssetPreviewScreenState extends State<AssetPreviewScreen> {
     final cur = widget.kind.currency;
     final q = _quote;
     final dayPct = q?.dayChangePercent;
+    final canAdd = !_loading && q != null;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.ticker)),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _add,
+        onPressed: canAdd ? _add : null,
+        backgroundColor: canAdd ? null : cs.surfaceContainerHighest,
+        foregroundColor: canAdd ? null : cs.onSurfaceVariant,
         icon: const Icon(Icons.add),
         label: Text(l10n.investAddToPortfolio),
       ),
@@ -117,6 +120,26 @@ class _AssetPreviewScreenState extends State<AssetPreviewScreen> {
                 ),
             ]),
           const SizedBox(height: 16),
+
+          if (!_loading && q == null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.errorContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                Icon(Icons.info_outline, size: 18, color: cs.error),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Não conseguimos a cotação deste ativo agora. Verifique o código ou tente novamente — só é possível adicionar ativos com cotação real.',
+                    style: TextStyle(fontSize: 12, color: cs.onErrorContainer),
+                  ),
+                ),
+              ]),
+            ),
 
           // ── Price chart with period selector ──
           AssetPriceChart(

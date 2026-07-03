@@ -87,27 +87,6 @@ class _AddAssetScreenState extends ConsumerState<AddAssetScreen> {
     );
   }
 
-  _Target? _fromManual() {
-    final raw = _ctrl.text.trim();
-    if (raw.isEmpty) return null;
-    switch (_kind) {
-      case AssetKind.stockBr:
-        final t = raw.toUpperCase();
-        return (ticker: t, quoteSymbol: '$t.SA', name: t, kind: _kind);
-      case AssetKind.stockUs:
-        final t = raw.toUpperCase();
-        return (ticker: t, quoteSymbol: t, name: t, kind: _kind);
-      case AssetKind.crypto:
-        // For manual crypto the user types the CoinGecko id (e.g. bitcoin).
-        return (
-          ticker: raw.toUpperCase(),
-          quoteSymbol: raw.toLowerCase(),
-          name: raw,
-          kind: _kind,
-        );
-    }
-  }
-
   // ── Actions ────────────────────────────────────────────────────────────────
 
   /// Tapping the name → open the asset preview (quote + chart + filters).
@@ -212,53 +191,87 @@ class _AddAssetScreenState extends ConsumerState<AddAssetScreen> {
           ),
           if (_loading) const LinearProgressIndicator(),
           Expanded(
-            child: ListView(
-              children: [
-                // Manual-add option — always available (works even if search
-                // is blocked, e.g. CORS on web).
-                if (typed.isNotEmpty)
-                  ListTile(
-                    leading: Icon(Icons.trending_up_rounded, color: cs.primary),
-                    title: Text(typed.toUpperCase()),
-                    subtitle: Text(_kind == AssetKind.crypto
-                        ? 'Cripto (id CoinGecko)'
-                        : _kind == AssetKind.stockBr
-                            ? '${typed.toUpperCase()}.SA · B3'
-                            : '${typed.toUpperCase()} · EUA'),
-                    onTap: () {
-                      final t = _fromManual();
-                      if (t != null) _openPreview(t);
-                    },
-                    trailing: IconButton(
-                      icon: Icon(Icons.add_circle, color: cs.primary),
-                      tooltip: l10n.investAddToPortfolio,
-                      onPressed: () {
-                        final t = _fromManual();
-                        if (t != null) _openAddDialog(t);
-                      },
-                    ),
+            child: results.isNotEmpty
+                ? ListView(
+                    children: results
+                        .map((r) => ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                    cs.primary.withValues(alpha: 0.12),
+                                child: Icon(Icons.trending_up_rounded,
+                                    size: 18, color: cs.primary),
+                              ),
+                              title: Text(r.symbol.replaceAll('.SA', '')),
+                              subtitle: Text('${r.name} · ${r.exchange}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              onTap: () => _openPreview(_fromResult(r)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.add_circle_outline),
+                                tooltip: l10n.investAddToPortfolio,
+                                onPressed: () => _openAddDialog(_fromResult(r)),
+                              ),
+                            ))
+                        .toList(),
+                  )
+                : _EmptyState(
+                    loading: _loading,
+                    typed: typed,
+                    kind: _kind,
                   ),
-                if (results.isNotEmpty) const Divider(height: 1),
-                ...results.map((r) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: cs.primary.withValues(alpha: 0.12),
-                        child: Icon(Icons.trending_up_rounded,
-                            size: 18, color: cs.primary),
-                      ),
-                      title: Text(r.symbol.replaceAll('.SA', '')),
-                      subtitle: Text('${r.name} · ${r.exchange}',
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      onTap: () => _openPreview(_fromResult(r)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        tooltip: l10n.investAddToPortfolio,
-                        onPressed: () => _openAddDialog(_fromResult(r)),
-                      ),
-                    )),
-              ],
-            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown when the results list is empty: a prompt to type, or a clear "not
+/// found" message so nothing unverified ever looks like a real asset.
+class _EmptyState extends StatelessWidget {
+  final bool loading;
+  final String typed;
+  final AssetKind kind;
+  const _EmptyState(
+      {required this.loading, required this.typed, required this.kind});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    late final IconData icon;
+    late final String title;
+    late final String desc;
+    if (loading) {
+      return const SizedBox.shrink();
+    } else if (typed.length < 2) {
+      icon = Icons.search_rounded;
+      title = l10n.investSearch;
+      desc = kind == AssetKind.crypto
+          ? 'Ex.: bitcoin, ethereum, solana'
+          : kind == AssetKind.stockBr
+              ? 'Ex.: PETR4, VALE3, HGLG11'
+              : 'Ex.: AAPL, TSLA, MSFT';
+    } else {
+      icon = Icons.search_off_rounded;
+      title = 'Nenhuma ação encontrada para "${typed.toUpperCase()}"';
+      desc =
+          'Verifique o código/nome. Só listamos ativos reais encontrados na consulta.';
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+          const SizedBox(height: 12),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(desc,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+        ]),
       ),
     );
   }
