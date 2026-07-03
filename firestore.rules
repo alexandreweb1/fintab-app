@@ -163,6 +163,22 @@ service cloud.firestore {
       allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
     }
 
+    // ── /investment_assets/{assetId} & /investment_trades/{tradeId} ───────────
+    // Portfolio tracker (assets tracked + buy/sell trades). Owner or
+    // collaborator; userId pinned on create and immutable on update.
+    match /investment_assets/{assetId} {
+      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
+                          && request.resource.data.userId == resource.data.userId;
+      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+    match /investment_trades/{tradeId} {
+      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
+      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
+                          && request.resource.data.userId == resource.data.userId;
+      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+    }
+
     // ── /subscriptions/{userId} ───────────────────────────────────────────────
     // Document ID == userId; only the owner can read/write their subscription.
     // Writes are field-validated (see validSubscription). Delete is allowed so

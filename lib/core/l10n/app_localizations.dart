@@ -71,6 +71,8 @@ class AppLocalizations {
   String get cancel => _t('Cancelar', 'Cancel', 'Cancelar');
   String get delete => _t('Excluir', 'Delete', 'Eliminar');
   String get edit => _t('Editar', 'Edit', 'Editar');
+  String get date => _t('Data', 'Date', 'Fecha');
+  String get optional => _t('opcional', 'optional', 'opcional');
   String get invalidAmount => _t('Valor inválido', 'Invalid amount', 'Monto inválido');
   String get enterTitle => _t('Informe o título', 'Enter a title', 'Ingrese un título');
   String get enterAmount => _t('Informe o valor', 'Enter the amount', 'Ingrese el monto');
@@ -361,6 +363,73 @@ class AppLocalizations {
       'Cuenta liquidada y registrada');
   String get billsUpcoming => _t('A vencer', 'Upcoming', 'Por vencer');
   String get billsPaidSection => _t('Pagas', 'Paid', 'Pagadas');
+
+  // ── Investments (portfolio tracker, Pro) ────────────────────────────────────
+  String get investments => _t('Investimentos', 'Investments', 'Inversiones');
+  String get investmentsDesc => _t(
+      'Acompanhe ações, cripto e seus ganhos/perdas em tempo real',
+      'Track stocks, crypto and your gains/losses in real time',
+      'Sigue acciones, cripto y tus ganancias/pérdidas en tiempo real');
+  String get portfolioValue =>
+      _t('Patrimônio investido', 'Portfolio value', 'Patrimonio invertido');
+  String get investUnrealized =>
+      _t('Ganho/perda', 'Gain/loss', 'Ganancia/pérdida');
+  String get investRealized =>
+      _t('Lucro realizado', 'Realized profit', 'Ganancia realizada');
+  String get investToday => _t('Hoje', 'Today', 'Hoy');
+  String get investAddAsset =>
+      _t('Adicionar ativo', 'Add asset', 'Agregar activo');
+  String get investAddTrade =>
+      _t('Registrar operação', 'Add trade', 'Registrar operación');
+  String get investBuy => _t('Compra', 'Buy', 'Compra');
+  String get investSell => _t('Venda', 'Sell', 'Venta');
+  String get investQuantity => _t('Quantidade', 'Quantity', 'Cantidad');
+  String get investUnitPrice =>
+      _t('Preço unitário', 'Unit price', 'Precio unitario');
+  String get investFees => _t('Taxas', 'Fees', 'Comisiones');
+  String get investAvgCost => _t('Preço médio', 'Avg. cost', 'Precio medio');
+  String get investMarketValue =>
+      _t('Valor de mercado', 'Market value', 'Valor de mercado');
+  String get investKindStockBr => _t('Ação (B3)', 'Stock (B3)', 'Acción (B3)');
+  String get investKindStockUs =>
+      _t('Ação (EUA)', 'Stock (US)', 'Acción (EE.UU.)');
+  String get investKindCrypto => _t('Cripto', 'Crypto', 'Cripto');
+  String get investEmpty =>
+      _t('Nenhum ativo cadastrado', 'No assets yet', 'Sin activos');
+  String get investEmptyDesc => _t(
+      'Adicione ações, FIIs ou cripto e registre suas compras para acompanhar quanto está ganhando.',
+      'Add stocks, REITs or crypto and log your buys to track your gains.',
+      'Agrega acciones, FIIs o cripto y registra tus compras para seguir tus ganancias.');
+  String get investSearch => _t('Buscar ticker ou nome', 'Search ticker or name',
+      'Buscar ticker o nombre');
+  String get investDisclaimer => _t(
+      'Valores informativos, com atraso de ~15 min. Não é recomendação de investimento.',
+      'Informational values, ~15 min delayed. Not investment advice.',
+      'Valores informativos, con ~15 min de retraso. No es recomendación de inversión.');
+  String get investQuotesUpdated =>
+      _t('Cotações de', 'Quotes from', 'Cotizaciones de');
+  String get investNoQuote =>
+      _t('Sem cotação', 'No quote', 'Sin cotización');
+  String get investWeek52 =>
+      _t('Faixa 52 semanas', '52-week range', 'Rango 52 semanas');
+  String get investDayRange => _t('Faixa do dia', 'Day range', 'Rango del día');
+  String get investTradesHistory =>
+      _t('Histórico de operações', 'Trade history', 'Historial de operaciones');
+  String get investNoTrades => _t('Nenhuma operação registrada',
+      'No trades recorded', 'Sin operaciones registradas');
+  String get investRemoveAsset =>
+      _t('Remover ativo', 'Remove asset', 'Quitar activo');
+
+  // ── Tools hub ──────────────────────────────────────────────────────────────
+  String get toolsHub =>
+      _t('Ferramentas & Recursos', 'Tools & Features', 'Herramientas y recursos');
+  String get toolsHubDesc => _t(
+      'Investimentos, contas, assinaturas e mais',
+      'Investments, bills, subscriptions and more',
+      'Inversiones, cuentas, suscripciones y más');
+  String get toolsMarket =>
+      _t('Investimentos & mercado', 'Investments & market', 'Inversiones y mercado');
+  String get toolsOrganize => _t('Organização', 'Organization', 'Organización');
 
   // ── Currency converter (Pro) ───────────────────────────────────────────────
   String get currencyConverter =>

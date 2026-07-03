@@ -27,12 +27,9 @@ import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
-import '../../../category_rules/presentation/screens/category_rules_screen.dart';
-import '../../../bills/presentation/screens/bills_screen.dart';
-import '../../../subscriptions/presentation/screens/subscriptions_screen.dart';
 import '../../../wallets/presentation/screens/credit_card_screen.dart';
+import 'tools_hub_screen.dart';
 import '../../../../core/utils/money_input_formatter.dart';
-import 'currency_converter_screen.dart';
 import '../../../sharing/presentation/providers/sharing_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/screens/pro_screen.dart';
@@ -581,82 +578,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         key: _keyNotifications,
         child: const _NotificationDetectionSection(),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 20),
+
+      // ── FERRAMENTAS ─────────────────────────────────────────────────────
+      const _MobileSectionLabel('Ferramentas'),
+      const SizedBox(height: 8),
       _SettingsCard(children: [
         ListTile(
-          leading: const _IconBadge(Icons.rule_folder_outlined,
-              color: Color(0xFF00B894)),
-          title: const Text('Regras de categorização'),
-          subtitle: const Text(
-            'Categorize automaticamente por palavra-chave',
-            style: TextStyle(fontSize: 12),
-          ),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CategoryRulesScreen()),
-          ),
-        ),
-        const Divider(height: 1, indent: 56),
-        ListTile(
-          leading: const _IconBadge(Icons.event_note_outlined,
-              color: Color(0xFF00B894)),
-          title: Text(l10n.bills),
-          subtitle: Text(
-            l10n.billsDesc,
-            style: const TextStyle(fontSize: 12),
-          ),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const BillsScreen()),
-          ),
-        ),
-        const Divider(height: 1, indent: 56),
-        ListTile(
-          leading: const _IconBadge(Icons.autorenew_rounded,
+          leading: const _IconBadge(Icons.widgets_outlined,
               color: Color(0xFF6C5CE7)),
-          title: Text(l10n.subscriptions),
-          subtitle: Text(
-            l10n.subscriptionsDesc,
-            style: const TextStyle(fontSize: 12),
-          ),
+          title: Text(l10n.toolsHub),
+          subtitle: Text(l10n.toolsHubDesc,
+              style: const TextStyle(fontSize: 12)),
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SubscriptionsScreen()),
+            MaterialPageRoute(builder: (_) => const ToolsHubScreen()),
           ),
-        ),
-        const Divider(height: 1, indent: 56),
-        ListTile(
-          leading: const _IconBadge(Icons.currency_exchange_rounded,
-              color: Color(0xFF0EA5A5)),
-          title: Row(
-            children: [
-              Flexible(child: Text(l10n.currencyConverter)),
-              if (!ref.watch(isProProvider)) ...[
-                const SizedBox(width: 6),
-                const ProBadgeWidget(),
-              ],
-            ],
-          ),
-          subtitle: Text(
-            l10n.currencyConverterDesc,
-            style: const TextStyle(fontSize: 12),
-          ),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () {
-            if (!ref.read(isProProvider)) {
-              showProGateBottomSheet(
-                context,
-                featureName: l10n.currencyConverter,
-                featureDescription: l10n.currencyConverterDesc,
-                featureIcon: Icons.currency_exchange_rounded,
-              );
-              return;
-            }
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const CurrencyConverterScreen()),
-            );
-          },
         ),
       ]),
       const SizedBox(height: 20),

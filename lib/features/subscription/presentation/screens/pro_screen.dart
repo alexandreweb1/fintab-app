@@ -446,6 +446,12 @@ class _FeaturesCard extends StatelessWidget {
               title: 'Conversor de moedas',
               description:
                   'Converta valores entre moedas com cotação real e consolide o saldo de carteiras em moedas diferentes.',
+            ),
+            const _FeatureRow(
+              icon: Icons.candlestick_chart_rounded,
+              title: 'Investimentos',
+              description:
+                  'Acompanhe ações (B3 e EUA) e cripto com cotação real, preço médio e quanto você está ganhando ou perdendo.',
               isLast: true,
             ),
           ],
