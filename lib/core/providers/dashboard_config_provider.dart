@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum DashboardSection {
   insights,
+  investments,
   safeToSpend,
   netWorth,
   incomeExpense,
@@ -23,6 +24,8 @@ enum DashboardSection {
     switch (this) {
       case DashboardSection.insights:
         return 'Insights & Projeção';
+      case DashboardSection.investments:
+        return 'Investimentos';
       case DashboardSection.safeToSpend:
         return 'Pode Gastar';
       case DashboardSection.netWorth:
@@ -48,6 +51,8 @@ enum DashboardSection {
     switch (this) {
       case DashboardSection.insights:
         return 'Alertas de orçamento e projeção de fim de mês';
+      case DashboardSection.investments:
+        return 'Ganho/perda da sua carteira de investimentos';
       case DashboardSection.safeToSpend:
         return 'Quanto você pode gastar com segurança';
       case DashboardSection.netWorth:

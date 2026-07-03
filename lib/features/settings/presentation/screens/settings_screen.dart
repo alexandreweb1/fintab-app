@@ -202,27 +202,6 @@ class _SettingsCard extends StatelessWidget {
   }
 }
 
-class _MobileSectionLabel extends StatelessWidget {
-  final String label;
-  const _MobileSectionLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-}
-
 class _IconBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -334,13 +313,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _scrollController = ScrollController();
 
-  // Section anchor keys (web only)
-  final _keyAccount = GlobalKey();
-  final _keyPreferences = GlobalKey();
-  final _keyData = GlobalKey();
-  final _keySharing = GlobalKey();
-  final _keyNotifications = GlobalKey();
-  final _keyLogout = GlobalKey();
 
   @override
   void dispose() {
@@ -348,25 +320,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
-  void _scrollTo(GlobalKey key) {
-    final ctx = key.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      alignment: 0.05,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final user = ref.watch(authStateProvider).value;
-    final settings = ref.watch(appSettingsProvider);
-    final incomeCategories = ref.watch(incomeCategoriesProvider);
-    final expenseCategories = ref.watch(expenseCategoriesProvider);
-    final hasPasswordProvider = ref.watch(hasPasswordProviderProvider);
 
     final displayName = user?.displayName ?? '';
     final email = user?.email ?? '';
@@ -403,251 +361,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       const _ProBannerCard(),
       const SizedBox(height: 24),
 
-      // ── CONTA ──────────────────────────────────────────────────────────
-      const _MobileSectionLabel('Conta'),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keyAccount,
-        child: _SettingsCard(children: [
-          if (hasPasswordProvider)
-            ListTile(
-              leading: const _IconBadge(Icons.lock_outline,
-                  color: Color(0xFF5C6BC0)),
-              title: Text(l10n.changePassword),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => _showChangePasswordDialog(context),
-            )
-          else
-            ListTile(
-              leading: const _IconBadge(Icons.password_outlined,
-                  color: Color(0xFF7B68EE)),
-              title: Text(l10n.setPassword),
-              subtitle: Text(l10n.setPasswordSubtitle,
-                  style: const TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => _showSetPasswordDialog(context),
-            ),
-        ]),
+      // ── Menu (cada campo abre a própria tela) ──────────────────────────
+      _MenuTile(
+        icon: Icons.person_outline_rounded,
+        color: const Color(0xFF5C6BC0),
+        title: 'Conta',
+        subtitle: 'Senha e acesso',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AccountSettingsScreen())),
       ),
-      const SizedBox(height: 20),
-
-      // ── SEGURANÇA ──────────────────────────────────────────────────────
-      _MobileSectionLabel(l10n.security),
-      const SizedBox(height: 8),
-      const _AppLockCard(),
-      const SizedBox(height: 20),
-
-      // ── PREFERÊNCIAS ──────────────────────────────────────────────────
-      const _MobileSectionLabel('Preferências'),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keyPreferences,
-        child: _SettingsCard(children: [
-          ListTile(
-            leading: const _IconBadge(Icons.currency_exchange_outlined,
-                color: Color(0xFF26A69A)),
-            title: Text(l10n.currency),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(settings.currency.label,
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-            onTap: () => _showCurrencyDialog(context, l10n),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            leading: const _IconBadge(Icons.language_outlined,
-                color: Color(0xFF42A5F5)),
-            title: Text(l10n.language),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(settings.language.nativeLabel,
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-            onTap: () => _showLanguageDialog(context, l10n),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            leading: const _IconBadge(Icons.brightness_6_outlined,
-                color: Color(0xFFFFA726)),
-            title: Text(l10n.appearance),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_themeModeLabel(settings.themeMode, l10n),
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-            onTap: () => _showAppearanceDialog(context, l10n),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            leading: const _IconBadge(Icons.school_outlined,
-                color: Color(0xFF8E24AA)),
-            title: Text(l10n.literacyLevelSettingsTitle),
-            subtitle: Text(l10n.literacyLevelSettingsSubtitle,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_literacyLevelLabel(settings.literacyLevel, l10n),
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-            onTap: () => _showLiteracyLevelDialog(context, l10n),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            leading: const _IconBadge(Icons.sort_rounded,
-                color: Color(0xFF26C6DA)),
-            title: Text(l10n.categorySortSettingsTitle),
-            subtitle: Text(l10n.categorySortSettingsSubtitle,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_categorySortLabel(settings.categorySortMode, l10n),
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-            onTap: () => _showCategorySortDialog(context, l10n),
-          ),
-        ]),
+      _MenuTile(
+        icon: Icons.lock_outline_rounded,
+        color: const Color(0xFF7B68EE),
+        title: l10n.security,
+        subtitle: 'Bloqueio por PIN e biometria',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SecuritySettingsScreen())),
       ),
-      const SizedBox(height: 20),
-
-      // ── DADOS ──────────────────────────────────────────────────────────
-      _MobileSectionLabel(l10n.dataSection),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keyData,
-        child: _SettingsCard(children: [
-          const _WalletSection(),
-          const Divider(height: 1, indent: 16),
-          _CategorySection(
-            title: l10n.expenseCategories,
-            type: CategoryType.expense,
-            categories: expenseCategories,
-          ),
-          const Divider(height: 1, indent: 16),
-          _CategorySection(
-            title: l10n.incomeCategories,
-            type: CategoryType.income,
-            categories: incomeCategories,
-          ),
-        ]),
+      _MenuTile(
+        icon: Icons.tune_rounded,
+        color: const Color(0xFF26A69A),
+        title: 'Preferências',
+        subtitle: 'Moeda, idioma, tema, dicas',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PreferencesSettingsScreen())),
       ),
-      const SizedBox(height: 12),
-      const _DataIoCard(),
-      const SizedBox(height: 12),
-      const _FinancialHealthCard(),
-      const SizedBox(height: 20),
-
-      // ── COMPARTILHAMENTO ───────────────────────────────────────────────
-      const _MobileSectionLabel('Compartilhamento'),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keySharing,
-        child: const _SharingSection(),
+      _MenuTile(
+        icon: Icons.account_balance_wallet_outlined,
+        color: const Color(0xFF1976D2),
+        title: 'Carteiras & Categorias',
+        subtitle: 'Carteiras, categorias, import/export, saúde',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const DataSettingsScreen())),
       ),
-      const SizedBox(height: 20),
-
-      // ── NOTIFICAÇÕES ───────────────────────────────────────────────────
-      const _MobileSectionLabel('Notificações'),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keyNotifications,
-        child: const _NotificationDetectionSection(),
+      _MenuTile(
+        icon: Icons.widgets_outlined,
+        color: const Color(0xFF6C5CE7),
+        title: l10n.toolsHub,
+        subtitle: l10n.toolsHubDesc,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ToolsHubScreen())),
       ),
-      const SizedBox(height: 20),
-
-      // ── FERRAMENTAS ─────────────────────────────────────────────────────
-      const _MobileSectionLabel('Ferramentas'),
+      _MenuTile(
+        icon: Icons.people_outline_rounded,
+        color: const Color(0xFF00B894),
+        title: 'Compartilhamento',
+        subtitle: 'Conta compartilhada e convites',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SharingSettingsScreen())),
+      ),
+      _MenuTile(
+        icon: Icons.notifications_outlined,
+        color: const Color(0xFFE17055),
+        title: 'Notificações',
+        subtitle: 'Detecção automática e lembretes',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotificationsSettingsScreen())),
+      ),
+      _MenuTile(
+        icon: Icons.info_outline_rounded,
+        color: const Color(0xFF5C6BC0),
+        title: 'Sobre',
+        subtitle: 'Privacidade, termos e versão',
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AboutSettingsScreen())),
+      ),
       const SizedBox(height: 8),
-      _SettingsCard(children: [
-        ListTile(
-          leading: const _IconBadge(Icons.widgets_outlined,
-              color: Color(0xFF6C5CE7)),
-          title: Text(l10n.toolsHub),
-          subtitle: Text(l10n.toolsHubDesc,
-              style: const TextStyle(fontSize: 12)),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ToolsHubScreen()),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 20),
-
-      // ── SOBRE ──────────────────────────────────────────────────────────
-      const _MobileSectionLabel('Sobre'),
-      const SizedBox(height: 8),
-      _SettingsCard(children: [
-        ListTile(
-          leading: const _IconBadge(Icons.privacy_tip_outlined,
-              color: Color(0xFF5C6BC0)),
-          title: const Text('Política de Privacidade'),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
-          ),
-        ),
-        const Divider(height: 1, indent: 56),
-        ListTile(
-          leading: const _IconBadge(Icons.description_outlined,
-              color: Color(0xFF5C6BC0)),
-          title: const Text('Termos de Uso'),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TermsOfUseScreen()),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 20),
-
-      // ── SAIR ───────────────────────────────────────────────────────────
-      const _MobileSectionLabel('Sair'),
-      const SizedBox(height: 8),
-      KeyedSubtree(
-        key: _keyLogout,
-        child: _SettingsCard(children: [
-          ListTile(
-            leading: _IconBadge(Icons.logout, color: Colors.red.shade400),
-            title:
-                Text(l10n.logout, style: TextStyle(color: Colors.red.shade600)),
-            onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: _IconBadge(Icons.delete_forever_outlined,
-                color: Colors.red.shade900),
-            title: Text('Excluir conta',
-                style: TextStyle(color: Colors.red.shade900)),
-            onTap: () => showAnimatedDialog(
-              context: context,
-              builder: (_) => const _DeleteAccountDialog(),
-            ),
-          ),
-        ]),
+      _MenuTile(
+        icon: Icons.logout_rounded,
+        color: Colors.red.shade400,
+        titleColor: Colors.red.shade600,
+        title: l10n.logout,
+        onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
       ),
       const SizedBox(height: 16),
 
@@ -669,11 +454,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 email: email,
                 initials: initials,
                 l10n: l10n,
-                onAccount: () => _scrollTo(_keyAccount),
-                onPreferences: () => _scrollTo(_keyPreferences),
-                onData: () => _scrollTo(_keyData),
-                onSharing: () => _scrollTo(_keySharing),
-                onNotifications: () => _scrollTo(_keyNotifications),
+                onAccount: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AccountSettingsScreen())),
+                onPreferences: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const PreferencesSettingsScreen())),
+                onData: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const DataSettingsScreen())),
+                onSharing: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const SharingSettingsScreen())),
+                onNotifications: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const NotificationsSettingsScreen())),
                 onLogout: () =>
                     ref.read(authNotifierProvider.notifier).signOut(),
                 onEditProfile: () => showAnimatedDialog(
@@ -728,73 +518,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
-    showAnimatedDialog(
-        context: context, builder: (_) => const _ChangePasswordDialog());
-  }
 
-  void _showSetPasswordDialog(BuildContext context) {
-    showAnimatedDialog(
-        context: context, builder: (_) => const _SetPasswordDialog());
-  }
 
-  void _showCurrencyDialog(BuildContext context, AppLocalizations l10n) {
-    showAnimatedDialog(
-        context: context, builder: (ctx) => _CurrencyDialog(l10n: l10n));
-  }
 
-  void _showLanguageDialog(BuildContext context, AppLocalizations l10n) {
-    showAnimatedDialog(
-        context: context, builder: (ctx) => _LanguageDialog(l10n: l10n));
-  }
 
-  void _showAppearanceDialog(BuildContext context, AppLocalizations l10n) {
-    showAnimatedDialog(
-        context: context, builder: (ctx) => _AppearanceDialog(l10n: l10n));
-  }
 
-  void _showLiteracyLevelDialog(BuildContext context, AppLocalizations l10n) {
-    showAnimatedDialog(
-        context: context, builder: (ctx) => _LiteracyLevelDialog(l10n: l10n));
-  }
 
-  void _showCategorySortDialog(BuildContext context, AppLocalizations l10n) {
-    showAnimatedDialog(
-        context: context, builder: (ctx) => _CategorySortDialog(l10n: l10n));
-  }
 
-  String _categorySortLabel(CategorySortMode mode, AppLocalizations l10n) {
-    switch (mode) {
-      case CategorySortMode.mostUsed:
-        return l10n.categorySortMostUsed;
-      case CategorySortMode.alphabetical:
-        return l10n.categorySortAlphabetical;
-    }
-  }
+}
 
-  String _themeModeLabel(AppThemeMode mode, AppLocalizations l10n) {
-    switch (mode) {
-      case AppThemeMode.system:
-        return l10n.themeModeSystem;
-      case AppThemeMode.light:
-        return l10n.themeModeLight;
-      case AppThemeMode.dark:
-        return l10n.themeModeDark;
-    }
+String _categorySortLabel(CategorySortMode mode, AppLocalizations l10n) {
+  switch (mode) {
+    case CategorySortMode.mostUsed:
+      return l10n.categorySortMostUsed;
+    case CategorySortMode.alphabetical:
+      return l10n.categorySortAlphabetical;
   }
+}
 
-  String _literacyLevelLabel(
-      FinancialLiteracyLevel level, AppLocalizations l10n) {
-    switch (level) {
-      case FinancialLiteracyLevel.beginner:
-        return l10n.literacyLevelBeginner;
-      case FinancialLiteracyLevel.intermediate:
-        return l10n.literacyLevelIntermediate;
-      case FinancialLiteracyLevel.advanced:
-        return l10n.literacyLevelAdvanced;
-      case FinancialLiteracyLevel.unset:
-        return '—';
-    }
+String _themeModeLabel(AppThemeMode mode, AppLocalizations l10n) {
+  switch (mode) {
+    case AppThemeMode.system:
+      return l10n.themeModeSystem;
+    case AppThemeMode.light:
+      return l10n.themeModeLight;
+    case AppThemeMode.dark:
+      return l10n.themeModeDark;
+  }
+}
+
+String _literacyLevelLabel(
+    FinancialLiteracyLevel level, AppLocalizations l10n) {
+  switch (level) {
+    case FinancialLiteracyLevel.beginner:
+      return l10n.literacyLevelBeginner;
+    case FinancialLiteracyLevel.intermediate:
+      return l10n.literacyLevelIntermediate;
+    case FinancialLiteracyLevel.advanced:
+      return l10n.literacyLevelAdvanced;
+    case FinancialLiteracyLevel.unset:
+      return '—';
   }
 }
 
@@ -3610,4 +3373,250 @@ class _FinancialHealthCard extends ConsumerWidget {
       ),
     ]);
   }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Menu subtelas — cada campo do menu abre a própria tela (sem divisão inline).
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final Color? titleColor;
+  const _MenuTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.titleColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _SettingsCard(children: [
+        ListTile(
+          leading: _IconBadge(icon, color: color),
+          title: Text(title,
+              style: titleColor != null ? TextStyle(color: titleColor) : null),
+          subtitle: subtitle != null
+              ? Text(subtitle!, style: const TextStyle(fontSize: 12))
+              : null,
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: onTap,
+        ),
+      ]),
+    );
+  }
+}
+
+class _SubScreen extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _SubScreen({required this.title, required this.children});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: children,
+      ),
+    );
+  }
+}
+
+class AccountSettingsScreen extends ConsumerWidget {
+  const AccountSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final hasPassword = ref.watch(hasPasswordProviderProvider);
+    return _SubScreen(title: 'Conta', children: [
+      _SettingsCard(children: [
+        if (hasPassword)
+          ListTile(
+            leading: const _IconBadge(Icons.lock_outline,
+                color: Color(0xFF5C6BC0)),
+            title: Text(l10n.changePassword),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => showAnimatedDialog(
+                context: context,
+                builder: (_) => const _ChangePasswordDialog()),
+          )
+        else
+          ListTile(
+            leading: const _IconBadge(Icons.password_outlined,
+                color: Color(0xFF7B68EE)),
+            title: Text(l10n.setPassword),
+            subtitle: Text(l10n.setPasswordSubtitle,
+                style: const TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => showAnimatedDialog(
+                context: context, builder: (_) => const _SetPasswordDialog()),
+          ),
+      ]),
+      const SizedBox(height: 20),
+      _SettingsCard(children: [
+        ListTile(
+          leading: _IconBadge(Icons.delete_forever_outlined,
+              color: Colors.red.shade900),
+          title: Text('Excluir conta',
+              style: TextStyle(color: Colors.red.shade900)),
+          onTap: () => showAnimatedDialog(
+              context: context, builder: (_) => const _DeleteAccountDialog()),
+        ),
+      ]),
+    ]);
+  }
+}
+
+class SecuritySettingsScreen extends StatelessWidget {
+  const SecuritySettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => _SubScreen(
+        title: AppLocalizations.of(context).security,
+        children: const [_AppLockCard()],
+      );
+}
+
+class PreferencesSettingsScreen extends ConsumerWidget {
+  const PreferencesSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final settings = ref.watch(appSettingsProvider);
+    Widget row(IconData icon, Color color, String title, String value,
+            VoidCallback onTap,
+            {String? subtitle}) =>
+        ListTile(
+          leading: _IconBadge(icon, color: color),
+          title: Text(title),
+          subtitle: subtitle != null
+              ? Text(subtitle,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12))
+              : null,
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(value,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 20),
+          ]),
+          onTap: onTap,
+        );
+    return _SubScreen(title: 'Preferências', children: [
+      _SettingsCard(children: [
+        row(Icons.currency_exchange_outlined, const Color(0xFF26A69A),
+            l10n.currency, settings.currency.label,
+            () => showAnimatedDialog(
+                context: context, builder: (_) => _CurrencyDialog(l10n: l10n))),
+        const Divider(height: 1, indent: 56),
+        row(Icons.language_outlined, const Color(0xFF42A5F5), l10n.language,
+            settings.language.nativeLabel,
+            () => showAnimatedDialog(
+                context: context, builder: (_) => _LanguageDialog(l10n: l10n))),
+        const Divider(height: 1, indent: 56),
+        row(Icons.brightness_6_outlined, const Color(0xFFFFA726),
+            l10n.appearance, _themeModeLabel(settings.themeMode, l10n),
+            () => showAnimatedDialog(
+                context: context, builder: (_) => _AppearanceDialog(l10n: l10n))),
+        const Divider(height: 1, indent: 56),
+        row(Icons.school_outlined, const Color(0xFF8E24AA),
+            l10n.literacyLevelSettingsTitle,
+            _literacyLevelLabel(settings.literacyLevel, l10n),
+            () => showAnimatedDialog(
+                context: context,
+                builder: (_) => _LiteracyLevelDialog(l10n: l10n)),
+            subtitle: l10n.literacyLevelSettingsSubtitle),
+        const Divider(height: 1, indent: 56),
+        row(Icons.sort_rounded, const Color(0xFF26C6DA),
+            l10n.categorySortSettingsTitle,
+            _categorySortLabel(settings.categorySortMode, l10n),
+            () => showAnimatedDialog(
+                context: context,
+                builder: (_) => _CategorySortDialog(l10n: l10n)),
+            subtitle: l10n.categorySortSettingsSubtitle),
+      ]),
+    ]);
+  }
+}
+
+class DataSettingsScreen extends ConsumerWidget {
+  const DataSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final expense = ref.watch(expenseCategoriesProvider);
+    final income = ref.watch(incomeCategoriesProvider);
+    return _SubScreen(title: l10n.dataSection, children: [
+      _SettingsCard(children: [
+        const _WalletSection(),
+        const Divider(height: 1, indent: 16),
+        _CategorySection(
+            title: l10n.expenseCategories,
+            type: CategoryType.expense,
+            categories: expense),
+        const Divider(height: 1, indent: 16),
+        _CategorySection(
+            title: l10n.incomeCategories,
+            type: CategoryType.income,
+            categories: income),
+      ]),
+      const SizedBox(height: 12),
+      const _DataIoCard(),
+      const SizedBox(height: 12),
+      const _FinancialHealthCard(),
+    ]);
+  }
+}
+
+class SharingSettingsScreen extends StatelessWidget {
+  const SharingSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const _SubScreen(
+        title: 'Compartilhamento',
+        children: [_SharingSection()],
+      );
+}
+
+class NotificationsSettingsScreen extends StatelessWidget {
+  const NotificationsSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const _SubScreen(
+        title: 'Notificações',
+        children: [_NotificationDetectionSection()],
+      );
+}
+
+class AboutSettingsScreen extends StatelessWidget {
+  const AboutSettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => _SubScreen(title: 'Sobre', children: [
+        _SettingsCard(children: [
+          ListTile(
+            leading: const _IconBadge(Icons.privacy_tip_outlined,
+                color: Color(0xFF5C6BC0)),
+            title: const Text('Política de Privacidade'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+          ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const _IconBadge(Icons.description_outlined,
+                color: Color(0xFF5C6BC0)),
+            title: const Text('Termos de Uso'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TermsOfUseScreen())),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        const Center(child: _AppVersionLabel()),
+      ]);
 }

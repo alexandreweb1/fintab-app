@@ -22,6 +22,7 @@ import '../../../wallets/presentation/providers/wallets_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/insights_provider.dart';
 import '../widgets/dashboard_extra_cards.dart';
+import '../../../investments/presentation/providers/investments_provider.dart';
 import '../widgets/dashboard_insights_card.dart';
 import '../widgets/dashboard_metric_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
@@ -117,6 +118,13 @@ class DashboardScreen extends ConsumerWidget {
                 projection: projection,
                 monthName: monthName,
               ),
+              const SizedBox(height: 24),
+            ],
+            if (section == DashboardSection.investments &&
+                ref
+                    .watch(investmentPositionsProvider)
+                    .any((p) => p.summary.hasHoldings)) ...[
+              const InvestmentsSummaryCard(),
               const SizedBox(height: 24),
             ],
             if (section == DashboardSection.safeToSpend) ...[
@@ -1609,6 +1617,8 @@ class _SectionTile extends StatelessWidget {
     switch (s) {
       case DashboardSection.insights:
         return Icons.auto_awesome_outlined;
+      case DashboardSection.investments:
+        return Icons.candlestick_chart_outlined;
       case DashboardSection.safeToSpend:
         return Icons.savings_outlined;
       case DashboardSection.netWorth:

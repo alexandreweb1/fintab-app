@@ -129,6 +129,57 @@ class InvestmentQuoteService {
     }
   }
 
+  // ── Price history (chart) ──────────────────────────────────────────────────
+
+  /// Closing-price series for a stock over [range]/[interval] (Yahoo).
+  static Future<List<double>> fetchStockHistory(
+    String yahooSymbol, {
+    required String range,
+    required String interval,
+  }) async {
+    final url =
+        'https://query1.finance.yahoo.com/v8/finance/chart/$yahooSymbol'
+        '?range=$range&interval=$interval';
+    try {
+      final resp =
+          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+      if (resp.statusCode != 200) return [];
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final result = (data['chart']?['result'] as List?)?.firstOrNull;
+      final closes = (result?['indicators']?['quote'] as List?)
+          ?.firstOrNull?['close'] as List?;
+      if (closes == null) return [];
+      return closes.whereType<num>().map((v) => v.toDouble()).toList();
+    } catch (e) {
+      debugPrint('[Quote] stock history error: $e');
+      return [];
+    }
+  }
+
+  /// Price series (BRL) for a crypto over [days] (CoinGecko).
+  static Future<List<double>> fetchCryptoHistory(
+    String coingeckoId, {
+    required int days,
+  }) async {
+    final url = 'https://api.coingecko.com/api/v3/coins/$coingeckoId'
+        '/market_chart?vs_currency=brl&days=$days';
+    try {
+      final resp =
+          await http.get(Uri.parse(url), headers: _ua).timeout(_timeout);
+      if (resp.statusCode != 200) return [];
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final prices = (data['prices'] as List?) ?? [];
+      return prices
+          .whereType<List>()
+          .where((p) => p.length >= 2 && p[1] is num)
+          .map((p) => (p[1] as num).toDouble())
+          .toList();
+    } catch (e) {
+      debugPrint('[Quote] crypto history error: $e');
+      return [];
+    }
+  }
+
   // ── Search (add-asset UX) ──────────────────────────────────────────────────
 
   static Future<List<AssetSearchResult>> searchStocks(String query) async {

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../settings/presentation/screens/currency_converter_screen.dart';
 import '../providers/investments_provider.dart';
 import 'add_asset_screen.dart';
 import 'asset_detail_screen.dart';
@@ -15,17 +16,30 @@ String fmtNative(double v, String currency) => NumberFormat.currency(
       symbol: currency == 'USD' ? 'US\$' : 'R\$',
     ).format(v);
 
-class InvestmentsScreen extends ConsumerStatefulWidget {
+/// Standalone screen wrapper around [InvestmentsView].
+class InvestmentsScreen extends StatelessWidget {
   const InvestmentsScreen({super.key});
   @override
-  ConsumerState<InvestmentsScreen> createState() => _InvestmentsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(AppLocalizations.of(context).investments)),
+      body: const InvestmentsView(),
+    );
+  }
 }
 
-class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
+/// The investments portfolio content — reused inside the Extrato tab and as a
+/// standalone screen.
+class InvestmentsView extends ConsumerStatefulWidget {
+  const InvestmentsView({super.key});
+  @override
+  ConsumerState<InvestmentsView> createState() => _InvestmentsViewState();
+}
+
+class _InvestmentsViewState extends ConsumerState<InvestmentsView> {
   @override
   void initState() {
     super.initState();
-    // Refresh quotes once assets are available.
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
   }
 
@@ -44,7 +58,6 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
     final total = ref.watch(portfolioTotalProvider);
     final quotes = ref.watch(investmentQuotesProvider);
 
-    // Auto-refresh when the asset set changes (e.g. after adding one).
     ref.listen(investmentAssetsStreamProvider, (_, next) {
       final list = next.value ?? const [];
       if (list.isNotEmpty) {
@@ -52,60 +65,83 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.investments),
-        actions: [
-          IconButton(
-            icon: quotes.loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded),
-            onPressed: quotes.loading ? null : _refresh,
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddAssetScreen()),
-        ),
-        icon: const Icon(Icons.add),
-        label: Text(l10n.investAddAsset),
-      ),
-      body: positions.isEmpty
-          ? _Empty(l10n: l10n)
-          : RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-                children: [
-                  _TotalHeader(total: total, fmt: fmt),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      quotes.updatedAt != null
-                          ? '${l10n.investQuotesUpdated} ${DateFormat('HH:mm').format(quotes.updatedAt!)} · ${l10n.investDisclaimer}'
-                          : l10n.investDisclaimer,
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.8)),
-                    ),
+    return Column(
+      children: [
+        // ── Action row (refresh · add · overflow[converter]) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
+          child: Row(
+            children: [
+              Text(l10n.investments,
+                  style:
+                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AddAssetScreen())),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(l10n.investAddAsset),
+              ),
+              IconButton(
+                tooltip: l10n.currencyRefreshRates,
+                icon: quotes.loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh_rounded),
+                onPressed: quotes.loading ? null : _refresh,
+              ),
+              PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'converter') {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const CurrencyConverterScreen()));
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'converter',
+                    child: Row(children: [
+                      const Icon(Icons.currency_exchange_rounded, size: 18),
+                      const SizedBox(width: 10),
+                      Text(l10n.currencyConverter),
+                    ]),
                   ),
-                  const SizedBox(height: 12),
-                  ...holdings.map((p) => _PositionTile(pos: p, fmt: fmt)),
-                  if (holdings.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(l10n.investEmptyDesc,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: cs.onSurfaceVariant)),
-                    ),
                 ],
               ),
-            ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: positions.isEmpty
+              ? _Empty(l10n: l10n)
+              : RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
+                    children: [
+                      _TotalHeader(total: total, fmt: fmt),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          quotes.updatedAt != null
+                              ? '${l10n.investQuotesUpdated} ${DateFormat('HH:mm').format(quotes.updatedAt!)} · ${l10n.investDisclaimer}'
+                              : l10n.investDisclaimer,
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              color:
+                                  cs.onSurfaceVariant.withValues(alpha: 0.8)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...holdings.map((p) => _PositionTile(pos: p, fmt: fmt)),
+                    ],
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

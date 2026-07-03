@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../investments/presentation/screens/investments_screen.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
@@ -328,8 +329,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
           // ── Tab 1: Reservas ────────────────────────────────────────────
           const TypedWalletsTab(type: WalletType.reserve),
 
-          // ── Tab 2: Investimentos ───────────────────────────────────────
-          const TypedWalletsTab(type: WalletType.investment),
+          // ── Tab 2: Investimentos (carteira de ativos com cotação) ──────
+          ref.watch(isProProvider)
+              ? const InvestmentsView()
+              : ProGateWidget(
+                  featureName: l10n.investments,
+                  featureDescription: l10n.investmentsDesc,
+                  featureIcon: Icons.candlestick_chart_rounded,
+                  child: const InvestmentsView(),
+                ),
 
           // ── Tab 3: Patrimônio ──────────────────────────────────────────
           const _PatrimonioTab(),

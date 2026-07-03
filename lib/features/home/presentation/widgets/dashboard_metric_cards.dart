@@ -5,6 +5,8 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../bills/presentation/screens/bills_screen.dart';
 import '../../../bills/presentation/providers/bills_provider.dart';
+import '../../../investments/presentation/providers/investments_provider.dart';
+import '../../../investments/presentation/screens/investments_screen.dart';
 import '../providers/money_metrics_provider.dart';
 
 const _kGreen = Color(0xFF00A86B);
@@ -264,6 +266,93 @@ class BillsSummaryCard extends ConsumerWidget {
               ),
             ),
             Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Investments summary (gain/loss %) ────────────────────────────────────────
+
+class InvestmentsSummaryCard extends ConsumerStatefulWidget {
+  const InvestmentsSummaryCard({super.key});
+  @override
+  ConsumerState<InvestmentsSummaryCard> createState() =>
+      _InvestmentsSummaryCardState();
+}
+
+class _InvestmentsSummaryCardState
+    extends ConsumerState<InvestmentsSummaryCard> {
+  @override
+  void initState() {
+    super.initState();
+    // Keep the dashboard figure fresh: refresh quotes once on load.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final assets = ref.read(investmentAssetsStreamProvider).value ?? const [];
+      if (assets.isNotEmpty) {
+        ref.read(investmentQuotesProvider.notifier).refresh(assets);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = ref.watch(currencyFormatterProvider);
+    final total = ref.watch(portfolioTotalProvider);
+    final up = total.unrealized >= 0;
+    final accent = up ? _kGreen : cs.error;
+
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const InvestmentsScreen()),
+      ),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: _cardDeco(cs),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle),
+              child: Icon(Icons.candlestick_chart_rounded, color: accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Investimentos',
+                      style:
+                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 2),
+                  Text(fmt(total.marketValue),
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(children: [
+                  Icon(up ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 14, color: accent),
+                  Text('${total.unrealizedPct.abs().toStringAsFixed(2)}%',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: accent)),
+                ]),
+                Text('${up ? '+' : ''}${fmt(total.unrealized)}',
+                    style: TextStyle(fontSize: 12, color: accent)),
+              ],
+            ),
           ],
         ),
       ),

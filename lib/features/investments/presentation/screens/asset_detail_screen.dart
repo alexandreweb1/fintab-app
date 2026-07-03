@@ -7,6 +7,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../domain/investment_asset.dart';
 import '../../domain/investment_trade.dart';
 import '../providers/investments_provider.dart';
+import '../widgets/asset_price_chart.dart';
 import 'investments_screen.dart' show fmtNative;
 
 const _kGreen = Color(0xFF00A86B);
@@ -103,6 +104,11 @@ class AssetDetailScreen extends ConsumerWidget {
                 ),
               ),
           ]),
+          const SizedBox(height: 16),
+
+          // ── Price chart with period selector ──
+          AssetPriceChart(
+              quoteSymbol: asset.quoteSymbol, isCrypto: asset.kind.isCrypto),
           const SizedBox(height: 16),
 
           // ── Position ──
@@ -356,3 +362,4 @@ class _AddTradeDialogState extends ConsumerState<_AddTradeDialog> {
     );
   }
 }
+

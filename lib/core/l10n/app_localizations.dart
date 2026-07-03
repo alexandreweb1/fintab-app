@@ -419,6 +419,12 @@ class AppLocalizations {
       'No trades recorded', 'Sin operaciones registradas');
   String get investRemoveAsset =>
       _t('Remover ativo', 'Remove asset', 'Quitar activo');
+  String get investAddToPortfolio => _t('Adicionar à carteira',
+      'Add to portfolio', 'Agregar a la cartera');
+  String get investAddToPortfolioDesc => _t(
+      'Informe a quantidade e o preço para acompanhar este ativo na sua carteira.',
+      'Enter the quantity and price to track this asset in your portfolio.',
+      'Ingresa la cantidad y el precio para seguir este activo en tu cartera.');
 
   // ── Tools hub ──────────────────────────────────────────────────────────────
   String get toolsHub =>
