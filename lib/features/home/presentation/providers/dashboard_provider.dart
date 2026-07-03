@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../budget/data/models/budget_model.dart';
 import '../../../budget/domain/entities/budget_entity.dart';
 import '../../../budget/domain/usecases/get_budgets_usecase.dart';
 import '../../../budget/presentation/providers/budget_provider.dart';
@@ -16,16 +18,31 @@ final dashboardSelectedMonthProvider = selectedMonthProvider;
 // ─── Budget stream for the dashboard's selected month ─────────────────────────
 final dashboardBudgetsStreamProvider =
     StreamProvider<List<BudgetEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final month = ref.watch(dashboardSelectedMonthProvider);
+  if (scope is MemberScope) {
+    // Workspace-wide server query; the legacy per-user query's month window
+    // is replicated client-side.
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'budgets', scope.workspaceId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map(BudgetModel.fromFirestore)
+            .where((b) => !b.month.isBefore(start) && b.month.isBefore(end))
+            .toList());
+  }
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
-  final month = ref.watch(dashboardSelectedMonthProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(getBudgetsUseCaseProvider)
           .call(GetBudgetsParams(userId: effectiveUserId, month: month))
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => applyWorkspaceScope(
+              either.getOrElse(() => []), (b) => b.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),

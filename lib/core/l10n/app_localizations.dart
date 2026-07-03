@@ -108,15 +108,16 @@ class AppLocalizations {
   String get filterExpenses => _t('Despesas', 'Expenses', 'Gastos');
   String get expenseByCategory => _t('Gastos por categoria', 'Expenses by category', 'Gastos por categoría');
 
-  // ── Wallets ───────────────────────────────────────────────────────────────
-  String get wallet => _t('Carteira', 'Wallet', 'Billetera');
-  String get wallets => _t('Carteiras', 'Wallets', 'Billeteras');
-  String get newWallet => _t('Nova carteira...', 'New wallet...', 'Nueva billetera...');
-  String get walletField => _t('Carteira', 'Wallet', 'Billetera');
-  String get walletName => _t('Nome da carteira', 'Wallet name', 'Nombre de la billetera');
-  String get manageWallets => _t('Gerenciar carteiras', 'Manage wallets', 'Gestionar billeteras');
-  String get noWallets => _t('Nenhuma carteira cadastrada.', 'No wallets found.', 'No hay billeteras.');
-  String get errorCreatingWallet => _t('Erro ao criar carteira.', 'Error creating wallet.', 'Error al crear billetera.');
+  // ── Wallets (user-facing renamed to "Conta/Account" — "Carteira" now means
+  //    the PF/PJ workspace; internal identifiers keep the wallet name) ───────
+  String get wallet => _t('Conta', 'Account', 'Cuenta');
+  String get wallets => _t('Contas', 'Accounts', 'Cuentas');
+  String get newWallet => _t('Nova conta...', 'New account...', 'Nueva cuenta...');
+  String get walletField => _t('Conta', 'Account', 'Cuenta');
+  String get walletName => _t('Nome da conta', 'Account name', 'Nombre de la cuenta');
+  String get manageWallets => _t('Gerenciar contas', 'Manage accounts', 'Gestionar cuentas');
+  String get noWallets => _t('Nenhuma conta cadastrada.', 'No accounts found.', 'No hay cuentas.');
+  String get errorCreatingWallet => _t('Erro ao criar conta.', 'Error creating account.', 'Error al crear cuenta.');
   String get appearance => _t('Aparência', 'Appearance', 'Apariencia');
   String get themeModeSystem => _t('Padrão do sistema', 'System default', 'Predeterminado del sistema');
   String get themeModeLight => _t('Claro', 'Light', 'Claro');
@@ -180,10 +181,10 @@ class AppLocalizations {
   String get addExpenseCategory => _t('Adicionar despesa', 'Add expense', 'Agregar gasto');
   String get addIncomeCategory => _t('Adicionar receita', 'Add income', 'Agregar ingreso');
   String get editCategory => _t('Editar categoria', 'Edit category', 'Editar categoría');
-  String get editWallet => _t('Editar carteira', 'Edit wallet', 'Editar billetera');
+  String get editWallet => _t('Editar conta', 'Edit account', 'Editar cuenta');
   String get selectIcon => _t('Selecionar ícone', 'Select icon', 'Seleccionar ícono');
   String get selectColor => _t('Selecionar cor', 'Select color', 'Seleccionar color');
-  String get defaultWallet => _t('Carteira padrão', 'Default wallet', 'Billetera predeterminada');
+  String get defaultWallet => _t('Conta padrão', 'Default account', 'Cuenta predeterminada');
   String get currency => _t('Moeda', 'Currency', 'Moneda');
   String get language => _t('Idioma', 'Language', 'Idioma');
   String get currencyTitle => _t('Selecionar moeda', 'Select currency', 'Seleccionar moneda');
@@ -318,9 +319,28 @@ class AppLocalizations {
   String get installmentSingle => _t('À vista', 'Single', 'Al contado');
   String get viewInvoices => _t('Ver faturas', 'View invoices', 'Ver facturas');
   String get creditCardNoWallet => _t(
-      'Selecione uma carteira para pagar a fatura',
-      'Select a wallet to pay the invoice',
-      'Selecciona una billetera para pagar la factura');
+      'Selecione uma conta para pagar a fatura',
+      'Select an account to pay the invoice',
+      'Selecciona una cuenta para pagar la factura');
+  String get cards => _t('Cartões', 'Cards', 'Tarjetas');
+  String get newCard => _t('Novo cartão', 'New card', 'Nueva tarjeta');
+  String get addCardPurchase =>
+      _t('Lançar compra', 'Add purchase', 'Registrar compra');
+  String get noCards =>
+      _t('Nenhum cartão cadastrado', 'No cards yet', 'Sin tarjetas');
+  String get noCardsDesc => _t(
+      'Adicione seu cartão de crédito para lançar compras e controlar a fatura.',
+      'Add your credit card to log purchases and track the invoice.',
+      'Agrega tu tarjeta de crédito para registrar compras y controlar la factura.');
+  String get cardsTotalOwed =>
+      _t('Total das faturas', 'Total owed', 'Total de facturas');
+  String get selectBank =>
+      _t('Banco ou bandeira', 'Bank or network', 'Banco o red');
+  String get cardName => _t('Nome do cartão', 'Card name', 'Nombre de la tarjeta');
+  String get banksBrazil =>
+      _t('Bancos do Brasil', 'Brazilian banks', 'Bancos de Brasil');
+  String get banksIntl =>
+      _t('Internacionais', 'International', 'Internacionales');
 
   // ── Bills / due-date reminders (contas a pagar e receber) ──────────────────
   String get bills => _t('Contas a pagar', 'Bills', 'Cuentas por pagar');
@@ -425,6 +445,43 @@ class AppLocalizations {
       'Informe a quantidade e o preço para acompanhar este ativo na sua carteira.',
       'Enter the quantity and price to track this asset in your portfolio.',
       'Ingresa la cantidad y el precio para seguir este activo en tu cartera.');
+
+  // ── Workspaces ("Carteiras" PF/PJ) ─────────────────────────────────────────
+  String get workspaces => _t('Carteiras', 'Spaces', 'Espacios');
+  String get workspacePersonal => _t('Pessoal (PF)', 'Personal', 'Personal');
+  String get workspaceBusiness =>
+      _t('Empresarial (PJ)', 'Business', 'Empresarial');
+  String get allWorkspaces => _t('Todas juntas', 'All together', 'Todas juntas');
+  String get allWorkspacesHint => _t(
+      'Visão consolidada de todas as suas Carteiras (somente leitura de totais). Novos lançamentos vão para a Carteira Pessoal.',
+      'Consolidated view of all your spaces. New entries go to the Personal space.',
+      'Vista consolidada de todos tus espacios. Los nuevos registros van al espacio Personal.');
+  String get newWorkspace => _t('Nova Carteira', 'New space', 'Nuevo espacio');
+  String get manageWorkspaces =>
+      _t('Gerenciar Carteiras', 'Manage spaces', 'Gestionar espacios');
+  String get workspaceName =>
+      _t('Nome da Carteira', 'Space name', 'Nombre del espacio');
+  String get workspaceType => _t('Tipo', 'Type', 'Tipo');
+  String get workspaceSharedWithMe =>
+      _t('Compartilhada comigo', 'Shared with me', 'Compartida conmigo');
+  String get workspaceSwitchTo =>
+      _t('Trocar de Carteira', 'Switch space', 'Cambiar de espacio');
+  String get deleteWorkspace =>
+      _t('Excluir Carteira', 'Delete space', 'Eliminar espacio');
+  String get deleteWorkspaceWarning => _t(
+      'TODOS os lançamentos, contas, categorias, orçamentos, metas e demais dados desta Carteira serão apagados de forma permanente.',
+      'ALL transactions, accounts, categories, budgets, goals and other data in this space will be permanently deleted.',
+      'TODOS los registros, cuentas, categorías, presupuestos, metas y demás datos de este espacio se eliminarán de forma permanente.');
+  String get cannotDeleteDefaultWorkspace => _t(
+      'A Carteira Pessoal (padrão) não pode ser excluída.',
+      'The default Personal space cannot be deleted.',
+      'El espacio Personal (predeterminado) no se puede eliminar.');
+  String get archiveWorkspace => _t('Arquivar', 'Archive', 'Archivar');
+  String get unarchiveWorkspace => _t('Desarquivar', 'Unarchive', 'Desarchivar');
+  String get workspacesDesc => _t(
+      'Separe Pessoal (PF) e Empresarial (PJ) e gerencie cada uma de forma independente',
+      'Separate Personal and Business ledgers and manage each independently',
+      'Separa Personal y Empresarial y gestiona cada uno de forma independiente');
 
   // ── Tools hub ──────────────────────────────────────────────────────────────
   String get toolsHub =>
@@ -557,7 +614,7 @@ class AppLocalizations {
   String get importDefaults =>
       _t('Padrões da importação', 'Import defaults', 'Predeterminados');
   String get importTargetWallet =>
-      _t('Carteira de destino', 'Target wallet', 'Cartera destino');
+      _t('Conta de destino', 'Target account', 'Cuenta destino');
   String get importIncomeCategory => _t('Categoria padrão (receitas)',
       'Default category (income)', 'Categoría por defecto (ingresos)');
   String get importExpenseCategory => _t('Categoria padrão (despesas)',
@@ -745,13 +802,13 @@ class AppLocalizations {
       'Las recurrencias son transacciones que se repiten automáticamente (ej.: salario el día 5, alquiler el día 10). Las creas una vez y la app las registra cada período.');
 
   String get hintWalletTitle => _t(
-      'O que é uma carteira?',
-      'What is a wallet?',
-      '¿Qué es una billetera?');
+      'O que é uma conta?',
+      'What is an account?',
+      '¿Qué es una cuenta?');
   String get hintWalletBody => _t(
-      'Carteira é onde seu dinheiro está: conta corrente, dinheiro vivo, cartão pré-pago etc. Você pode ter várias e ver o saldo de cada uma separadamente.',
-      'A wallet is where your money lives: checking account, cash, prepaid card, etc. You can have several and see each balance separately.',
-      'Una billetera es dónde está tu dinero: cuenta corriente, efectivo, tarjeta prepago, etc. Puedes tener varias y ver el saldo de cada una.');
+      'Conta é onde seu dinheiro está: conta corrente, dinheiro vivo, cartão pré-pago etc. Você pode ter várias e ver o saldo de cada uma separadamente.',
+      'An account is where your money lives: checking account, cash, prepaid card, etc. You can have several and see each balance separately.',
+      'Una cuenta es dónde está tu dinero: cuenta corriente, efectivo, tarjeta prepago, etc. Puedes tener varias y ver el saldo de cada una.');
 
   String get hintCategoryTitle => _t(
       'O que é uma categoria?',

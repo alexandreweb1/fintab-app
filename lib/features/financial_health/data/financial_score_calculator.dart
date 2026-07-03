@@ -104,8 +104,8 @@ class FinancialScoreCalculator {
         kind: ScoreFactorKind.emergencyReserve,
         value: 0,
         measured: false,
-        headline: 'Cadastre uma carteira de Reserva para medir sua cobertura.',
-        hint: 'Crie uma carteira do tipo Reserva no Extrato.',
+        headline: 'Cadastre uma conta de Reserva para medir sua cobertura.',
+        hint: 'Crie uma conta do tipo Reserva no Extrato.',
       );
     }
     if (monthlyExpense <= 0) {
@@ -271,8 +271,8 @@ class FinancialScoreCalculator {
         kind: ScoreFactorKind.investments,
         value: 0,
         measured: false,
-        headline: 'Cadastre uma carteira de Investimento para começar.',
-        hint: 'Crie uma carteira do tipo Investimento no Extrato.',
+        headline: 'Cadastre uma conta de Investimento para começar.',
+        hint: 'Crie uma conta do tipo Investimento no Extrato.',
       );
     }
     final income = txs

@@ -18,6 +18,7 @@ class TransactionModel extends TransactionEntity {
     super.isPending,
     super.tags,
     super.attachmentUrls,
+    super.workspaceId,
   });
 
   factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
@@ -39,6 +40,7 @@ class TransactionModel extends TransactionEntity {
       attachmentUrls:
           (data['attachmentUrls'] as List<dynamic>?)?.cast<String>() ??
               const [],
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -57,6 +59,7 @@ class TransactionModel extends TransactionEntity {
       'isPending': isPending,
       'tags': tags,
       'attachmentUrls': attachmentUrls,
+      if (workspaceId != null) 'workspaceId': workspaceId,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -77,6 +80,7 @@ class TransactionModel extends TransactionEntity {
       isPending: entity.isPending,
       tags: entity.tags,
       attachmentUrls: entity.attachmentUrls,
+      workspaceId: entity.workspaceId,
     );
   }
 }

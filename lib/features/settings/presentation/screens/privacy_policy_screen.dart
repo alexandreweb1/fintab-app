@@ -57,8 +57,8 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
 
   const Heading(3, '2.2 Dados financeiros que você registra'),
   const Bullets([
-    'Transações (título, valor, tipo, categoria, data, descrição, carteira, tags)',
-    'Carteiras/contas (nome, ícone, cor, moeda, tipo, saldo inicial)',
+    'Transações (título, valor, tipo, categoria, data, descrição, conta, tags)',
+    'Contas (nome, ícone, cor, moeda, tipo, saldo inicial)',
     'Categorias personalizadas',
     'Orçamentos (limites por categoria, mês/ano)',
     'Metas financeiras (título, valor-alvo, prazo)',
@@ -85,7 +85,7 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
   const Bullets([
     'PIN do app lock (somente **hash SHA-256 + salt** no Keychain/Keystore — nunca enviado a nenhum servidor)',
     'Flags de bloqueio (PIN ativo, biometria ativa)',
-    'Preferências de UI (moeda, idioma, tema, layout do dashboard, carteiras ocultas, nível de letramento financeiro)',
+    'Preferências de UI (moeda, idioma, tema, layout do dashboard, contas ocultas, nível de letramento financeiro)',
   ]),
 
   const Heading(3, '2.7 O que NÃO coletamos'),

@@ -39,7 +39,7 @@ enum DashboardSection {
       case DashboardSection.budgets:
         return 'Resumo de Orçamentos';
       case DashboardSection.wallets:
-        return 'Saldo por Carteira';
+        return 'Saldo por Conta';
       case DashboardSection.recentTransactions:
         return 'Últimas Transações';
       case DashboardSection.upcomingRecurring:
@@ -66,7 +66,7 @@ enum DashboardSection {
       case DashboardSection.budgets:
         return 'Barra de progresso dos orçamentos';
       case DashboardSection.wallets:
-        return 'Saldo individual por carteira';
+        return 'Saldo individual por conta';
       case DashboardSection.recentTransactions:
         return 'Últimas 5 transações realizadas';
       case DashboardSection.upcomingRecurring:

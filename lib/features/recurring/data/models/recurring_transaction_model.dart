@@ -20,6 +20,7 @@ class RecurringTransactionModel extends RecurringTransactionEntity {
     super.isActive,
     super.lastGeneratedDate,
     required super.createdAt,
+    super.workspaceId,
   });
 
   factory RecurringTransactionModel.fromFirestore(DocumentSnapshot doc) {
@@ -50,6 +51,7 @@ class RecurringTransactionModel extends RecurringTransactionEntity {
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -70,6 +72,7 @@ class RecurringTransactionModel extends RecurringTransactionEntity {
             ? Timestamp.fromDate(lastGeneratedDate!)
             : null,
         'createdAt': Timestamp.fromDate(createdAt),
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory RecurringTransactionModel.fromEntity(RecurringTransactionEntity e) =>
@@ -89,6 +92,7 @@ class RecurringTransactionModel extends RecurringTransactionEntity {
         isActive: e.isActive,
         lastGeneratedDate: e.lastGeneratedDate,
         createdAt: e.createdAt,
+        workspaceId: e.workspaceId,
       );
 
   static RecurrenceFrequency _frequencyFromString(String value) {

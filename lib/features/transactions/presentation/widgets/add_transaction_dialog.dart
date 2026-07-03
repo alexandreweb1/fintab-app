@@ -10,7 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/receipt_storage_service.dart';
-import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/widgets/help_hint.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
@@ -42,11 +42,15 @@ class AddTransactionDialog extends ConsumerStatefulWidget {
   /// Pre-selects the transaction type (used by the notification suggestion feature).
   final TransactionType? initialType;
 
+  /// Pre-selects a wallet (e.g. launching a purchase straight onto a card).
+  final String? initialWalletId;
+
   const AddTransactionDialog({
     super.key,
     this.transaction,
     this.initialAmount,
     this.initialType,
+    this.initialWalletId,
   });
 
   @override
@@ -456,7 +460,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
   Future<void> _showNewCategoryDialog() async {
     final nameCtrl = TextEditingController();
-    final effectiveUserId = ref.read(effectiveUserIdProvider);
+    final effectiveUserId = ref.read(ledgerOwnerIdProvider);
     if (effectiveUserId.isEmpty) return;
 
     final l10n = AppLocalizations.of(context);
@@ -521,7 +525,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   Future<void> _showNewWalletDialog() async {
     final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController();
-    final effectiveUserId = ref.read(effectiveUserIdProvider);
+    final effectiveUserId = ref.read(ledgerOwnerIdProvider);
     if (effectiveUserId.isEmpty) return;
 
     final created = await showDialog<String>(
@@ -594,6 +598,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       }
       if (widget.initialType != null) {
         _type = widget.initialType!;
+      }
+      if (widget.initialWalletId != null) {
+        _walletId = widget.initialWalletId!;
       }
     }
     _titleController.addListener(() => _onTitleChanged(_titleController.text));
@@ -1254,9 +1261,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                       if (!ref.read(canAddWalletProvider)) {
                         showProGateBottomSheet(
                           context,
-                          featureName: 'Múltiplas Carteiras',
+                          featureName: 'Múltiplas Contas',
                           featureDescription:
-                              'Crie quantas carteiras quiser para organizar seu dinheiro.',
+                              'Crie quantas contas quiser para organizar seu dinheiro.',
                           featureIcon: Icons.account_balance_wallet_rounded,
                         );
                         return;

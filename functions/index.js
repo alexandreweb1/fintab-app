@@ -1,5 +1,5 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {onRequest} = require("firebase-functions/v2/https");
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {logger} = require("firebase-functions");
 const {initializeApp} = require("firebase-admin/app");
 const {
@@ -10,6 +10,100 @@ const {
 
 initializeApp();
 const db = getFirestore();
+
+// ── Workspace ("Carteira") sharing ───────────────────────────────────────────
+// Accepting an invite adds the INVITEE to the workspace's membership with the
+// role the OWNER assigned. This is the one privilege-sensitive mutation in the
+// whole sharing model (a client could otherwise self-assign 'editor' or join a
+// workspace it wasn't invited to), so it runs here with the Admin SDK. The
+// Firestore rules deliberately freeze workspace membership for non-owners.
+exports.acceptWorkspaceInvite = onCall(
+    {region: "us-central1"},
+    async (request) => {
+      const uid = request.auth && request.auth.uid;
+      const email = request.auth && request.auth.token &&
+        (request.auth.token.email || "").toLowerCase();
+      if (!uid || !email) {
+        throw new HttpsError("unauthenticated", "Sign in required.");
+      }
+      const invitationId = request.data && request.data.invitationId;
+      if (!invitationId || typeof invitationId !== "string") {
+        throw new HttpsError("invalid-argument", "invitationId required.");
+      }
+
+      const invRef = db.collection("invitations").doc(invitationId);
+      const invSnap = await invRef.get();
+      if (!invSnap.exists) {
+        throw new HttpsError("not-found", "Invitation not found.");
+      }
+      const inv = invSnap.data();
+      if ((inv.inviteeEmail || "").toLowerCase() !== email) {
+        throw new HttpsError("permission-denied", "Not your invitation.");
+      }
+      if (!inv.workspaceId) {
+        throw new HttpsError("failed-precondition",
+            "Legacy invitation — accept via the app's legacy flow.");
+      }
+      // Idempotent: re-accepting an already-accepted invitation is a no-op.
+      if (inv.status === "accepted" && inv.collaboratorUserId === uid) {
+        return {ok: true, workspaceId: inv.workspaceId};
+      }
+      if (inv.status !== "pending") {
+        throw new HttpsError("failed-precondition",
+            `Invitation is ${inv.status}.`);
+      }
+      const role = inv.role === "viewer" ? "viewer" : "editor";
+
+      const wsRef = db.collection("workspaces").doc(inv.workspaceId);
+      const wsSnap = await wsRef.get();
+      if (!wsSnap.exists || wsSnap.data().ownerId !== inv.masterUserId) {
+        throw new HttpsError("failed-precondition",
+            "Workspace no longer exists.");
+      }
+
+      const batch = db.batch();
+      batch.update(invRef, {
+        status: "accepted",
+        collaboratorUserId: uid,
+        acceptedAt: FieldValue.serverTimestamp(),
+      });
+      batch.update(wsRef, {
+        memberUids: FieldValue.arrayUnion(uid),
+        [`roles.${uid}`]: role,
+      });
+      await batch.commit();
+      logger.info("acceptWorkspaceInvite", {invitationId, uid, role});
+      return {ok: true, workspaceId: inv.workspaceId};
+    },
+);
+
+// A member (not the owner) removes THEMSELVES from a workspace. The owner
+// revokes members client-side (owners may write their own workspace doc).
+exports.leaveWorkspace = onCall(
+    {region: "us-central1"},
+    async (request) => {
+      const uid = request.auth && request.auth.uid;
+      if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+      const workspaceId = request.data && request.data.workspaceId;
+      if (!workspaceId || typeof workspaceId !== "string") {
+        throw new HttpsError("invalid-argument", "workspaceId required.");
+      }
+      const wsRef = db.collection("workspaces").doc(workspaceId);
+      const wsSnap = await wsRef.get();
+      if (!wsSnap.exists) return {ok: true}; // already gone — idempotent
+      const ws = wsSnap.data();
+      if (ws.ownerId === uid) {
+        throw new HttpsError("failed-precondition",
+            "The owner cannot leave their own workspace.");
+      }
+      await wsRef.update({
+        memberUids: FieldValue.arrayRemove(uid),
+        [`roles.${uid}`]: FieldValue.delete(),
+      });
+      logger.info("leaveWorkspace", {workspaceId, uid});
+      return {ok: true};
+    },
+);
 
 // ── Market-data CORS proxy ───────────────────────────────────────────────────
 // Browsers block direct calls to Yahoo Finance / CoinGecko (no CORS headers),

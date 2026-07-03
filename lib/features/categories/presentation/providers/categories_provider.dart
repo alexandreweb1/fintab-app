@@ -3,9 +3,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../data/datasources/category_remote_datasource.dart';
+import '../../data/models/category_model.dart';
 import '../../data/repositories/category_repository_impl.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/repositories/category_repository.dart';
@@ -47,6 +49,24 @@ final deleteCategoryUseCaseProvider = Provider(
 
 final categoriesStreamProvider =
     StreamProvider<List<CategoryEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: query the workspace server-side (authorized by
+  // workspace membership, not by userId).
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'categories', scope.workspaceId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs
+          .map((doc) => CategoryModel.fromFirestore(doc) as CategoryEntity)
+          .toList();
+      // Replicates the datasource's orderBy('name').
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -55,7 +75,8 @@ final categoriesStreamProvider =
       return ref
           .watch(getCategoriesUseCaseProvider)
           .call(GetCategoriesParams(userId: effectiveUserId))
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => applyWorkspaceScope(
+              either.getOrElse(() => []), (c) => c.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -140,6 +161,10 @@ final expenseCategoriesProvider = Provider<List<CategoryEntity>>((ref) {
 // --- Seed initializer (activate in MainScreen) ---
 
 final categoriesSeedProvider = Provider<void>((ref) {
+  // Only the owner path seeds defaults — a shared-in member must never seed
+  // categories into someone else's workspace.
+  final scope = ref.watch(activeLedgerScopeProvider);
+  if (scope is! UserScope) return;
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   ref.listen<AsyncValue<List<CategoryEntity>>>(
     categoriesStreamProvider,
@@ -160,12 +185,14 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<void>> {
   final UpdateCategoryUseCase _updateCategory;
   final DeleteCategoryUseCase _deleteCategory;
   final CategoryRepository _repository;
+  final String? _workspaceId;
 
   CategoriesNotifier(
     this._addCategory,
     this._updateCategory,
     this._deleteCategory,
     this._repository,
+    this._workspaceId,
   ) : super(const AsyncValue.data(null));
 
   Future<bool> add({
@@ -179,6 +206,7 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<void>> {
     final category = CategoryEntity(
       id: const Uuid().v4(),
       userId: userId,
+      workspaceId: _workspaceId,
       name: name,
       type: type,
       iconCodePoint: iconCodePoint,
@@ -230,7 +258,8 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<void> seedDefaults(String userId) async {
-    final result = await _repository.seedDefaults(userId);
+    final result =
+        await _repository.seedDefaults(userId, workspaceId: _workspaceId);
     result.fold(
       (failure) =>
           state = AsyncValue.error(failure.message, StackTrace.current),
@@ -246,5 +275,6 @@ final categoriesNotifierProvider =
     ref.watch(updateCategoryUseCaseProvider),
     ref.watch(deleteCategoryUseCaseProvider),
     ref.watch(categoryRepositoryProvider),
+    ref.watch(workspaceStampProvider),
   );
 });

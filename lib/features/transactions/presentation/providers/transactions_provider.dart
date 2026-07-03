@@ -4,7 +4,9 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../data/datasources/transaction_remote_datasource.dart';
+import '../../data/models/transaction_model.dart';
 import '../../data/repositories/transaction_repository_impl.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
@@ -46,6 +48,23 @@ final updateTransactionUseCaseProvider = Provider(
 
 final transactionsStreamProvider =
     StreamProvider<List<TransactionEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: server-side query by workspaceId.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'transactions', scope.workspaceId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs
+          .map(TransactionModel.fromFirestore)
+          .cast<TransactionEntity>()
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -54,7 +73,9 @@ final transactionsStreamProvider =
       return ref
           .watch(getTransactionsUseCaseProvider)
           .call(GetTransactionsParams(userId: effectiveUserId))
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => either.getOrElse(() => []))
+          .map((list) =>
+              applyWorkspaceScope(list, (t) => t.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -403,12 +424,14 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
   final DeleteTransactionUseCase _deleteTransaction;
   final UpdateTransactionUseCase _updateTransaction;
   final String _userId;
+  final String? _workspaceId;
 
   TransactionsNotifier(
     this._addTransaction,
     this._deleteTransaction,
     this._updateTransaction,
     this._userId,
+    this._workspaceId,
   ) : super(const AsyncValue.data(null));
 
   Future<bool> add({
@@ -429,6 +452,7 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
     final transaction = TransactionEntity(
       id: const Uuid().v4(),
       userId: _userId,
+      workspaceId: _workspaceId,
       title: title,
       amount: amount,
       type: type,
@@ -471,12 +495,18 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
     String? goalId,
     bool isPending = false,
     List<String> tags = const [],
+    /// Background capture (bank notifications) passes the user's DEFAULT
+    /// workspace + own uid here so captured entries never land in whatever
+    /// (possibly shared) Carteira happened to be active on screen.
+    String? workspaceIdOverride,
+    String? userIdOverride,
   }) async {
     state = const AsyncValue.loading();
     final id = const Uuid().v4();
     final transaction = TransactionEntity(
       id: id,
-      userId: _userId,
+      userId: userIdOverride ?? _userId,
+      workspaceId: workspaceIdOverride ?? _workspaceId,
       title: title,
       amount: amount,
       type: type,
@@ -538,11 +568,12 @@ class TransactionsNotifier extends StateNotifier<AsyncValue<void>> {
 
 final transactionsNotifierProvider =
     StateNotifierProvider<TransactionsNotifier, AsyncValue<void>>((ref) {
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final ledgerOwnerId = ref.watch(ledgerOwnerIdProvider);
   return TransactionsNotifier(
     ref.watch(addTransactionUseCaseProvider),
     ref.watch(deleteTransactionUseCaseProvider),
     ref.watch(updateTransactionUseCaseProvider),
-    effectiveUserId,
+    ledgerOwnerId,
+    ref.watch(workspaceStampProvider),
   );
 });

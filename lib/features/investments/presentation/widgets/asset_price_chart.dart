@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../data/investment_quote_service.dart';
+import '../screens/investments_screen.dart' show fmtNative;
 
 const _kGreen = Color(0xFF00A86B);
 
-/// Price chart with a period selector (1D / 1S / 1M / 1A / 5A).
+/// Price chart with a period selector (1D / 1S / 1M / 1A / 5A) and an
+/// interactive scrubber: drag a finger (or tap) across the chart to reveal the
+/// price at that point via a crosshair, a dot and a floating value bubble.
 ///
 /// Works for any asset — [quoteSymbol] is the provider symbol (Yahoo ticker for
-/// stocks, CoinGecko id for crypto). Reused by the saved-asset detail screen and
-/// the pre-add preview screen.
+/// stocks, CoinGecko id for crypto). [currency] is used to format the bubble.
 class AssetPriceChart extends StatefulWidget {
   final String quoteSymbol;
   final bool isCrypto;
-  const AssetPriceChart(
-      {super.key, required this.quoteSymbol, required this.isCrypto});
+  final String currency;
+  const AssetPriceChart({
+    super.key,
+    required this.quoteSymbol,
+    required this.isCrypto,
+    this.currency = 'BRL',
+  });
 
   @override
   State<AssetPriceChart> createState() => _AssetPriceChartState();
@@ -32,6 +39,7 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
   String _sel = '1M';
   bool _loading = false;
   List<double> _series = const [];
+  int? _touchIndex; // scrubber selection
 
   @override
   void initState() {
@@ -40,7 +48,10 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _touchIndex = null;
+    });
     final p = _periods[_sel]!;
     final data = widget.isCrypto
         ? await InvestmentQuoteService.fetchCryptoHistory(widget.quoteSymbol,
@@ -54,6 +65,13 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
     });
   }
 
+  void _selectAt(double dx, double width) {
+    if (_series.length < 2 || width <= 0) return;
+    final i =
+        (dx / width * (_series.length - 1)).round().clamp(0, _series.length - 1);
+    if (i != _touchIndex) setState(() => _touchIndex = i);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -64,7 +82,7 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: 140,
+          height: 150,
           child: _loading
               ? const Center(
                   child: SizedBox(
@@ -75,9 +93,41 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
                   ? Center(
                       child: Text('Sem histórico',
                           style: TextStyle(color: cs.onSurfaceVariant)))
-                  : CustomPaint(
-                      painter: _ChartPainter(values: _series, color: accent),
-                      child: const SizedBox.expand(),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final w = constraints.maxWidth;
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (d) => _selectAt(d.localPosition.dx, w),
+                          onHorizontalDragStart: (d) =>
+                              _selectAt(d.localPosition.dx, w),
+                          onHorizontalDragUpdate: (d) =>
+                              _selectAt(d.localPosition.dx, w),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _ChartPainter(
+                                    values: _series,
+                                    color: accent,
+                                    selectedIndex: _touchIndex,
+                                    crosshairColor: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              if (_touchIndex != null)
+                                _ValueBubble(
+                                  width: w,
+                                  index: _touchIndex!,
+                                  count: _series.length,
+                                  text: fmtNative(
+                                      _series[_touchIndex!], widget.currency),
+                                  color: accent,
+                                ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
         ),
         const SizedBox(height: 8),
@@ -100,10 +150,61 @@ class _AssetPriceChartState extends State<AssetPriceChart> {
   }
 }
 
+/// Floating label positioned above the scrubbed point, showing its value.
+class _ValueBubble extends StatelessWidget {
+  final double width;
+  final int index;
+  final int count;
+  final String text;
+  final Color color;
+  const _ValueBubble({
+    required this.width,
+    required this.index,
+    required this.count,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const bubbleW = 104.0;
+    final x = count <= 1 ? 0.0 : width * (index / (count - 1));
+    final maxLeft = (width - bubbleW).clamp(0.0, width);
+    final left = (x - bubbleW / 2).clamp(0.0, maxLeft).toDouble();
+    return Positioned(
+      left: left,
+      top: 0,
+      child: Container(
+        width: bubbleW,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChartPainter extends CustomPainter {
   final List<double> values;
   final Color color;
-  _ChartPainter({required this.values, required this.color});
+  final int? selectedIndex;
+  final Color crosshairColor;
+  _ChartPainter({
+    required this.values,
+    required this.color,
+    this.selectedIndex,
+    required this.crosshairColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -113,7 +214,7 @@ class _ChartPainter extends CustomPainter {
     final range = (maxV - minV).abs() < 1e-9 ? 1.0 : (maxV - minV);
     final dx = size.width / (values.length - 1);
     double y(double v) =>
-        size.height - ((v - minV) / range) * size.height * 0.92 - size.height * 0.04;
+        size.height - ((v - minV) / range) * size.height * 0.82 - size.height * 0.12;
 
     final line = Path();
     for (var i = 0; i < values.length; i++) {
@@ -146,9 +247,28 @@ class _ChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round,
     );
+
+    // ── Scrubber crosshair + dot ──
+    final i = selectedIndex;
+    if (i != null && i >= 0 && i < values.length) {
+      final px = dx * i;
+      final py = y(values[i]);
+      canvas.drawLine(
+        Offset(px, 0),
+        Offset(px, size.height),
+        Paint()
+          ..color = crosshairColor.withValues(alpha: 0.35)
+          ..strokeWidth = 1,
+      );
+      canvas.drawCircle(Offset(px, py), 5.5,
+          Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(px, py), 4, Paint()..color = color);
+    }
   }
 
   @override
   bool shouldRepaint(covariant _ChartPainter old) =>
-      old.values != values || old.color != color;
+      old.values != values ||
+      old.color != color ||
+      old.selectedIndex != selectedIndex;
 }

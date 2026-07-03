@@ -61,9 +61,10 @@ class CategoryRepositoryImpl implements CategoryRepository {
   }
 
   @override
-  Future<Either<Failure, void>> seedDefaults(String userId) async {
+  Future<Either<Failure, void>> seedDefaults(String userId,
+      {String? workspaceId}) async {
     try {
-      await remoteDataSource.seedDefaults(userId);
+      await remoteDataSource.seedDefaults(userId, workspaceId: workspaceId);
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

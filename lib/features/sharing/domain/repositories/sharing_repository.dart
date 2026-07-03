@@ -9,6 +9,9 @@ abstract class SharingRepository {
     required String masterEmail,
     required String masterName,
     required String inviteeEmail,
+    String? workspaceId,
+    String? workspaceName,
+    String role = 'editor',
   });
 
   Stream<Either<Failure, List<InvitationEntity>>> watchPendingInvitationsForEmail(
@@ -21,6 +24,7 @@ abstract class SharingRepository {
     required String invitationId,
     required String inviteeUserId,
     required String masterUserId,
+    String? workspaceId,
   });
 
   Future<Either<Failure, void>> declineInvitation(String invitationId);
@@ -28,7 +32,10 @@ abstract class SharingRepository {
   Future<Either<Failure, void>> removeCollaborator({
     required String invitationId,
     required String collaboratorUserId,
+    String? workspaceId,
   });
 
   Future<Either<Failure, void>> leaveSharedAccount(String userId);
+
+  Future<Either<Failure, void>> leaveWorkspace(String workspaceId);
 }

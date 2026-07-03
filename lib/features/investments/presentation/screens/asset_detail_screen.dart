@@ -108,7 +108,9 @@ class AssetDetailScreen extends ConsumerWidget {
 
           // ── Price chart with period selector ──
           AssetPriceChart(
-              quoteSymbol: asset.quoteSymbol, isCrypto: asset.kind.isCrypto),
+              quoteSymbol: asset.quoteSymbol,
+              isCrypto: asset.kind.isCrypto,
+              currency: asset.kind.currency),
           const SizedBox(height: 16),
 
           // ── Position ──

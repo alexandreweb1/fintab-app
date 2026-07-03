@@ -8,5 +8,6 @@ abstract class CategoryRepository {
   Future<Either<Failure, CategoryEntity>> addCategory(CategoryEntity category);
   Future<Either<Failure, void>> updateCategory(CategoryEntity category);
   Future<Either<Failure, void>> deleteCategory(String categoryId);
-  Future<Either<Failure, void>> seedDefaults(String userId);
+  Future<Either<Failure, void>> seedDefaults(String userId,
+      {String? workspaceId});
 }

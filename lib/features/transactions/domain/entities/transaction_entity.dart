@@ -51,6 +51,10 @@ class TransactionEntity extends Equatable {
   /// Storage.
   final List<String> attachmentUrls;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy
+  /// pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const TransactionEntity({
     required this.id,
     required this.userId,
@@ -66,6 +70,7 @@ class TransactionEntity extends Equatable {
     this.isPending = false,
     this.tags = const [],
     this.attachmentUrls = const [],
+    this.workspaceId,
   });
 
   bool get isIncome => type == TransactionType.income;
@@ -88,5 +93,6 @@ class TransactionEntity extends Equatable {
         isPending,
         tags,
         attachmentUrls,
+        workspaceId,
       ];
 }

@@ -51,13 +51,21 @@ class SharingNotifier extends StateNotifier<AsyncValue<void>> {
   SharingNotifier(this._repo, this._userId, this._userEmail, this._userName)
       : super(const AsyncValue.data(null));
 
-  Future<String?> sendInvitation(String inviteeEmail) async {
+  Future<String?> sendInvitation(
+    String inviteeEmail, {
+    String? workspaceId,
+    String? workspaceName,
+    String role = 'editor',
+  }) async {
     state = const AsyncValue.loading();
     final result = await _repo.sendInvitation(
       masterUserId: _userId,
       masterEmail: _userEmail,
       masterName: _userName,
       inviteeEmail: inviteeEmail,
+      workspaceId: workspaceId,
+      workspaceName: workspaceName,
+      role: role,
     );
     return result.fold(
       (failure) {
@@ -77,6 +85,7 @@ class SharingNotifier extends StateNotifier<AsyncValue<void>> {
       invitationId: invitation.id,
       inviteeUserId: _userId,
       masterUserId: invitation.masterUserId,
+      workspaceId: invitation.workspaceId,
     );
     return result.fold(
       (failure) {
@@ -108,12 +117,29 @@ class SharingNotifier extends StateNotifier<AsyncValue<void>> {
   Future<String?> removeCollaborator({
     required String invitationId,
     required String collaboratorUserId,
+    String? workspaceId,
   }) async {
     state = const AsyncValue.loading();
     final result = await _repo.removeCollaborator(
       invitationId: invitationId,
       collaboratorUserId: collaboratorUserId,
+      workspaceId: workspaceId,
     );
+    return result.fold(
+      (failure) {
+        state = AsyncValue.error(failure.message, StackTrace.current);
+        return failure.message;
+      },
+      (_) {
+        state = const AsyncValue.data(null);
+        return null;
+      },
+    );
+  }
+
+  Future<String?> leaveWorkspace(String workspaceId) async {
+    state = const AsyncValue.loading();
+    final result = await _repo.leaveWorkspace(workspaceId);
     return result.fold(
       (failure) {
         state = AsyncValue.error(failure.message, StackTrace.current);

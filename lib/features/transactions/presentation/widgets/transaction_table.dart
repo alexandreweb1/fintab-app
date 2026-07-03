@@ -61,7 +61,7 @@ class _TransactionTableState extends ConsumerState<TransactionTable> {
                 SizedBox(width: 12),
                 _HeaderCell('Categoria', flex: 3),
                 SizedBox(width: 12),
-                _HeaderCell('Carteira', flex: 2),
+                _HeaderCell('Conta', flex: 2),
                 SizedBox(width: 12),
                 _HeaderCell('Data', flex: 2),
                 SizedBox(width: 12),

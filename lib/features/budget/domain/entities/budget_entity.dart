@@ -78,6 +78,10 @@ class BudgetEntity extends Equatable {
   /// into this period's effective limit. Only meaningful for monthly budgets.
   final bool rollover;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy
+  /// pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const BudgetEntity({
     required this.id,
     required this.userId,
@@ -89,6 +93,7 @@ class BudgetEntity extends Equatable {
     this.period = BudgetPeriod.monthly,
     this.parentBudgetId,
     this.rollover = false,
+    this.workspaceId,
   });
 
   /// First day of the budget period (alias of [month]).
@@ -110,6 +115,7 @@ class BudgetEntity extends Equatable {
         period,
         parentBudgetId,
         rollover,
+        workspaceId,
       ];
 }
 

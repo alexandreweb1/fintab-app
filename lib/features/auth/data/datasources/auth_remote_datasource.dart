@@ -348,6 +348,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     'goals',
     'recurring_transactions',
     'notification_backlog',
+    'bills',
+    'category_rules',
+    'investment_assets',
+    'investment_trades',
   ];
 
   /// Deletes every Firestore document belonging to [uid] (LGPD/GDPR and
@@ -411,6 +415,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         if (snap.docs.length < 400) break;
       }
     }
+
+    // Workspaces ("Carteiras") are keyed by ownerId, not userId.
+    final workspaces = await _firestore
+        .collection('workspaces')
+        .where('ownerId', isEqualTo: uid)
+        .get();
+    await _deleteDocsInChunks(workspaces.docs);
 
     // Subscription doc (id == uid) and the profile itself go last, so a
     // partial failure above leaves the account in a retryable state.

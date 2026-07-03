@@ -143,7 +143,9 @@ class _AssetPreviewScreenState extends State<AssetPreviewScreen> {
 
           // ── Price chart with period selector ──
           AssetPriceChart(
-              quoteSymbol: widget.quoteSymbol, isCrypto: widget.kind.isCrypto),
+              quoteSymbol: widget.quoteSymbol,
+              isCrypto: widget.kind.isCrypto,
+              currency: widget.kind.currency),
           const SizedBox(height: 16),
 
           // ── Factual data ──

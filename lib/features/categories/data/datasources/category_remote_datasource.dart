@@ -10,7 +10,7 @@ abstract class CategoryRemoteDataSource {
   Future<CategoryModel> addCategory(CategoryModel category);
   Future<void> updateCategory(CategoryModel category);
   Future<void> deleteCategory(String categoryId);
-  Future<void> seedDefaults(String userId);
+  Future<void> seedDefaults(String userId, {String? workspaceId});
 }
 
 class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
@@ -72,12 +72,14 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   }
 
   @override
-  Future<void> seedDefaults(String userId) async {
+  Future<void> seedDefaults(String userId, {String? workspaceId}) async {
     try {
       final batch = _firestore.batch();
       for (final category in _defaultCategories(userId)) {
         final docRef = _collection.doc(const Uuid().v4());
-        batch.set(docRef, category.toFirestore());
+        final data = category.toFirestore();
+        if (workspaceId != null) data['workspaceId'] = workspaceId;
+        batch.set(docRef, data);
       }
       await batch.commit().timeout(_kTimeout);
     } catch (e) {

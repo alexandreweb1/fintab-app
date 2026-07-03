@@ -22,7 +22,7 @@ class ExcelExporter {
       TextCellValue('Categoria'),
       TextCellValue('Tipo'),
       TextCellValue('Valor'),
-      TextCellValue('Carteira'),
+      TextCellValue('Conta'),
       TextCellValue('Tags'),
       TextCellValue('Descrição'),
     ];

@@ -11,6 +11,7 @@ class CategoryRuleModel extends CategoryRuleEntity {
     required super.categoryName,
     super.type,
     required super.createdAt,
+    super.workspaceId,
   });
 
   factory CategoryRuleModel.fromFirestore(DocumentSnapshot doc) {
@@ -28,6 +29,7 @@ class CategoryRuleModel extends CategoryRuleEntity {
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -37,6 +39,7 @@ class CategoryRuleModel extends CategoryRuleEntity {
         'categoryName': categoryName,
         'type': type?.id,
         'createdAt': createdAt,
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory CategoryRuleModel.fromEntity(CategoryRuleEntity e) => CategoryRuleModel(
@@ -46,5 +49,6 @@ class CategoryRuleModel extends CategoryRuleEntity {
         categoryName: e.categoryName,
         type: e.type,
         createdAt: e.createdAt,
+        workspaceId: e.workspaceId,
       );
 }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/invitation_entity.dart';
@@ -9,6 +10,9 @@ abstract class SharingRemoteDataSource {
     required String masterEmail,
     required String masterName,
     required String inviteeEmail,
+    String? workspaceId,
+    String? workspaceName,
+    String role = 'editor',
   });
 
   Stream<List<InvitationEntity>> watchPendingInvitationsForEmail(String email);
@@ -19,6 +23,7 @@ abstract class SharingRemoteDataSource {
     required String invitationId,
     required String inviteeUserId,
     required String masterUserId,
+    String? workspaceId,
   });
 
   Future<void> declineInvitation(String invitationId);
@@ -26,9 +31,14 @@ abstract class SharingRemoteDataSource {
   Future<void> removeCollaborator({
     required String invitationId,
     required String collaboratorUserId,
+    String? workspaceId,
   });
 
   Future<void> leaveSharedAccount(String userId);
+
+  /// New-style member removes themselves from a shared workspace (Cloud
+  /// Function — members can't write the workspace doc).
+  Future<void> leaveWorkspace(String workspaceId);
 }
 
 class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
@@ -50,6 +60,9 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
       status: d['status'] as String,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       collaboratorUserId: d['collaboratorUserId'] as String?,
+      workspaceId: d['workspaceId'] as String?,
+      workspaceName: d['workspaceName'] as String?,
+      role: d['role'] as String?,
     );
   }
 
@@ -59,6 +72,9 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
     required String masterEmail,
     required String masterName,
     required String inviteeEmail,
+    String? workspaceId,
+    String? workspaceName,
+    String role = 'editor',
   }) async {
     final normalizedEmail = inviteeEmail.trim().toLowerCase();
 
@@ -88,6 +104,11 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
       'inviteeEmail': normalizedEmail,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
+      // Workspace-scoped sharing (per-Carteira). Legacy account-wide invites
+      // omit these fields entirely.
+      if (workspaceId != null) 'workspaceId': workspaceId,
+      if (workspaceId != null) 'workspaceName': workspaceName ?? '',
+      if (workspaceId != null) 'role': role,
     });
   }
 
@@ -116,7 +137,19 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
     required String invitationId,
     required String inviteeUserId,
     required String masterUserId,
+    String? workspaceId,
   }) async {
+    // Workspace-scoped invitation: membership is granted by the
+    // acceptWorkspaceInvite Cloud Function (Admin SDK) — the ONLY authority
+    // allowed to add an invitee to a workspace with the owner-assigned role.
+    if (workspaceId != null) {
+      await FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('acceptWorkspaceInvite')
+          .call<Map<String, dynamic>>({'invitationId': invitationId});
+      return;
+    }
+
+    // Legacy account-wide invitation.
     // Use a transaction instead of a WriteBatch on purpose. On iOS/Android,
     // offline persistence makes batch.commit() resolve from the LOCAL cache,
     // so a server-side rejection (e.g. a Firestore-rules denial when the
@@ -154,22 +187,37 @@ class SharingRemoteDataSourceImpl implements SharingRemoteDataSource {
   Future<void> removeCollaborator({
     required String invitationId,
     required String collaboratorUserId,
+    String? workspaceId,
   }) async {
-    final batch = _firestore.batch();
+    // 1) Revoke workspace membership (owner may write their own workspace).
+    if (workspaceId != null) {
+      await _firestore.collection('workspaces').doc(workspaceId).update({
+        'memberUids': FieldValue.arrayRemove([collaboratorUserId]),
+        'roles.$collaboratorUserId': FieldValue.delete(),
+      });
+    }
 
-    // Mark invitation as removed
-    batch.update(_invitations.doc(invitationId), {'status': 'removed'});
+    // 2) Mark the invitation as removed.
+    await _invitations.doc(invitationId).update({'status': 'removed'});
 
-    // Clear masterUserId from collaborator's profile
-    batch.update(
-      _firestore.collection('users').doc(collaboratorUserId),
-      {
+    // 3) Clear the legacy account-wide link, if it exists. New-style members
+    // have no masterUserId on their profile — the rules deny this write, so
+    // tolerate the failure instead of aborting the whole revocation.
+    try {
+      await _firestore.collection('users').doc(collaboratorUserId).update({
         'masterUserId': FieldValue.delete(),
         'masterInvitationId': FieldValue.delete(),
-      },
-    );
+      });
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied' && e.code != 'not-found') rethrow;
+    }
+  }
 
-    await batch.commit();
+  @override
+  Future<void> leaveWorkspace(String workspaceId) async {
+    await FirebaseFunctions.instanceFor(region: 'us-central1')
+        .httpsCallable('leaveWorkspace')
+        .call<Map<String, dynamic>>({'workspaceId': workspaceId});
   }
 
   @override

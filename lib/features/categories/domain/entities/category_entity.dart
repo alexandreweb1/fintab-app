@@ -11,6 +11,9 @@ class CategoryEntity extends Equatable {
   final int colorValue;
   final bool isDefault;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const CategoryEntity({
     required this.id,
     required this.userId,
@@ -19,6 +22,7 @@ class CategoryEntity extends Equatable {
     required this.iconCodePoint,
     required this.colorValue,
     this.isDefault = false,
+    this.workspaceId,
   });
 
   bool get isIncome => type == CategoryType.income;
@@ -26,5 +30,5 @@ class CategoryEntity extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, userId, name, type, iconCodePoint, colorValue, isDefault];
+      [id, userId, name, type, iconCodePoint, colorValue, isDefault, workspaceId];
 }

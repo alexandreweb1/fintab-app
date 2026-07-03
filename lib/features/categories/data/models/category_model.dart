@@ -11,6 +11,7 @@ class CategoryModel extends CategoryEntity {
     required super.iconCodePoint,
     required super.colorValue,
     super.isDefault,
+    super.workspaceId,
   });
 
   factory CategoryModel.fromFirestore(DocumentSnapshot doc) {
@@ -25,6 +26,7 @@ class CategoryModel extends CategoryEntity {
       iconCodePoint: (data['iconCodePoint'] as num).toInt(),
       colorValue: (data['colorValue'] as num).toInt(),
       isDefault: data['isDefault'] as bool? ?? false,
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -35,6 +37,7 @@ class CategoryModel extends CategoryEntity {
         'iconCodePoint': iconCodePoint,
         'colorValue': colorValue,
         'isDefault': isDefault,
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory CategoryModel.fromEntity(CategoryEntity entity) => CategoryModel(
@@ -45,5 +48,6 @@ class CategoryModel extends CategoryEntity {
         iconCodePoint: entity.iconCodePoint,
         colorValue: entity.colorValue,
         isDefault: entity.isDefault,
+        workspaceId: entity.workspaceId,
       );
 }

@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../data/datasources/goal_remote_datasource.dart';
+import '../../data/models/goal_model.dart';
 import '../../data/repositories/goal_repository_impl.dart';
 import '../../domain/entities/goal_entity.dart';
 import '../../domain/repositories/goal_repository.dart';
@@ -22,6 +24,20 @@ final goalRepositoryProvider = Provider<GoalRepository>(
 // ── Stream ────────────────────────────────────────────────────────────────────
 
 final goalsStreamProvider = StreamProvider<List<GoalEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: server-side workspace query.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'goals', scope.workspaceId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(GoalModel.fromFirestore).toList();
+      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -29,7 +45,9 @@ final goalsStreamProvider = StreamProvider<List<GoalEntity>>((ref) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(goalRepositoryProvider)
-          .watchGoals(userId: effectiveUserId);
+          .watchGoals(userId: effectiveUserId)
+          .map((list) =>
+              applyWorkspaceScope(list, (g) => g.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -62,8 +80,10 @@ final goalCurrentAmountProvider =
 class GoalsNotifier extends StateNotifier<AsyncValue<void>> {
   final GoalRepository _repo;
   final String _userId;
+  final String? _workspaceId;
 
-  GoalsNotifier(this._repo, this._userId) : super(const AsyncValue.data(null));
+  GoalsNotifier(this._repo, this._userId, this._workspaceId)
+      : super(const AsyncValue.data(null));
 
   Future<bool> add({
     required String title,
@@ -77,6 +97,7 @@ class GoalsNotifier extends StateNotifier<AsyncValue<void>> {
       final goal = GoalEntity(
         id: const Uuid().v4(),
         userId: _userId,
+        workspaceId: _workspaceId,
         title: title,
         targetAmount: targetAmount,
         deadline: deadline,
@@ -120,9 +141,10 @@ class GoalsNotifier extends StateNotifier<AsyncValue<void>> {
 
 final goalsNotifierProvider =
     StateNotifierProvider<GoalsNotifier, AsyncValue<void>>((ref) {
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final ledgerOwnerId = ref.watch(ledgerOwnerIdProvider);
   return GoalsNotifier(
     ref.watch(goalRepositoryProvider),
-    effectiveUserId,
+    ledgerOwnerId,
+    ref.watch(workspaceStampProvider),
   );
 });

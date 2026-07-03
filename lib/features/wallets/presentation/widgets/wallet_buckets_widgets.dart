@@ -120,14 +120,14 @@ class TypedWalletsTab extends ConsumerWidget {
   String get _typeTitle => switch (type) {
         WalletType.reserve => 'Reservas',
         WalletType.investment => 'Investimentos',
-        WalletType.regular => 'Carteiras',
+        WalletType.regular => 'Contas',
         WalletType.creditCard => 'Cartões',
       };
 
   String get _typeSingular => switch (type) {
         WalletType.reserve => 'Reserva',
         WalletType.investment => 'Investimento',
-        WalletType.regular => 'Carteira',
+        WalletType.regular => 'Conta',
         WalletType.creditCard => 'Cartão',
       };
 
@@ -366,7 +366,7 @@ class TypedWalletsTab extends ConsumerWidget {
               leading: const Icon(Icons.add_circle_outline,
                   color: Color(0xFF388E3C)),
               title: const Text('Aporte'),
-              subtitle: const Text('Adicionar dinheiro a esta carteira'),
+              subtitle: const Text('Adicionar dinheiro a esta conta'),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _openTransfer(context, wallet: wallet, isAporte: true);
@@ -376,7 +376,7 @@ class TypedWalletsTab extends ConsumerWidget {
               leading: const Icon(Icons.remove_circle_outline,
                   color: Color(0xFFE05252)),
               title: const Text('Resgate'),
-              subtitle: const Text('Retirar dinheiro desta carteira'),
+              subtitle: const Text('Retirar dinheiro desta conta'),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _openTransfer(context, wallet: wallet, isAporte: false);
@@ -421,10 +421,10 @@ class TypedWalletsTab extends ConsumerWidget {
     final res = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Excluir carteira?'),
+        title: const Text('Excluir conta?'),
         content: Text(
-          'A carteira "${wallet.name}" será removida. As transações associadas '
-          'continuarão existindo, mas perderão a referência a esta carteira.',
+          'A conta "${wallet.name}" será removida. As transações associadas '
+          'continuarão existindo, mas perderão a referência a esta conta.',
         ),
         actions: [
           TextButton(

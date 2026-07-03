@@ -14,6 +14,7 @@ class BudgetModel extends BudgetEntity {
     super.period,
     super.parentBudgetId,
     super.rollover,
+    super.workspaceId,
   });
 
   factory BudgetModel.fromFirestore(DocumentSnapshot doc) {
@@ -30,6 +31,7 @@ class BudgetModel extends BudgetEntity {
       period: BudgetPeriod.fromKey(data['period'] as String?),
       parentBudgetId: data['parentBudgetId'] as String?,
       rollover: data['rollover'] as bool? ?? false,
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -43,6 +45,7 @@ class BudgetModel extends BudgetEntity {
         'period': period.key,
         'rollover': rollover,
         if (parentBudgetId != null) 'parentBudgetId': parentBudgetId,
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory BudgetModel.fromEntity(BudgetEntity entity) => BudgetModel(
@@ -56,5 +59,6 @@ class BudgetModel extends BudgetEntity {
         period: entity.period,
         parentBudgetId: entity.parentBudgetId,
         rollover: entity.rollover,
+        workspaceId: entity.workspaceId,
       );
 }

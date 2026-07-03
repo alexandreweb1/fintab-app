@@ -10,7 +10,7 @@ vantagens** em `lib/features/subscription/presentation/screens/pro_screen.dart`
 ### Funcionalidades Pro atuais
 | Funcionalidade | Gate aplicado em |
 |---|---|
-| Múltiplas carteiras | `add_transaction_dialog.dart`, `settings_screen.dart` |
+| Múltiplas contas (user-facing; código = wallets) | `add_transaction_dialog.dart`, `settings_screen.dart` |
 | Categorias personalizadas | `add_transaction_dialog.dart`, `settings_screen.dart` |
 | Visão anual | `transactions_screen.dart` |
 | Orçamentos | `planning_screen.dart` (ProGateWidget no tab) |
@@ -21,7 +21,7 @@ vantagens** em `lib/features/subscription/presentation/screens/pro_screen.dart`
 | Importação de extratos (OFX/CSV) | `settings_screen.dart` (`_DataIoCard._openImport`) |
 | Exportação de relatórios (PDF/Excel) | `settings_screen.dart` (`_DataIoCard._openExport`) |
 | Saúde financeira (score 0–100) | `settings_screen.dart` (`_FinancialHealthCard._open`) |
-| Cartão de crédito (fatura/parcelas) | `settings_screen.dart` (`_AddWalletDialog`), `add_transaction_dialog.dart` (parcelas), `credit_card_screen.dart` |
+| Cartão de crédito (fatura/parcelas) | `settings_screen.dart` (`_AddWalletDialog`), `add_transaction_dialog.dart` (parcelas), `credit_card_screen.dart`, aba **Cartões** em `transactions_screen.dart` (ProGateWidget → `cards_view.dart`) |
 | Anexar comprovante (foto/PDF) | `add_transaction_dialog.dart` (`_addAttachment`) |
 | Conversor de moedas (cotação real) | `settings_screen.dart` (tools card → gate), `currency_converter_screen.dart` |
 

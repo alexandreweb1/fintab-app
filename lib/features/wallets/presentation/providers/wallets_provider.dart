@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/datasources/wallet_remote_datasource.dart';
+import '../../data/models/wallet_model.dart';
 import '../../data/repositories/wallet_repository_impl.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../../domain/repositories/wallet_repository.dart';
@@ -60,6 +62,21 @@ final investmentWalletsProvider = Provider<List<WalletEntity>>((ref) {
 // --- Stream Provider ---
 
 final walletsStreamProvider = StreamProvider<List<WalletEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: query the workspace's docs server-side.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'wallets', scope.workspaceId)
+        .snapshots()
+        .map((snap) {
+      final List<WalletEntity> list =
+          snap.docs.map(WalletModel.fromFirestore).toList();
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -68,7 +85,9 @@ final walletsStreamProvider = StreamProvider<List<WalletEntity>>((ref) {
       return ref
           .watch(getWalletsUseCaseProvider)
           .call(GetWalletsParams(userId: effectiveUserId))
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => either.getOrElse(() => []))
+          .map((list) =>
+              applyWorkspaceScope(list, (w) => w.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -78,6 +97,8 @@ final walletsStreamProvider = StreamProvider<List<WalletEntity>>((ref) {
 // --- Seed provider (auto-creates "Conta corrente" on first load) ---
 
 final walletsSeedProvider = Provider<void>((ref) {
+  // NEVER seed defaults into a shared workspace (MemberScope).
+  if (ref.watch(activeLedgerScopeProvider) is! UserScope) return;
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   ref.listen<AsyncValue<List<WalletEntity>>>(
     walletsStreamProvider,
@@ -99,10 +120,15 @@ class WalletsNotifier extends StateNotifier<AsyncValue<void>> {
   final UpdateWalletUseCase _updateWallet;
   final DeleteWalletUseCase _deleteWallet;
   final WalletRepository _repository;
+  final String? _workspaceId;
 
   WalletsNotifier(
-      this._addWallet, this._updateWallet, this._deleteWallet, this._repository)
-      : super(const AsyncValue.data(null));
+    this._addWallet,
+    this._updateWallet,
+    this._deleteWallet,
+    this._repository,
+    this._workspaceId,
+  ) : super(const AsyncValue.data(null));
 
   Future<bool> add({
     required String userId,
@@ -120,6 +146,7 @@ class WalletsNotifier extends StateNotifier<AsyncValue<void>> {
     final wallet = WalletEntity(
       id: const Uuid().v4(),
       userId: userId,
+      workspaceId: _workspaceId,
       name: name,
       iconCodePoint: iconCodePoint,
       colorValue: colorValue,
@@ -174,8 +201,20 @@ class WalletsNotifier extends StateNotifier<AsyncValue<void>> {
     );
   }
 
+  /// Creates the default "Conta corrente" wallet. Constructed here (instead
+  /// of the datasource seed) so the new doc carries the workspaceId stamp.
   Future<void> seedDefaults(String userId) async {
-    final result = await _repository.seedDefaults(userId);
+    final wallet = WalletEntity(
+      id: const Uuid().v4(),
+      userId: userId,
+      workspaceId: _workspaceId,
+      name: 'Conta corrente',
+      iconCodePoint: 0xe4c9, // Icons.account_balance_wallet
+      colorValue: 0xFF1976D2,
+      isDefault: true,
+      currencyCode: 'BRL',
+    );
+    final result = await _repository.addWallet(wallet);
     result.fold(
       (failure) =>
           state = AsyncValue.error(failure.message, StackTrace.current),
@@ -191,5 +230,6 @@ final walletsNotifierProvider =
     ref.watch(updateWalletUseCaseProvider),
     ref.watch(deleteWalletUseCaseProvider),
     ref.watch(walletRepositoryProvider),
+    ref.watch(workspaceStampProvider),
   );
 });

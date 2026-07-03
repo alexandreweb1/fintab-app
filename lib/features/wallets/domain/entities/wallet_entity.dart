@@ -41,6 +41,9 @@ class WalletEntity extends Equatable {
   /// Day of month (1-31) the invoice is due — credit cards only.
   final int dueDay;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const WalletEntity({
     required this.id,
     required this.userId,
@@ -54,6 +57,7 @@ class WalletEntity extends Equatable {
     this.creditLimit = 0,
     this.closingDay = 1,
     this.dueDay = 10,
+    this.workspaceId,
   });
 
   bool get isCreditCard => type.isCreditCard;
@@ -71,6 +75,7 @@ class WalletEntity extends Equatable {
     double? creditLimit,
     int? closingDay,
     int? dueDay,
+    String? workspaceId,
   }) {
     return WalletEntity(
       id: id ?? this.id,
@@ -85,6 +90,7 @@ class WalletEntity extends Equatable {
       creditLimit: creditLimit ?? this.creditLimit,
       closingDay: closingDay ?? this.closingDay,
       dueDay: dueDay ?? this.dueDay,
+      workspaceId: workspaceId ?? this.workspaceId,
     );
   }
 
@@ -102,5 +108,6 @@ class WalletEntity extends Equatable {
         creditLimit,
         closingDay,
         dueDay,
+        workspaceId,
       ];
 }

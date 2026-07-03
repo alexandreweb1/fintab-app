@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../data/datasources/category_rule_remote_datasource.dart';
+import '../../data/models/category_rule_model.dart';
 import '../../data/repositories/category_rule_repository_impl.dart';
 import '../../domain/entities/category_rule_entity.dart';
 import '../../domain/repositories/category_rule_repository.dart';
@@ -24,6 +26,22 @@ final categoryRuleRepositoryProvider = Provider<CategoryRuleRepository>(
 
 final categoryRulesStreamProvider =
     StreamProvider<List<CategoryRuleEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: server-side workspace query.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+            ref.watch(firestoreProvider), 'category_rules', scope.workspaceId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs
+          .map((d) => CategoryRuleModel.fromFirestore(d) as CategoryRuleEntity)
+          .toList();
+      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -31,7 +49,9 @@ final categoryRulesStreamProvider =
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(categoryRuleRepositoryProvider)
-          .watchRules(userId: effectiveUserId);
+          .watchRules(userId: effectiveUserId)
+          .map((list) =>
+              applyWorkspaceScope(list, (e) => e.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -49,8 +69,9 @@ final categoryRulesProvider = Provider<List<CategoryRuleEntity>>((ref) {
 class CategoryRulesNotifier extends StateNotifier<AsyncValue<void>> {
   final CategoryRuleRepository _repo;
   final String _userId;
+  final String? _workspaceId;
 
-  CategoryRulesNotifier(this._repo, this._userId)
+  CategoryRulesNotifier(this._repo, this._userId, this._workspaceId)
       : super(const AsyncValue.data(null));
 
   Future<bool> add({
@@ -63,6 +84,7 @@ class CategoryRulesNotifier extends StateNotifier<AsyncValue<void>> {
       final rule = CategoryRuleEntity(
         id: const Uuid().v4(),
         userId: _userId,
+        workspaceId: _workspaceId,
         keyword: keyword.trim(),
         categoryName: categoryName,
         type: type,
@@ -104,9 +126,10 @@ class CategoryRulesNotifier extends StateNotifier<AsyncValue<void>> {
 
 final categoryRulesNotifierProvider =
     StateNotifierProvider<CategoryRulesNotifier, AsyncValue<void>>((ref) {
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final ledgerOwnerId = ref.watch(ledgerOwnerIdProvider);
   return CategoryRulesNotifier(
     ref.watch(categoryRuleRepositoryProvider),
-    effectiveUserId,
+    ledgerOwnerId,
+    ref.watch(workspaceStampProvider),
   );
 });

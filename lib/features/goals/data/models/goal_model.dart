@@ -12,6 +12,7 @@ class GoalModel extends GoalEntity {
     required super.iconCodePoint,
     required super.colorValue,
     required super.createdAt,
+    super.workspaceId,
   });
 
   factory GoalModel.fromFirestore(DocumentSnapshot doc) {
@@ -29,6 +30,7 @@ class GoalModel extends GoalEntity {
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -40,6 +42,7 @@ class GoalModel extends GoalEntity {
         'iconCodePoint': iconCodePoint,
         'colorValue': colorValue,
         'createdAt': createdAt,
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory GoalModel.fromEntity(GoalEntity e) => GoalModel(
@@ -51,5 +54,6 @@ class GoalModel extends GoalEntity {
         iconCodePoint: e.iconCodePoint,
         colorValue: e.colorValue,
         createdAt: e.createdAt,
+        workspaceId: e.workspaceId,
       );
 }

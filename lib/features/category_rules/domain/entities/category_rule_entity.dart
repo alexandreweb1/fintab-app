@@ -24,6 +24,10 @@ class CategoryRuleEntity extends Equatable {
 
   final DateTime createdAt;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy
+  /// pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const CategoryRuleEntity({
     required this.id,
     required this.userId,
@@ -31,6 +35,7 @@ class CategoryRuleEntity extends Equatable {
     required this.categoryName,
     this.type,
     required this.createdAt,
+    this.workspaceId,
   });
 
   CategoryRuleEntity copyWith({
@@ -38,6 +43,7 @@ class CategoryRuleEntity extends Equatable {
     String? categoryName,
     TransactionType? type,
     bool clearType = false,
+    String? workspaceId,
   }) {
     return CategoryRuleEntity(
       id: id,
@@ -46,9 +52,11 @@ class CategoryRuleEntity extends Equatable {
       categoryName: categoryName ?? this.categoryName,
       type: clearType ? null : (type ?? this.type),
       createdAt: createdAt,
+      workspaceId: workspaceId ?? this.workspaceId,
     );
   }
 
   @override
-  List<Object?> get props => [id, userId, keyword, categoryName, type, createdAt];
+  List<Object?> get props =>
+      [id, userId, keyword, categoryName, type, createdAt, workspaceId];
 }

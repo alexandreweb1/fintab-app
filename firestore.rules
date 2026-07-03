@@ -38,6 +38,64 @@ service cloud.firestore {
       return request.auth.token.email.lower();
     }
 
+    // ── Workspace ("Carteira" PF/PJ) helpers ──────────────────────────────────
+    // A workspace is a self-contained ledger. Ledger docs carry a workspaceId;
+    // access is granted by membership on the workspace doc (owner is ALWAYS a
+    // member with role 'editor'). The legacy() branches keep pre-migration
+    // clients and docs (no workspaceId field) working exactly as before — they
+    // are removed in the final cutover phase.
+
+    function wsData(wid) {
+      return get(/databases/$(database)/documents/workspaces/$(wid)).data;
+    }
+
+    function isWorkspaceMember(wid) {
+      return request.auth.uid in wsData(wid).memberUids;
+    }
+
+    function isWorkspaceEditor(wid) {
+      return wsData(wid).roles[request.auth.uid] == 'editor';
+    }
+
+    function wsOwner(wid) {
+      return wsData(wid).ownerId;
+    }
+
+    // Read: doc belongs to a workspace and the caller is a member (viewer or
+    // editor). && short-circuits, so docs without the field never hit wsData().
+    function wsReadable() {
+      return 'workspaceId' in resource.data
+          && isWorkspaceMember(resource.data.workspaceId);
+    }
+
+    // Write on an existing doc: member with role 'editor'.
+    function wsEditable() {
+      return 'workspaceId' in resource.data
+          && isWorkspaceEditor(resource.data.workspaceId);
+    }
+
+    // Create: doc declares a workspace, the caller is an editor there, and the
+    // doc is homed to the workspace owner's uid (never the collaborator's).
+    function wsCreatable() {
+      return 'workspaceId' in request.resource.data
+          && isWorkspaceEditor(request.resource.data.workspaceId)
+          && request.resource.data.userId == wsOwner(request.resource.data.workspaceId);
+    }
+
+    // Pre-workspace access paths (owner or account-wide collaborator).
+    function legacyAccess() {
+      return isOwnerOfExistingDoc() || isCollaboratorOfOwner();
+    }
+
+    function legacyCreate() {
+      return isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc();
+    }
+
+    // AUDIT FIX: a doc may never be re-homed to another uid on update.
+    function userIdUnchanged() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
     // True when the profile write that sets masterUserId is authorized by an
     // accepted invitation addressed to the caller. The profile write must
     // reference the invitation via masterInvitationId. getAfter() sees the
@@ -48,7 +106,11 @@ service cloud.firestore {
       return inv.masterUserId == request.resource.data.masterUserId
           && inv.inviteeEmail == callerEmail()
           && inv.status == 'accepted'
-          && inv.collaboratorUserId == request.auth.uid;
+          && inv.collaboratorUserId == request.auth.uid
+          // A workspace-scoped invitation grants membership of ONE Carteira
+          // (via the acceptWorkspaceInvite Cloud Function) and must NEVER
+          // authorize the account-wide masterUserId link.
+          && !('workspaceId' in inv);
     }
 
     // Validates client writes to the subscription doc. This does NOT replace
@@ -109,58 +171,108 @@ service cloud.firestore {
              .hasOnly(['masterUserId', 'masterInvitationId']);
     }
 
+    // ── /workspaces/{workspaceId} ─────────────────────────────────────────────
+    // A "Carteira" (PF/PJ ledger space). Members read; ONLY the owner mutates
+    // (rename/archive/membership seeding/revoke). The one privilege-sensitive
+    // mutation — an invitee adding THEMSELVES with an owner-assigned role — is
+    // done by the acceptWorkspaceInvite Cloud Function (Admin SDK), never here.
+    match /workspaces/{workspaceId} {
+      allow read:   if isSignedIn()
+                    && (resource.data.ownerId == request.auth.uid
+                        || request.auth.uid in resource.data.memberUids);
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.auth.uid in request.resource.data.memberUids
+                    && request.resource.data.roles[request.auth.uid] == 'editor';
+      allow update: if isSignedIn()
+                    && resource.data.ownerId == request.auth.uid
+                    && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── Ledger collections (dual-path during the workspace transition) ────────
+    // New path: workspace membership (viewer reads, editor writes), docs homed
+    // to the workspace owner. Legacy path: pre-migration behavior, unchanged.
+    // userIdUnchanged() on update is the audit fix (no cross-user re-homing).
+
     // ── /transactions/{transactionId} ─────────────────────────────────────────
-    // Owner or collaborator of the owner may read/write.
     match /transactions/{transactionId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /categories/{categoryId} ──────────────────────────────────────────────
     match /categories/{categoryId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /budgets/{budgetId} ───────────────────────────────────────────────────
     match /budgets/{budgetId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /wallets/{walletId} ───────────────────────────────────────────────────
     match /wallets/{walletId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /goals/{goalId} ──────────────────────────────────────────────────────
     match /goals/{goalId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /recurring_transactions/{recurringId} ────────────────────────────────
     match /recurring_transactions/{recurringId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /category_rules/{ruleId} ─────────────────────────────────────────────
-    // Auto-categorization rules (keyword → category). Owner or collaborator.
     match /category_rules/{ruleId} {
-      allow read, update, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow create:               if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /bills/{billId} ──────────────────────────────────────────────────────
-    // Bills to pay/receive with due dates. Owner or collaborator. userId is
-    // pinned on create and immutable on update (prevents cross-user re-homing).
     match /bills/{billId} {
-      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
-                          && request.resource.data.userId == resource.data.userId;
-      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /investment_assets/{assetId} & /investment_trades/{tradeId} ───────────
@@ -206,25 +318,39 @@ service cloud.firestore {
     match /invitations/{invitationId} {
       allow create: if isSignedIn()
                     && request.resource.data.masterUserId == request.auth.uid
-                    && request.resource.data.status == 'pending';
+                    && request.resource.data.status == 'pending'
+                    // Workspace-scoped invites must declare a valid role and
+                    // reference a workspace the inviter actually owns.
+                    && (!('workspaceId' in request.resource.data)
+                        || (request.resource.data.role in ['viewer', 'editor']
+                            && wsOwner(request.resource.data.workspaceId) == request.auth.uid));
 
       allow read:   if isSignedIn()
                     && (resource.data.masterUserId == request.auth.uid
                         || resource.data.inviteeEmail == callerEmail());
 
-      // Master: status changes only.
+      // Master: status changes, plus stamping workspaceId/role during the
+      // workspace migration (scoping a legacy account-wide invite to the
+      // default Carteira). masterUserId/inviteeEmail remain immutable.
       allow update: if isSignedIn()
                     && resource.data.masterUserId == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['status']);
+                         .hasOnly(['status', 'workspaceId', 'role'])
+                    && (!('role' in request.resource.data)
+                        || request.resource.data.role in ['viewer', 'editor']);
 
       // Invitee: answer a pending invitation (or re-confirm their own accept).
+      // ACCEPT via client is LEGACY-ONLY (account-wide invites without a
+      // workspaceId). Workspace-scoped accepts go through the
+      // acceptWorkspaceInvite Cloud Function; the client may still decline.
       allow update: if isSignedIn()
                     && resource.data.inviteeEmail == callerEmail()
                     && (resource.data.status == 'pending'
                         || (resource.data.status == 'accepted'
                             && resource.data.collaboratorUserId == request.auth.uid))
                     && request.resource.data.status in ['accepted', 'declined']
+                    && (request.resource.data.status == 'declined'
+                        || !('workspaceId' in resource.data))
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['status', 'collaboratorUserId'])
                     && (!('collaboratorUserId' in request.resource.data)

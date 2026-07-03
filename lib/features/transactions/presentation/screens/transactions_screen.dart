@@ -6,6 +6,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../investments/presentation/screens/investments_screen.dart';
+import '../../../wallets/presentation/screens/cards_view.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
@@ -37,7 +38,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() => _selectedTab = _tabController.index);
@@ -187,17 +188,18 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
               // Quando a tela é larga o suficiente, distribui as 4 abas
               // ocupando toda a largura. Em telas menores, vira rolável
               // para evitar quebra/overflow do texto.
-              final fits = constraints.maxWidth >= 380;
+              final fits = constraints.maxWidth >= 520;
               return TabBar(
                 controller: _tabController,
                 isScrollable: !fits,
                 tabAlignment:
-                    fits ? TabAlignment.fill : TabAlignment.center,
+                    fits ? TabAlignment.fill : TabAlignment.start,
                 labelPadding: fits
                     ? EdgeInsets.zero
                     : const EdgeInsets.symmetric(horizontal: 16),
                 tabs: const [
                   Tab(text: 'Extrato'),
+                  Tab(text: 'Cartões'),
                   Tab(text: 'Reservas'),
                   Tab(text: 'Investimentos'),
                   Tab(text: 'Patrimônio'),
@@ -326,10 +328,20 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
             ],
           ),
 
-          // ── Tab 1: Reservas ────────────────────────────────────────────
+          // ── Tab 1: Cartões (gestão de cartão de crédito) ───────────────
+          ref.watch(isProProvider)
+              ? const CardsView()
+              : ProGateWidget(
+                  featureName: l10n.creditCard,
+                  featureDescription: l10n.noCardsDesc,
+                  featureIcon: Icons.credit_card_rounded,
+                  child: const CardsView(),
+                ),
+
+          // ── Tab 2: Reservas ────────────────────────────────────────────
           const TypedWalletsTab(type: WalletType.reserve),
 
-          // ── Tab 2: Investimentos (carteira de ativos com cotação) ──────
+          // ── Tab 3: Investimentos (carteira de ativos com cotação) ──────
           ref.watch(isProProvider)
               ? const InvestmentsView()
               : ProGateWidget(
@@ -339,7 +351,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                   child: const InvestmentsView(),
                 ),
 
-          // ── Tab 3: Patrimônio ──────────────────────────────────────────
+          // ── Tab 4: Patrimônio ──────────────────────────────────────────
           const _PatrimonioTab(),
         ],
       ),
@@ -1133,7 +1145,7 @@ class _PatrimonioTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Saldo acumulado de todas as carteiras',
+                  'Saldo acumulado de todas as contas',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -1148,7 +1160,7 @@ class _PatrimonioTab extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
-            'Saldo por carteira',
+            'Saldo por conta',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: cs.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -1164,7 +1176,7 @@ class _PatrimonioTab extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
               child: Text(
-                'Nenhuma carteira encontrada.',
+                'Nenhuma conta encontrada.',
                 style: TextStyle(color: Colors.grey.shade500),
               ),
             ),
@@ -1386,7 +1398,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                   ),
                 ],
 
-                // ── Carteiras ──
+                // ── Contas ──
                 if (wallets.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   _FilterSection(

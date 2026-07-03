@@ -10,6 +10,9 @@ class GoalEntity extends Equatable {
   final int colorValue;
   final DateTime createdAt;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const GoalEntity({
     required this.id,
     required this.userId,
@@ -19,6 +22,7 @@ class GoalEntity extends Equatable {
     required this.iconCodePoint,
     required this.colorValue,
     required this.createdAt,
+    this.workspaceId,
   });
 
   double progressPercent(double currentAmount) {
@@ -38,5 +42,6 @@ class GoalEntity extends Equatable {
         iconCodePoint,
         colorValue,
         createdAt,
+        workspaceId,
       ];
 }

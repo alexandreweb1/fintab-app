@@ -16,6 +16,9 @@ class SharingRepositoryImpl implements SharingRepository {
     required String masterEmail,
     required String masterName,
     required String inviteeEmail,
+    String? workspaceId,
+    String? workspaceName,
+    String role = 'editor',
   }) async {
     try {
       await _dataSource.sendInvitation(
@@ -23,6 +26,9 @@ class SharingRepositoryImpl implements SharingRepository {
         masterEmail: masterEmail,
         masterName: masterName,
         inviteeEmail: inviteeEmail,
+        workspaceId: workspaceId,
+        workspaceName: workspaceName,
+        role: role,
       );
       return const Right(null);
     } catch (e) {
@@ -59,12 +65,14 @@ class SharingRepositoryImpl implements SharingRepository {
     required String invitationId,
     required String inviteeUserId,
     required String masterUserId,
+    String? workspaceId,
   }) async {
     try {
       await _dataSource.acceptInvitation(
         invitationId: invitationId,
         inviteeUserId: inviteeUserId,
         masterUserId: masterUserId,
+        workspaceId: workspaceId,
       );
       return const Right(null);
     } catch (e) {
@@ -87,12 +95,24 @@ class SharingRepositoryImpl implements SharingRepository {
   Future<Either<Failure, void>> removeCollaborator({
     required String invitationId,
     required String collaboratorUserId,
+    String? workspaceId,
   }) async {
     try {
       await _dataSource.removeCollaborator(
         invitationId: invitationId,
         collaboratorUserId: collaboratorUserId,
+        workspaceId: workspaceId,
       );
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> leaveWorkspace(String workspaceId) async {
+    try {
+      await _dataSource.leaveWorkspace(workspaceId);
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

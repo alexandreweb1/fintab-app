@@ -364,10 +364,16 @@ class _FeaturesCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const _FeatureRow(
-              icon: Icons.account_balance_wallet_rounded,
-              title: 'Múltiplas carteiras',
+              icon: Icons.business_center_rounded,
+              title: 'Carteiras Pessoal + Empresarial (PF/PJ)',
               description:
-                  'Organize seu dinheiro em carteiras separadas: conta corrente, poupança, carteira física e muito mais. Sem limites.',
+                  'Separe sua vida pessoal da empresa: cada Carteira tem lançamentos, contas e orçamentos próprios, com troca rápida na tela inicial e visão consolidada.',
+            ),
+            const _FeatureRow(
+              icon: Icons.account_balance_wallet_rounded,
+              title: 'Múltiplas contas',
+              description:
+                  'Organize seu dinheiro em contas separadas: conta corrente, poupança, dinheiro físico e muito mais. Sem limites.',
             ),
             const _FeatureRow(
               icon: Icons.category_rounded,
@@ -445,7 +451,7 @@ class _FeaturesCard extends StatelessWidget {
               icon: Icons.currency_exchange_rounded,
               title: 'Conversor de moedas',
               description:
-                  'Converta valores entre moedas com cotação real e consolide o saldo de carteiras em moedas diferentes.',
+                  'Converta valores entre moedas com cotação real e consolide o saldo de contas em moedas diferentes.',
             ),
             const _FeatureRow(
               icon: Icons.candlestick_chart_rounded,

@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/transactions/domain/entities/transaction_entity.dart';
 import '../../../../features/transactions/presentation/providers/transactions_provider.dart';
 import '../../data/datasources/budget_remote_datasource.dart';
+import '../../data/models/budget_model.dart';
 import '../../data/repositories/budget_repository_impl.dart';
 import '../../domain/entities/budget_entity.dart';
 import '../../domain/repositories/budget_repository.dart';
@@ -45,22 +47,55 @@ final budgetViewModeProvider =
 
 // --- Stream Providers ---
 
+/// Direct Firestore stream of a shared workspace's budgets whose month falls
+/// in `[start, end)`. Used by the [MemberScope] branches below: the server
+/// query is workspace-wide (authorized by membership), so the month/period
+/// windows the legacy per-user queries applied server-side are replicated
+/// client-side here.
+Stream<List<BudgetEntity>> _memberScopeBudgetsStream(
+  Ref ref,
+  MemberScope scope, {
+  required DateTime start,
+  required DateTime end,
+}) {
+  return workspaceCollectionQuery(
+          ref.watch(firestoreProvider), 'budgets', scope.workspaceId)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map(BudgetModel.fromFirestore)
+          .where((b) => !b.month.isBefore(start) && b.month.isBefore(end))
+          .toList());
+}
+
 /// All MONTHLY budgets for the currently selected month. Used by callers
 /// that need a per-month view (financial health, dashboard helpers).
 final budgetsStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final month = ref.watch(selectedMonthProvider);
+  if (scope is MemberScope) {
+    return _memberScopeBudgetsStream(
+      ref,
+      scope,
+      start: DateTime(month.year, month.month, 1),
+      end: DateTime(month.year, month.month + 1, 1),
+    ).map((budgets) =>
+        budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
+  }
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
-  final month = ref.watch(selectedMonthProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(getBudgetsUseCaseProvider)
           .call(GetBudgetsParams(userId: effectiveUserId, month: month))
-          .map((either) => either
-              .getOrElse(() => [])
-              .where((b) => b.period == BudgetPeriod.monthly)
-              .toList());
+          .map((either) => applyWorkspaceScope(
+              either
+                  .getOrElse(() => [])
+                  .where((b) => b.period == BudgetPeriod.monthly)
+                  .toList(),
+              (b) => b.workspaceId,
+              scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -70,16 +105,26 @@ final budgetsStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
 /// All budgets stored in the calendar year of [selectedMonthProvider].
 /// Used by the period views (quarterly / semestral / annual).
 final budgetsByYearStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final month = ref.watch(selectedMonthProvider);
+  if (scope is MemberScope) {
+    return _memberScopeBudgetsStream(
+      ref,
+      scope,
+      start: DateTime(month.year, 1, 1),
+      end: DateTime(month.year + 1, 1, 1),
+    );
+  }
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
-  final month = ref.watch(selectedMonthProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(budgetRepositoryProvider)
           .watchBudgetsByYear(effectiveUserId, month.year)
-          .map((either) => either.getOrElse(() => []));
+          .map((either) => applyWorkspaceScope(
+              either.getOrElse(() => []), (b) => b.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -177,31 +222,55 @@ final activeBudgetsProvider = Provider<List<BudgetEntity>>((ref) {
 /// Budgets for any specific month (used for month-picker based copy/spending).
 final budgetsForMonthProvider =
     StreamProvider.family<List<BudgetEntity>, DateTime>((ref, month) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  if (scope is MemberScope) {
+    return _memberScopeBudgetsStream(
+      ref,
+      scope,
+      start: DateTime(month.year, month.month, 1),
+      end: DateTime(month.year, month.month + 1, 1),
+    ).map((budgets) =>
+        budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
+  }
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   if (effectiveUserId.isEmpty) return const Stream.empty();
   return ref
       .watch(getBudgetsUseCaseProvider)
       .call(GetBudgetsParams(userId: effectiveUserId, month: month))
-      .map((result) => result
-          .getOrElse(() => [])
-          .where((b) => b.period == BudgetPeriod.monthly)
-          .toList());
+      .map((result) => applyWorkspaceScope(
+          result
+              .getOrElse(() => [])
+              .where((b) => b.period == BudgetPeriod.monthly)
+              .toList(),
+          (b) => b.workspaceId,
+          scope));
 });
 
 /// Annual budgets (`isAnnual == true`) for the year of the selected month.
 final annualBudgetsForYearProvider =
     StreamProvider<List<BudgetEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final month = ref.watch(selectedMonthProvider);
+  if (scope is MemberScope) {
+    return _memberScopeBudgetsStream(
+      ref,
+      scope,
+      start: DateTime(month.year, 1, 1),
+      end: DateTime(month.year + 1, 1, 1),
+    ).map((budgets) => budgets.where((b) => b.isAnnual).toList());
+  }
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
-  final month = ref.watch(selectedMonthProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(budgetRepositoryProvider)
           .watchBudgetsByYear(effectiveUserId, month.year)
-          .map((either) =>
-              either.getOrElse(() => []).where((b) => b.isAnnual).toList());
+          .map((either) => applyWorkspaceScope(
+              either.getOrElse(() => []).where((b) => b.isAnnual).toList(),
+              (b) => b.workspaceId,
+              scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -210,20 +279,33 @@ final annualBudgetsForYearProvider =
 
 /// Budgets from the month immediately before [selectedMonthProvider].
 final previousMonthBudgetsProvider = StreamProvider<List<BudgetEntity>>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final scope = ref.watch(activeLedgerScopeProvider);
   final month = ref.watch(selectedMonthProvider);
   final prevMonth = DateTime(month.year, month.month - 1, 1);
+  if (scope is MemberScope) {
+    return _memberScopeBudgetsStream(
+      ref,
+      scope,
+      start: prevMonth,
+      end: DateTime(prevMonth.year, prevMonth.month + 1, 1),
+    ).map((budgets) =>
+        budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
+  }
+  final authState = ref.watch(authStateProvider);
+  final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(getBudgetsUseCaseProvider)
           .call(GetBudgetsParams(userId: effectiveUserId, month: prevMonth))
-          .map((either) => either
-              .getOrElse(() => [])
-              .where((b) => b.period == BudgetPeriod.monthly)
-              .toList());
+          .map((either) => applyWorkspaceScope(
+              either
+                  .getOrElse(() => [])
+                  .where((b) => b.period == BudgetPeriod.monthly)
+                  .toList(),
+              (b) => b.workspaceId,
+              scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -308,9 +390,16 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
   final SetBudgetUseCase _setBudget;
   final DeleteBudgetUseCase _deleteBudget;
   final String _userId;
+  final String? _workspaceId;
+  final bool _stampIsDefault;
 
-  BudgetNotifier(this._setBudget, this._deleteBudget, this._userId)
-      : super(const AsyncValue.data(null));
+  BudgetNotifier(
+    this._setBudget,
+    this._deleteBudget,
+    this._userId,
+    this._workspaceId,
+    this._stampIsDefault,
+  ) : super(const AsyncValue.data(null));
 
   String _budgetId({
     required String categoryId,
@@ -320,7 +409,12 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
     final mm = periodStart.month.toString().padLeft(2, '0');
     final suffix =
         period == BudgetPeriod.monthly ? '' : '_${period.key}';
-    return '${_userId}_${categoryId}_${periodStart.year}-$mm$suffix';
+    // Default workspace keeps the legacy id format so edits keep hitting the
+    // pre-migration docs. Additional workspaces qualify the id — otherwise two
+    // workspaces sharing a category+month would silently overwrite each other.
+    final ws =
+        (_workspaceId == null || _stampIsDefault) ? '' : '${_workspaceId}_';
+    return '${_userId}_$ws${categoryId}_${periodStart.year}-$mm$suffix';
   }
 
   /// Sets (creates or updates) a budget for a specific period. The [month]
@@ -346,6 +440,7 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
     final budget = BudgetEntity(
       id: id,
       userId: _userId,
+      workspaceId: _workspaceId,
       categoryId: categoryId,
       categoryName: categoryName,
       limitAmount: limitAmount,
@@ -462,10 +557,11 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
 
 final budgetNotifierProvider =
     StateNotifierProvider<BudgetNotifier, AsyncValue<void>>((ref) {
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return BudgetNotifier(
     ref.watch(setBudgetUseCaseProvider),
     ref.watch(deleteBudgetUseCaseProvider),
-    effectiveUserId,
+    ref.watch(ledgerOwnerIdProvider),
+    ref.watch(workspaceStampProvider),
+    ref.watch(workspaceStampIsDefaultProvider),
   );
 });

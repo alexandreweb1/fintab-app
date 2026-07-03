@@ -2,7 +2,7 @@ name: my_finance_app
 description: Personal finance management app with Clean Architecture.
 publish_to: 'none'
 
-version: 1.0.9+152
+version: 1.0.9+153
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -79,6 +79,9 @@ dependencies:
   # Receipt attachments (photo/PDF)
   firebase_storage: ^12.3.0
   image_picker: ^1.1.2
+
+  # Callable Cloud Functions (workspace sharing accept/leave)
+  cloud_functions: ^5.1.0
 
   cupertino_icons: ^1.0.8
 

@@ -220,7 +220,7 @@ class _AddRecurringDialogState extends ConsumerState<AddRecurringDialog> {
                     child: DropdownButtonFormField<String>(
                       initialValue: _walletId,
                       decoration: const InputDecoration(
-                        labelText: 'Carteira',
+                        labelText: 'Conta',
                         border: OutlineInputBorder(),
                       ),
                       items: [

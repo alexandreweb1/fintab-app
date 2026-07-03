@@ -16,6 +16,7 @@ class WalletModel extends WalletEntity {
     super.creditLimit,
     super.closingDay,
     super.dueDay,
+    super.workspaceId,
   });
 
   factory WalletModel.fromFirestore(DocumentSnapshot doc) {
@@ -33,6 +34,7 @@ class WalletModel extends WalletEntity {
       creditLimit: (data['creditLimit'] as num?)?.toDouble() ?? 0,
       closingDay: (data['closingDay'] as num?)?.toInt() ?? 1,
       dueDay: (data['dueDay'] as num?)?.toInt() ?? 10,
+      workspaceId: data['workspaceId'] as String?,
     );
   }
 
@@ -48,6 +50,7 @@ class WalletModel extends WalletEntity {
         'creditLimit': creditLimit,
         'closingDay': closingDay,
         'dueDay': dueDay,
+        if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
   factory WalletModel.fromEntity(WalletEntity entity) => WalletModel(
@@ -63,5 +66,6 @@ class WalletModel extends WalletEntity {
         creditLimit: entity.creditLimit,
         closingDay: entity.closingDay,
         dueDay: entity.dueDay,
+        workspaceId: entity.workspaceId,
       );
 }

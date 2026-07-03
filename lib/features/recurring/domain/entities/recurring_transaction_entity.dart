@@ -36,6 +36,9 @@ class RecurringTransactionEntity extends Equatable {
 
   final DateTime createdAt;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   const RecurringTransactionEntity({
     required this.id,
     required this.userId,
@@ -52,6 +55,7 @@ class RecurringTransactionEntity extends Equatable {
     this.isActive = true,
     this.lastGeneratedDate,
     required this.createdAt,
+    this.workspaceId,
   });
 
   bool get isIncome => type == TransactionType.income;
@@ -111,6 +115,7 @@ class RecurringTransactionEntity extends Equatable {
     DateTime? endDate,
     bool? isActive,
     DateTime? lastGeneratedDate,
+    String? workspaceId,
   }) {
     return RecurringTransactionEntity(
       id: id,
@@ -128,6 +133,7 @@ class RecurringTransactionEntity extends Equatable {
       isActive: isActive ?? this.isActive,
       lastGeneratedDate: lastGeneratedDate ?? this.lastGeneratedDate,
       createdAt: createdAt,
+      workspaceId: workspaceId ?? this.workspaceId,
     );
   }
 
@@ -135,6 +141,6 @@ class RecurringTransactionEntity extends Equatable {
   List<Object?> get props => [
         id, userId, title, amount, type, category, description, walletId,
         frequency, dayOfRecurrence, startDate, endDate, isActive,
-        lastGeneratedDate, createdAt,
+        lastGeneratedDate, createdAt, workspaceId,
       ];
 }

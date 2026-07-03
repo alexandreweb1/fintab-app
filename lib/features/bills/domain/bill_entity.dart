@@ -32,6 +32,9 @@ class BillEntity extends Equatable {
   /// The transaction created when the bill was settled (for unlinking/audit).
   final String? transactionId;
 
+  /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
+  final String? workspaceId;
+
   final DateTime createdAt;
 
   const BillEntity({
@@ -48,6 +51,7 @@ class BillEntity extends Equatable {
     this.reminderDaysBefore = 1,
     this.repeatMonthly = false,
     this.transactionId,
+    this.workspaceId,
     required this.createdAt,
   });
 
@@ -89,6 +93,7 @@ class BillEntity extends Equatable {
     int? reminderDaysBefore,
     bool? repeatMonthly,
     String? transactionId,
+    String? workspaceId,
   }) {
     return BillEntity(
       id: id,
@@ -104,6 +109,7 @@ class BillEntity extends Equatable {
       reminderDaysBefore: reminderDaysBefore ?? this.reminderDaysBefore,
       repeatMonthly: repeatMonthly ?? this.repeatMonthly,
       transactionId: transactionId ?? this.transactionId,
+      workspaceId: workspaceId ?? this.workspaceId,
       createdAt: createdAt,
     );
   }
@@ -112,6 +118,6 @@ class BillEntity extends Equatable {
   List<Object?> get props => [
         id, userId, title, amount, dueDate, type, category, walletId,
         isPaid, paidDate, reminderDaysBefore, repeatMonthly, transactionId,
-        createdAt,
+        workspaceId, createdAt,
       ];
 }

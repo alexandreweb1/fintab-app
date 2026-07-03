@@ -17,6 +17,7 @@ class BillModel extends BillEntity {
     super.reminderDaysBefore,
     super.repeatMonthly,
     super.transactionId,
+    super.workspaceId,
     required super.createdAt,
   });
 
@@ -36,6 +37,7 @@ class BillModel extends BillEntity {
       reminderDaysBefore: (data['reminderDaysBefore'] as num?)?.toInt() ?? 1,
       repeatMonthly: data['repeatMonthly'] as bool? ?? false,
       transactionId: data['transactionId'] as String?,
+      workspaceId: data['workspaceId'] as String?,
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -54,6 +56,7 @@ class BillModel extends BillEntity {
         'reminderDaysBefore': reminderDaysBefore,
         'repeatMonthly': repeatMonthly,
         'transactionId': transactionId,
+        if (workspaceId != null) 'workspaceId': workspaceId,
         'createdAt': Timestamp.fromDate(createdAt),
       };
 
@@ -71,6 +74,7 @@ class BillModel extends BillEntity {
         reminderDaysBefore: e.reminderDaysBefore,
         repeatMonthly: e.repeatMonthly,
         transactionId: e.transactionId,
+        workspaceId: e.workspaceId,
         createdAt: e.createdAt,
       );
 }

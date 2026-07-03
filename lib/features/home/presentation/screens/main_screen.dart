@@ -9,6 +9,9 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/navigation_provider.dart';
+import '../../../../core/providers/workspace_migration_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
+import '../../../workspaces/presentation/workspace_switcher.dart';
 import '../../../../core/services/bank_filter_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../notification_backlog/presentation/providers/backlog_provider.dart';
@@ -436,6 +439,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
                 date: DateTime.now(),
                 description: 'Via ${suggestion.sourceApp}',
                 isPending: true,
+                // Background capture always lands in the user's own default
+                // Carteira, regardless of which one is active on screen.
+                workspaceIdOverride: ref.read(defaultWorkspaceIdProvider),
+                userIdOverride: ref.read(effectiveUserIdProvider),
               );
       debugPrint('[Notif] Auto-saved transaction id=$id');
       return id;
@@ -449,6 +456,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
   Widget build(BuildContext context) {
     ref.watch(categoriesSeedProvider);
     ref.watch(walletsSeedProvider);
+    // Owner-driven workspace ("Carteira") migration — idempotent no-op once done.
+    ref.watch(workspaceMigrationProvider);
     // Keep the auto-categorization rules stream warm so they're available when
     // a bank notification is auto-saved in the background.
     ref.watch(categoryRulesStreamProvider);
@@ -532,11 +541,21 @@ class _MainScreenState extends ConsumerState<MainScreen>
       );
     });
 
+    // Reset transient statement filters when the active Carteira changes —
+    // they can hold wallet/category/tag ids that don't exist in the new one.
+    ref.listen<String?>(activeWorkspaceIdProvider, (prev, next) {
+      if (prev == next) return;
+      ref.invalidate(statementWalletFilterProvider);
+      ref.invalidate(statementCategoryFilterProvider);
+      ref.invalidate(statementTagFilterProvider);
+    });
+
     if (kIsWeb) {
       return Scaffold(
         body: Column(
           children: [
             const UpdateBanner(),
+            const WorkspaceSwitcherBar(),
             Expanded(
               child: Row(
                 children: [
@@ -609,6 +628,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       body: Column(
         children: [
           const UpdateBanner(),
+          const WorkspaceSwitcherBar(),
           Expanded(
             child: AnimatedOpacity(
               opacity: _tabOpacity,

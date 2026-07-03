@@ -155,7 +155,7 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 24),
             ],
             if (section == DashboardSection.wallets) ...[
-              const _SectionHeader(title: 'Saldo por carteira', subtitle: ''),
+              const _SectionHeader(title: 'Saldo por conta', subtitle: ''),
               const SizedBox(height: 8),
               const _WalletBalancesSection(),
               const SizedBox(height: 24),
@@ -1043,7 +1043,7 @@ class _WalletBalancesSection extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: Text(
-            'Nenhuma carteira encontrada',
+            'Nenhuma conta encontrada',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
           ),
         ),
@@ -1385,6 +1385,15 @@ class _InvitationCardState extends ConsumerState<_InvitationCard> {
                         style: TextStyle(
                           fontSize: 12,
                           color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    if (inv.isWorkspaceInvite)
+                      Text(
+                        'Carteira: ${(inv.workspaceName?.isNotEmpty ?? false) ? inv.workspaceName : 'Pessoal'} · ${inv.isViewer ? 'só ver' : 'pode editar'}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
                         ),
                       ),
                   ],

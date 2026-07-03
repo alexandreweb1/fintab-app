@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../../transactions/domain/usecases/add_transaction_usecase.dart';
 import '../../data/datasources/recurring_transaction_remote_datasource.dart';
+import '../../data/models/recurring_transaction_model.dart';
 import '../../data/repositories/recurring_transaction_repository_impl.dart';
 import '../../domain/entities/recurring_transaction_entity.dart';
 import '../../domain/repositories/recurring_transaction_repository.dart';
@@ -29,6 +31,24 @@ final recurringRepositoryProvider =
 
 final recurringStreamProvider =
     StreamProvider<List<RecurringTransactionEntity>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+
+  // New-style shared member: query the workspace server-side.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(
+      ref.watch(firestoreProvider),
+      'recurring_transactions',
+      scope.workspaceId,
+    ).snapshots().map((snap) {
+      final list = snap.docs
+          .map(RecurringTransactionModel.fromFirestore)
+          .cast<RecurringTransactionEntity>()
+          .toList();
+      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return list;
+    });
+  }
+
   final authState = ref.watch(authStateProvider);
   final effectiveUserId = ref.watch(effectiveUserIdProvider);
   return authState.when(
@@ -36,7 +56,9 @@ final recurringStreamProvider =
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
       return ref
           .watch(recurringRepositoryProvider)
-          .watchAll(userId: effectiveUserId);
+          .watchAll(userId: effectiveUserId)
+          .map((list) =>
+              applyWorkspaceScope(list, (e) => e.workspaceId, scope));
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -55,8 +77,9 @@ final activeRecurrencesProvider =
 class RecurringNotifier extends StateNotifier<AsyncValue<void>> {
   final RecurringTransactionRepository _repo;
   final String _userId;
+  final String? _workspaceId;
 
-  RecurringNotifier(this._repo, this._userId)
+  RecurringNotifier(this._repo, this._userId, this._workspaceId)
       : super(const AsyncValue.data(null));
 
   Future<bool> add({
@@ -76,6 +99,7 @@ class RecurringNotifier extends StateNotifier<AsyncValue<void>> {
       final entity = RecurringTransactionEntity(
         id: const Uuid().v4(),
         userId: _userId,
+        workspaceId: _workspaceId,
         title: title,
         amount: amount,
         type: type,
@@ -128,10 +152,11 @@ class RecurringNotifier extends StateNotifier<AsyncValue<void>> {
 
 final recurringNotifierProvider =
     StateNotifierProvider<RecurringNotifier, AsyncValue<void>>((ref) {
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final ledgerOwnerId = ref.watch(ledgerOwnerIdProvider);
   return RecurringNotifier(
     ref.watch(recurringRepositoryProvider),
-    effectiveUserId,
+    ledgerOwnerId,
+    ref.watch(workspaceStampProvider),
   );
 });
 
@@ -140,6 +165,11 @@ final recurringNotifierProvider =
 /// Provider that generates pending transactions from active recurrences.
 /// Call `ref.read(recurringGeneratorProvider)` once at app startup.
 final recurringGeneratorProvider = FutureProvider<int>((ref) async {
+  // A shared-workspace member must never generate occurrences into the
+  // owner's workspace from their device — the owner's app does that.
+  final scope = ref.watch(activeLedgerScopeProvider);
+  if (scope is MemberScope) return 0;
+
   final recurrences = ref.watch(activeRecurrencesProvider);
   if (recurrences.isEmpty) return 0;
 
@@ -155,6 +185,7 @@ final recurringGeneratorProvider = FutureProvider<int>((ref) async {
       final tx = TransactionEntity(
         id: const Uuid().v4(),
         userId: rec.userId,
+        workspaceId: rec.workspaceId,
         title: rec.title,
         amount: rec.amount,
         type: rec.type,

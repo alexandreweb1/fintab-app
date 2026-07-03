@@ -15,6 +15,7 @@ import '../../../../core/widgets/help_hint.dart';
 import '../../../../core/services/notification_listener_service.dart';
 import '../../../../core/services/notification_providers.dart';
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../app_lock/presentation/providers/app_lock_provider.dart';
 import '../../../app_lock/presentation/screens/setup_pin_screen.dart';
@@ -28,6 +29,8 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../wallets/presentation/screens/credit_card_screen.dart';
+import '../../../workspaces/presentation/workspace_switcher.dart';
+import '../../../workspaces/domain/workspace_entity.dart';
 import 'tools_hub_screen.dart';
 import '../../../../core/utils/money_input_formatter.dart';
 import '../../../sharing/presentation/providers/sharing_provider.dart';
@@ -387,10 +390,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             MaterialPageRoute(builder: (_) => const PreferencesSettingsScreen())),
       ),
       _MenuTile(
+        icon: Icons.business_center_outlined,
+        color: const Color(0xFF7B1FA2),
+        title: 'Carteiras (PF/PJ)',
+        subtitle: 'Separe Pessoal e Empresarial, troque na tela inicial',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const ManageWorkspacesScreen())),
+      ),
+      _MenuTile(
         icon: Icons.account_balance_wallet_outlined,
         color: const Color(0xFF1976D2),
-        title: 'Carteiras & Categorias',
-        subtitle: 'Carteiras, categorias, import/export, saúde',
+        title: 'Contas & Categorias',
+        subtitle: 'Contas, categorias, import/export, saúde',
         onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const DataSettingsScreen())),
       ),
@@ -1181,7 +1192,7 @@ class _AddCategoryDialogState extends ConsumerState<_AddCategoryDialog> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    final effectiveUserId = ref.read(effectiveUserIdProvider);
+    final effectiveUserId = ref.read(ledgerOwnerIdProvider);
     if (effectiveUserId.isEmpty) return;
     final success = await ref.read(categoriesNotifierProvider.notifier).add(
           userId: effectiveUserId,
@@ -1372,6 +1383,8 @@ class _SharingSection extends ConsumerStatefulWidget {
 class _SharingSectionState extends ConsumerState<_SharingSection> {
   final _emailCtrl = TextEditingController();
   bool _sending = false;
+  String? _inviteWorkspaceId; // null = default Carteira
+  String _inviteRole = 'editor';
 
   @override
   void dispose() {
@@ -1383,8 +1396,21 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) return;
     setState(() => _sending = true);
+    // Resolve the target Carteira: explicit selection or the default one.
+    final own = ref.read(ownWorkspacesStreamProvider).value ?? const [];
+    final defaultWs = ref.read(defaultWorkspaceIdProvider);
+    final wsId = _inviteWorkspaceId ?? defaultWs;
+    String? wsName;
+    for (final w in own) {
+      if (w.id == wsId) wsName = w.name;
+    }
     final error =
-        await ref.read(sharingNotifierProvider.notifier).sendInvitation(email);
+        await ref.read(sharingNotifierProvider.notifier).sendInvitation(
+              email,
+              workspaceId: wsId,
+              workspaceName: wsName,
+              role: _inviteRole,
+            );
     if (!mounted) return;
     setState(() => _sending = false);
     if (error == null) {
@@ -1591,8 +1617,12 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                       title: Text(inv.masterName.isNotEmpty
                           ? inv.masterName
                           : inv.masterEmail),
-                      subtitle: Text(inv.masterEmail,
-                          style: const TextStyle(fontSize: 11)),
+                      subtitle: Text(
+                        inv.isWorkspaceInvite
+                            ? 'Carteira: ${(inv.workspaceName?.isNotEmpty ?? false) ? inv.workspaceName : 'Pessoal'} · ${inv.isViewer ? 'só ver' : 'pode editar'}'
+                            : inv.masterEmail,
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1656,6 +1686,59 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
           ]),
         ],
 
+        // ── Carteiras shared WITH me (new-style membership) ───────────────
+        Builder(builder: (context) {
+          final sharedIn =
+              ref.watch(sharedWorkspacesStreamProvider).value ?? const [];
+          if (sharedIn.isEmpty) return const SizedBox.shrink();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SettingsCard(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text('Carteiras compartilhadas comigo',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurfaceVariant)),
+                ),
+                ...sharedIn.map((w) => ListTile(
+                      dense: true,
+                      leading: Icon(Icons.group_rounded,
+                          color: colorScheme.tertiary, size: 20),
+                      title: Text(w.name,
+                          style: const TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                          w.roleOf(ref.watch(authStateProvider).value?.id ??
+                                      '') ==
+                                  WorkspaceRole.viewer
+                              ? 'Só ver'
+                              : 'Pode editar',
+                          style: const TextStyle(fontSize: 11)),
+                      trailing: IconButton(
+                        icon: Icon(Icons.logout_rounded,
+                            color: Colors.red.shade400, size: 20),
+                        tooltip: 'Sair desta Carteira',
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final error = await ref
+                              .read(sharingNotifierProvider.notifier)
+                              .leaveWorkspace(w.id);
+                          if (error != null) {
+                            messenger.showSnackBar(
+                                SnackBar(content: Text(error)));
+                          }
+                        },
+                      ),
+                    )),
+                const SizedBox(height: 6),
+              ]),
+              const SizedBox(height: 12),
+            ],
+          );
+        }),
+
         // ── Master view: invite + collaborator list ───────────────────────
         if (isMaster) ...[
           _SettingsCard(children: [
@@ -1697,7 +1780,66 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                       ),
                     ),
                   )
-                else
+                else ...[
+                  // ── Which Carteira + which role ──
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Builder(builder: (context) {
+                      final own = (ref
+                                  .watch(ownWorkspacesStreamProvider)
+                                  .value ??
+                              const <WorkspaceEntity>[])
+                          .where((w) => !w.archived)
+                          .toList();
+                      final defaultWs = ref.watch(defaultWorkspaceIdProvider);
+                      final selected = _inviteWorkspaceId ?? defaultWs;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (own.length > 1)
+                            DropdownButtonFormField<String>(
+                              initialValue: own.any((w) => w.id == selected)
+                                  ? selected
+                                  : defaultWs,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Carteira a compartilhar',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                              items: own
+                                  .map((w) => DropdownMenuItem(
+                                        value: w.id,
+                                        child: Text(w.name,
+                                            overflow: TextOverflow.ellipsis),
+                                      ))
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _inviteWorkspaceId = v),
+                            ),
+                          if (own.length > 1) const SizedBox(height: 8),
+                          SegmentedButton<String>(
+                            style: const ButtonStyle(
+                                visualDensity: VisualDensity.compact),
+                            segments: const [
+                              ButtonSegment(
+                                  value: 'editor',
+                                  icon: Icon(Icons.edit_outlined, size: 15),
+                                  label: Text('Pode editar')),
+                              ButtonSegment(
+                                  value: 'viewer',
+                                  icon: Icon(Icons.visibility_outlined,
+                                      size: 15),
+                                  label: Text('Só ver')),
+                            ],
+                            selected: {_inviteRole},
+                            onSelectionChanged: (v) =>
+                                setState(() => _inviteRole = v.first),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Row(
@@ -1728,6 +1870,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                       ],
                     ),
                   ),
+                ],
 
                 // Active collaborators
                 if (collaborators.isNotEmpty) ...[
@@ -1756,6 +1899,11 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                         ),
                         title: Text(inv.inviteeEmail,
                             style: const TextStyle(fontSize: 13)),
+                        subtitle: inv.isWorkspaceInvite
+                            ? Text(
+                                '${(inv.workspaceName?.isNotEmpty ?? false) ? inv.workspaceName : 'Pessoal'} · ${inv.isViewer ? 'só ver' : 'pode editar'}',
+                                style: const TextStyle(fontSize: 11))
+                            : null,
                         trailing: IconButton(
                           icon: Icon(Icons.person_remove_outlined,
                               color: Colors.red.shade400, size: 20),
@@ -1767,6 +1915,7 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
                                   .removeCollaborator(
                                     invitationId: inv.id,
                                     collaboratorUserId: inv.collaboratorUserId!,
+                                    workspaceId: inv.workspaceId,
                                   ),
                         ),
                       )),
@@ -1870,8 +2019,8 @@ class _WalletSection extends ConsumerWidget {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Excluir carteira'),
-                        content: Text('Deseja excluir a carteira "${w.name}"?'),
+                        title: const Text('Excluir conta'),
+                        content: Text('Deseja excluir a conta "${w.name}"?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(ctx).pop(false),
@@ -1919,7 +2068,7 @@ class _WalletSection extends ConsumerWidget {
       ),
       children: [
         ...walletTiles,
-        // Gate: free users só podem ter 1 carteira
+        // Gate: free users só podem ter 1 conta
         Builder(builder: (context) {
           final canAdd = ref.watch(canAddWalletProvider);
           return ListTile(
@@ -1930,9 +2079,9 @@ class _WalletSection extends ConsumerWidget {
               if (!canAdd) {
                 showProGateBottomSheet(
                   context,
-                  featureName: 'Múltiplas Carteiras',
+                  featureName: 'Múltiplas Contas',
                   featureDescription:
-                      'Crie quantas carteiras quiser para organizar seu dinheiro.',
+                      'Crie quantas contas quiser para organizar seu dinheiro.',
                   featureIcon: Icons.account_balance_wallet_rounded,
                 );
                 return;
@@ -1983,7 +2132,7 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    final effectiveUserId = ref.read(effectiveUserIdProvider);
+    final effectiveUserId = ref.read(ledgerOwnerIdProvider);
     if (effectiveUserId.isEmpty) return;
     setState(() => _isLoading = true);
     final success = await ref.read(walletsNotifierProvider.notifier).add(
@@ -2004,7 +2153,7 @@ class _AddWalletDialogState extends ConsumerState<_AddWalletDialog> {
     } else {
       final err = ref.read(walletsNotifierProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err?.toString() ?? 'Erro ao criar carteira'),
+        content: Text(err?.toString() ?? 'Erro ao criar conta'),
         backgroundColor: Colors.red.shade700,
       ));
     }
@@ -2244,7 +2393,7 @@ class _EditWalletDialogState extends ConsumerState<_EditWalletDialog> {
     } else {
       final err = ref.read(walletsNotifierProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err?.toString() ?? 'Erro ao editar carteira'),
+        content: Text(err?.toString() ?? 'Erro ao editar conta'),
         backgroundColor: Colors.red.shade700,
       ));
     }
@@ -2646,7 +2795,7 @@ class _ProBannerCard extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '✓ Múltiplas carteiras  ✓ Categorias  ✓ Visão anual  ✓ Compartilhamento',
+            '✓ Múltiplas contas  ✓ Categorias  ✓ Visão anual  ✓ Compartilhamento',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
