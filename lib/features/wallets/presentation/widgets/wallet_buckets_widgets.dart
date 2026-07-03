@@ -1021,3 +1021,181 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
     );
   }
 }
+
+// ─── Patrimônio tab (net worth across all contas) ────────────────────────────
+
+class PatrimonioTab extends ConsumerWidget {
+  const PatrimonioTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fmt = ref.watch(currencyFormatterProvider);
+    final balances = ref.watch(walletBalancesProvider);
+    final walletsAsync = ref.watch(walletsStreamProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    final wallets = walletsAsync.value ?? [];
+
+    // Build list of (wallet, balance) pairs; include "Geral" if needed
+    final List<({String id, String name, int iconCodePoint, int colorValue, double balance})> entries = [];
+
+    final knownIds = <String>{};
+    for (final w in wallets) {
+      knownIds.add(w.id);
+      entries.add((
+        id: w.id,
+        name: w.name,
+        iconCodePoint: w.iconCodePoint,
+        colorValue: w.colorValue,
+        balance: balances[w.id] ?? 0.0,
+      ));
+    }
+
+    // Transactions without a wallet (walletId == '')
+    final geralBalance = balances[''] ?? 0.0;
+    if (geralBalance != 0.0 || wallets.isEmpty) {
+      entries.add((
+        id: '',
+        name: 'Geral',
+        iconCodePoint: Icons.account_balance_wallet_outlined.codePoint,
+        colorValue: cs.primary.toARGB32(),
+        balance: geralBalance,
+      ));
+    }
+
+    // Orphan balances: walletIds em transações que não existem mais (ex.: carteira excluída).
+    // Agregadas em "Outros" para que a soma exibida bata com o Patrimônio Total.
+    final outrosBalance = balances.entries
+        .where((e) => e.key.isNotEmpty && !knownIds.contains(e.key))
+        .fold<double>(0.0, (a, e) => a + e.value);
+    if (outrosBalance != 0.0) {
+      entries.add((
+        id: '__outros__',
+        name: 'Outros',
+        iconCodePoint: Icons.help_outline.codePoint,
+        colorValue: cs.onSurfaceVariant.toARGB32(),
+        balance: outrosBalance,
+      ));
+    }
+
+    final totalPatrimonio = entries.fold<double>(0.0, (a, e) => a + e.balance);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      children: [
+        // ── Total card ───────────────────────────────────────────────────
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Column(
+              children: [
+                Text(
+                  'Patrimônio Total',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  fmt(totalPatrimonio),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: totalPatrimonio >= 0
+                            ? Colors.green.shade700
+                            : Colors.red.shade700,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Saldo acumulado de todas as contas',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Section title ────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Saldo por conta',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+
+        // ── Wallet rows ──────────────────────────────────────────────────
+        if (walletsAsync.isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (entries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Center(
+              child: Text(
+                'Nenhuma conta encontrada.',
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
+            ),
+          )
+        else
+          ...entries.map((e) => _WalletBalanceTile(entry: e, fmt: fmt)),
+      ],
+    );
+  }
+}
+
+class _WalletBalanceTile extends StatelessWidget {
+  final ({
+    String id,
+    String name,
+    int iconCodePoint,
+    int colorValue,
+    double balance
+  }) entry;
+  final String Function(double) fmt;
+
+  const _WalletBalanceTile({required this.entry, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = Color(entry.colorValue);
+    final isPositive = entry.balance >= 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Icon(
+            categoryIcon(entry.iconCodePoint),
+            color: color,
+            size: 22,
+          ),
+        ),
+        title: Text(
+          entry.name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'Saldo final',
+          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+        ),
+        trailing: Text(
+          fmt(entry.balance),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+}

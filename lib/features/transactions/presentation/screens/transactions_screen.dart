@@ -3,15 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
-import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../investments/presentation/screens/investments_screen.dart';
 import '../../../wallets/presentation/screens/cards_view.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
-import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
-import '../../../wallets/presentation/widgets/wallet_buckets_widgets.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../providers/transactions_provider.dart';
 import '../widgets/transaction_list_tile.dart';
@@ -38,7 +35,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() => _selectedTab = _tabController.index);
@@ -185,10 +182,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
           preferredSize: const Size.fromHeight(kTextTabBarHeight),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Quando a tela é larga o suficiente, distribui as 4 abas
+              // Quando a tela é larga o suficiente, distribui as abas
               // ocupando toda a largura. Em telas menores, vira rolável
               // para evitar quebra/overflow do texto.
-              final fits = constraints.maxWidth >= 520;
+              final fits = constraints.maxWidth >= 360;
               return TabBar(
                 controller: _tabController,
                 isScrollable: !fits,
@@ -200,9 +197,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                 tabs: const [
                   Tab(text: 'Extrato'),
                   Tab(text: 'Cartões'),
-                  Tab(text: 'Reservas'),
                   Tab(text: 'Investimentos'),
-                  Tab(text: 'Patrimônio'),
                 ],
               );
             },
@@ -338,10 +333,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                   child: const CardsView(),
                 ),
 
-          // ── Tab 2: Reservas ────────────────────────────────────────────
-          const TypedWalletsTab(type: WalletType.reserve),
-
-          // ── Tab 3: Investimentos (carteira de ativos com cotação) ──────
+          // ── Tab 2: Investimentos (carteira de ativos com cotação) ──────
           ref.watch(isProProvider)
               ? const InvestmentsView()
               : ProGateWidget(
@@ -350,9 +342,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                   featureIcon: Icons.candlestick_chart_rounded,
                   child: const InvestmentsView(),
                 ),
-
-          // ── Tab 4: Patrimônio ──────────────────────────────────────────
-          const _PatrimonioTab(),
         ],
       ),
     );
@@ -1055,183 +1044,6 @@ class _SummaryItem extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Patrimônio Tab ───────────────────────────────────────────────────────────
-class _PatrimonioTab extends ConsumerWidget {
-  const _PatrimonioTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fmt = ref.watch(currencyFormatterProvider);
-    final balances = ref.watch(walletBalancesProvider);
-    final walletsAsync = ref.watch(walletsStreamProvider);
-    final cs = Theme.of(context).colorScheme;
-
-    final wallets = walletsAsync.value ?? [];
-
-    // Build list of (wallet, balance) pairs; include "Geral" if needed
-    final List<({String id, String name, int iconCodePoint, int colorValue, double balance})> entries = [];
-
-    final knownIds = <String>{};
-    for (final w in wallets) {
-      knownIds.add(w.id);
-      entries.add((
-        id: w.id,
-        name: w.name,
-        iconCodePoint: w.iconCodePoint,
-        colorValue: w.colorValue,
-        balance: balances[w.id] ?? 0.0,
-      ));
-    }
-
-    // Transactions without a wallet (walletId == '')
-    final geralBalance = balances[''] ?? 0.0;
-    if (geralBalance != 0.0 || wallets.isEmpty) {
-      entries.add((
-        id: '',
-        name: 'Geral',
-        iconCodePoint: Icons.account_balance_wallet_outlined.codePoint,
-        colorValue: cs.primary.toARGB32(),
-        balance: geralBalance,
-      ));
-    }
-
-    // Orphan balances: walletIds em transações que não existem mais (ex.: carteira excluída).
-    // Agregadas em "Outros" para que a soma exibida bata com o Patrimônio Total.
-    final outrosBalance = balances.entries
-        .where((e) => e.key.isNotEmpty && !knownIds.contains(e.key))
-        .fold<double>(0.0, (a, e) => a + e.value);
-    if (outrosBalance != 0.0) {
-      entries.add((
-        id: '__outros__',
-        name: 'Outros',
-        iconCodePoint: Icons.help_outline.codePoint,
-        colorValue: cs.onSurfaceVariant.toARGB32(),
-        balance: outrosBalance,
-      ));
-    }
-
-    final totalPatrimonio = entries.fold<double>(0.0, (a, e) => a + e.balance);
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      children: [
-        // ── Total card ───────────────────────────────────────────────────
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            child: Column(
-              children: [
-                Text(
-                  'Patrimônio Total',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  fmt(totalPatrimonio),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: totalPatrimonio >= 0
-                            ? Colors.green.shade700
-                            : Colors.red.shade700,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Saldo acumulado de todas as contas',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // ── Section title ────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'Saldo por conta',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-
-        // ── Wallet rows ──────────────────────────────────────────────────
-        if (walletsAsync.isLoading)
-          const Center(child: CircularProgressIndicator())
-        else if (entries.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 32),
-            child: Center(
-              child: Text(
-                'Nenhuma conta encontrada.',
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            ),
-          )
-        else
-          ...entries.map((e) => _WalletBalanceTile(entry: e, fmt: fmt)),
-      ],
-    );
-  }
-}
-
-class _WalletBalanceTile extends StatelessWidget {
-  final ({
-    String id,
-    String name,
-    int iconCodePoint,
-    int colorValue,
-    double balance
-  }) entry;
-  final String Function(double) fmt;
-
-  const _WalletBalanceTile({required this.entry, required this.fmt});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final color = Color(entry.colorValue);
-    final isPositive = entry.balance >= 0;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(
-            categoryIcon(entry.iconCodePoint),
-            color: color,
-            size: 22,
-          ),
-        ),
-        title: Text(
-          entry.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          'Saldo final',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-        ),
-        trailing: Text(
-          fmt(entry.balance),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-            color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
-          ),
         ),
       ),
     );

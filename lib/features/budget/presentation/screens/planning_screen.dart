@@ -17,6 +17,8 @@ import '../../../recurring/presentation/screens/recurring_screen.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../wallets/domain/entities/wallet_entity.dart';
+import '../../../wallets/presentation/widgets/wallet_buckets_widgets.dart';
 import '../../domain/entities/budget_entity.dart';
 import '../../domain/ideal_budget.dart';
 import '../providers/budget_provider.dart';
@@ -36,7 +38,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       if (_tabController.index != _selectedTab) {
@@ -117,6 +119,8 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
                 ],
               ),
             ),
+            const Tab(text: 'Reservas'),
+            const Tab(text: 'Patrimônio'),
           ],
         ),
       ),
@@ -184,6 +188,10 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
             featureIcon: Icons.repeat_rounded,
             child: RecurringScreen(),
           ),
+          // ── Reservas tab ───────────────────────────────────────
+          const TypedWalletsTab(type: WalletType.reserve),
+          // ── Patrimônio tab ─────────────────────────────────────
+          const PatrimonioTab(),
         ],
       ),
     );

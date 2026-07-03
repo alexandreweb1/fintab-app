@@ -37,6 +37,7 @@ class _AddToPortfolioDialogState extends ConsumerState<AddToPortfolioDialog> {
   TradeSide _side = TradeSide.buy;
   DateTime _date = DateTime.now();
   bool _loading = false;
+  bool _fetchingQuote = false;
 
   @override
   void dispose() {
@@ -48,6 +49,36 @@ class _AddToPortfolioDialogState extends ConsumerState<AddToPortfolioDialog> {
 
   double _num(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', '.')) ?? 0;
+
+  Future<void> _fetchCurrentQuote() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _fetchingQuote = true);
+    await ref.read(investmentQuotesProvider.notifier).refresh([
+      InvestmentAsset(
+        id: '',
+        userId: '',
+        ticker: widget.ticker,
+        quoteSymbol: widget.quoteSymbol,
+        name: widget.name,
+        kind: widget.kind,
+        createdAt: _date,
+      ),
+    ]);
+    final quote = ref.read(investmentQuotesProvider).bySymbol[widget.quoteSymbol];
+    if (!mounted) return;
+    setState(() => _fetchingQuote = false);
+    if (quote == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.investFetchQuoteError)));
+      return;
+    }
+    final isCrypto = widget.kind.isCrypto;
+    var text = quote.price.toStringAsFixed(isCrypto ? 8 : 2);
+    if (isCrypto) {
+      text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    }
+    setState(() => _price.text = text.replaceAll('.', ','));
+  }
 
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
@@ -148,7 +179,17 @@ class _AddToPortfolioDialogState extends ConsumerState<AddToPortfolioDialog> {
             inputFormatters: inputFmt,
             decoration: InputDecoration(
                 labelText: '${l10n.investUnitPrice} (${widget.kind.currency})',
-                border: const OutlineInputBorder()),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: l10n.investFetchQuote,
+                  icon: _fetchingQuote
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.sync_rounded),
+                  onPressed: _fetchingQuote ? null : _fetchCurrentQuote,
+                )),
           ),
           const SizedBox(height: 10),
           TextField(

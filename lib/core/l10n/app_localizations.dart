@@ -406,6 +406,10 @@ class AppLocalizations {
   String get investQuantity => _t('Quantidade', 'Quantity', 'Cantidad');
   String get investUnitPrice =>
       _t('Preço unitário', 'Unit price', 'Precio unitario');
+  String get investFetchQuote =>
+      _t('Usar cotação atual', 'Use current quote', 'Usar cotización actual');
+  String get investFetchQuoteError => _t('Não foi possível obter a cotação atual',
+      "Couldn't fetch the current quote", 'No se pudo obtener la cotización actual');
   String get investFees => _t('Taxas', 'Fees', 'Comisiones');
   String get investAvgCost => _t('Preço médio', 'Avg. cost', 'Precio medio');
   String get investMarketValue =>

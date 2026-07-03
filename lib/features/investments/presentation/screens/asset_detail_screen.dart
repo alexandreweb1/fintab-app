@@ -246,6 +246,7 @@ class _AddTradeDialogState extends ConsumerState<_AddTradeDialog> {
   TradeSide _side = TradeSide.buy;
   DateTime _date = DateTime.now();
   bool _loading = false;
+  bool _fetchingQuote = false;
 
   @override
   void dispose() {
@@ -257,6 +258,29 @@ class _AddTradeDialogState extends ConsumerState<_AddTradeDialog> {
 
   double _num(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', '.')) ?? 0;
+
+  Future<void> _fetchCurrentQuote() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _fetchingQuote = true);
+    await ref
+        .read(investmentQuotesProvider.notifier)
+        .refresh([widget.asset]);
+    final quote =
+        ref.read(investmentQuotesProvider).bySymbol[widget.asset.quoteSymbol];
+    if (!mounted) return;
+    setState(() => _fetchingQuote = false);
+    if (quote == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.investFetchQuoteError)));
+      return;
+    }
+    final isCrypto = widget.asset.kind.isCrypto;
+    var text = quote.price.toStringAsFixed(isCrypto ? 8 : 2);
+    if (isCrypto) {
+      text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    }
+    setState(() => _price.text = text.replaceAll('.', ','));
+  }
 
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
@@ -318,7 +342,17 @@ class _AddTradeDialogState extends ConsumerState<_AddTradeDialog> {
             decoration: InputDecoration(
                 labelText:
                     '${l10n.investUnitPrice} (${widget.asset.kind.currency})',
-                border: const OutlineInputBorder()),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: l10n.investFetchQuote,
+                  icon: _fetchingQuote
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.sync_rounded),
+                  onPressed: _fetchingQuote ? null : _fetchCurrentQuote,
+                )),
           ),
           const SizedBox(height: 10),
           TextField(

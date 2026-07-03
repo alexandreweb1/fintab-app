@@ -40,28 +40,49 @@ class WorkspaceSwitcherBar extends ConsumerWidget {
         ? Icons.dashboard_customize_rounded
         : workspaceIcon(active?.type ?? WorkspaceType.personal);
 
-    return Material(
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-      child: InkWell(
-        onTap: () => showWorkspaceSwitcherSheet(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: cs.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600),
-                ),
+    // Wrapped in its own SafeArea so the pill never renders under the status
+    // bar — it can't rely on UpdateBanner's SafeArea above it, since that
+    // banner collapses to nothing (no safe-area padding at all) when there's
+    // no pending update.
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: Material(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          elevation: 1,
+          shadowColor: Colors.black.withValues(alpha: 0.15),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => showWorkspaceSwitcherSheet(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 16, color: cs.primary),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(Icons.unfold_more_rounded,
+                      size: 18, color: cs.onSurfaceVariant),
+                ],
               ),
-              Icon(Icons.unfold_more_rounded,
-                  size: 16, color: cs.onSurfaceVariant),
-            ],
+            ),
           ),
         ),
       ),
