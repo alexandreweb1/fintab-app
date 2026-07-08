@@ -27,8 +27,10 @@ import '../widgets/dashboard_insights_card.dart';
 import '../widgets/dashboard_metric_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
+import '../../../../core/utils/platform_store.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
 import '../../../workspaces/presentation/workspace_switcher.dart';
+import '../../../notification_backlog/presentation/screens/backlog_screen.dart';
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const _kNavy = Color(0xFF1A2B4A);
@@ -38,6 +40,8 @@ const _kLightBg = Color(0xFFF4F6FA);
 // ─── Number of months shown in the chart ─────────────────────────────────────
 const _kChartMonths = 24;
 const _kMonthColWidth = 56.0;
+// Height of the sparkline curve area (taller = more prominent curve).
+const _kChartHeight = 108.0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 class DashboardScreen extends ConsumerWidget {
@@ -156,7 +160,8 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 24),
             ],
             if (section == DashboardSection.wallets) ...[
-              const _SectionHeader(title: 'Saldo por conta', subtitle: ''),
+              const _SectionHeader(
+                  title: 'Contas desta carteira', subtitle: ''),
               const SizedBox(height: 8),
               const _WalletBalancesSection(),
               const SizedBox(height: 24),
@@ -314,21 +319,55 @@ class _DarkHeader extends ConsumerWidget {
         children: [
           SizedBox(height: topPad + 8),
 
-          // Top bar
+          // Top bar — avatar on the LEFT (tap → settings), greeting + name
+          // stacked; on the right: manage dashboard + (Android only) a bell
+          // shortcutting to the notification-detection history.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    '$greeting, $name!',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: compact ? 12 : 14,
+                GestureDetector(
+                  onTap: onSettingsTap,
+                  child: UserAvatar(
+                    photoUrl: userPhotoUrl,
+                    initials: userInitials,
+                    radius: compact ? 19 : 22,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$greeting,',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: compact ? 12 : 13,
+                        ),
+                      ),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compact ? 16 : 19,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: onCustomizeTap,
                   child: Tooltip(
@@ -336,29 +375,31 @@ class _DarkHeader extends ConsumerWidget {
                     child: Icon(
                       Icons.tune_rounded,
                       color: Colors.white.withValues(alpha: 0.75),
-                      size: 22,
+                      size: 24,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
                 if (pendingInvites.isNotEmpty) ...[
+                  const SizedBox(width: 14),
                   _NotificationBell(count: pendingInvites.length),
-                  const SizedBox(width: 8),
                 ],
-                GestureDetector(
-                  onTap: onSettingsTap,
-                  child: UserAvatar(
-                    photoUrl: userPhotoUrl,
-                    initials: userInitials,
-                    radius: 18,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    textStyle: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                if (isAndroidPlatform) ...[
+                  const SizedBox(width: 14),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BacklogScreen()),
+                    ),
+                    child: Tooltip(
+                      message: 'Histórico de detecção',
+                      child: Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        size: 25,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -542,7 +583,7 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
           child: SizedBox(
             width: totalWidth,
             child: SizedBox(
-              height: 80 + 6 + 44, // chart + gap + labels
+              height: _kChartHeight + 6 + 44, // chart + gap + labels
               child: Stack(
                 children: [
                   // Chart area (not interactive, sits behind)
@@ -550,14 +591,14 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: 80,
+                    height: _kChartHeight,
                     child: CustomPaint(
                       painter: _SparklinePainter(
                         incomeData: incomeData,
                         expenseData: expenseData,
                         selectedIndex: selectedIdx,
                       ),
-                      size: const Size(totalWidth, 80),
+                      size: const Size(totalWidth, _kChartHeight),
                     ),
                   ),
                   // Full-height touch columns (chart + labels)
@@ -577,7 +618,7 @@ class _SparklineChartState extends ConsumerState<_SparklineChart> {
                         },
                         child: SizedBox(
                           width: _kMonthColWidth,
-                          height: 80 + 6 + 44, // full height
+                          height: _kChartHeight + 6 + 44, // full height
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -641,7 +682,8 @@ class _SparklinePainter extends CustomPainter {
     return List.generate(data.length, (i) {
       final x = i / (data.length - 1) * size.width;
       final norm = range < 1 ? 0.5 : (data[i] - minV) / effectiveRange;
-      final y = size.height - (norm * size.height * 0.75) - size.height * 0.1;
+      // Use more of the vertical space so the curve reads as more pronounced.
+      final y = size.height - (norm * size.height * 0.9) - size.height * 0.06;
       return Offset(x, y);
     });
   }

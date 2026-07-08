@@ -284,12 +284,23 @@ class _CarteiraMenuCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-              child: Text(l10n.workspaceSwitchTo,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: cs.onSurfaceVariant)),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(l10n.workspaceSwitchTo,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 2),
+                  Text(l10n.carteiraScopeHint,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.8))),
+                ],
+              ),
             ),
             ...own.map((w) => tile(
                   leading: _MenuLeadingIcon(

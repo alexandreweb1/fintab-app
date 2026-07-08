@@ -52,7 +52,7 @@ enum DashboardSection {
       case DashboardSection.insights:
         return 'Alertas de orçamento e projeção de fim de mês';
       case DashboardSection.investments:
-        return 'Ganho/perda da sua carteira de investimentos';
+        return 'Ganho/perda dos seus investimentos';
       case DashboardSection.safeToSpend:
         return 'Quanto você pode gastar com segurança';
       case DashboardSection.netWorth:
@@ -96,8 +96,22 @@ class DashboardConfig {
     required this.hidden,
   });
 
+  /// Default section order (padrão para todos os usuários). Mirrors the layout
+  /// approved in the Personalizar Dashboard screen.
   static const DashboardConfig defaultConfig = DashboardConfig(
-    order: DashboardSection.values,
+    order: [
+      DashboardSection.incomeExpense, // Receitas & Despesas
+      DashboardSection.financialHealth, // Saúde Financeira
+      DashboardSection.budgets, // Resumo de Orçamentos
+      DashboardSection.insights, // Insights & Projeção
+      DashboardSection.investments, // Investimentos
+      DashboardSection.safeToSpend, // Pode Gastar
+      DashboardSection.netWorth, // Patrimônio
+      DashboardSection.bills, // Contas a pagar
+      DashboardSection.wallets, // Saldo por Conta
+      DashboardSection.recentTransactions, // Últimas Transações
+      DashboardSection.upcomingRecurring, // Próximas Recorrências
+    ],
     hidden: {},
   );
 
@@ -146,7 +160,9 @@ class DashboardConfig {
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
-const _kPrefKey = 'dashboard_config_v1';
+// v2: rolled out the new default section order to every user (a saved v1 config
+// is ignored, so everyone starts from the new default and can re-customize).
+const _kPrefKey = 'dashboard_config_v2';
 
 class DashboardConfigNotifier extends Notifier<DashboardConfig> {
   @override

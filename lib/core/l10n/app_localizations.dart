@@ -483,6 +483,10 @@ class AppLocalizations {
       'Visão consolidada de todas as suas Carteiras (somente leitura de totais). Novos lançamentos vão para a Carteira Pessoal.',
       'Consolidated view of all your spaces. New entries go to the Personal space.',
       'Vista consolidada de todos tus espacios. Los nuevos registros van al espacio Personal.');
+  String get carteiraScopeHint => _t(
+      'Cada carteira tem suas próprias contas, transações e dados.',
+      'Each space has its own accounts, transactions and data.',
+      'Cada espacio tiene sus propias cuentas, transacciones y datos.');
   String get newWorkspace => _t('Nova Carteira', 'New space', 'Nuevo espacio');
   String get manageWorkspaces =>
       _t('Gerenciar Carteiras', 'Manage spaces', 'Gestionar espacios');
