@@ -29,8 +29,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
   bool _isSearching = false;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
+  final ScrollController _extratoScroll = ScrollController();
   late final TabController _tabController;
   int _selectedTab = 0;
+
+  /// Transaction id currently highlighted after a jump-to (e.g. from a card
+  /// invoice line). Cleared after a short delay so the tint fades.
+  String? _highlightTxId;
 
   @override
   void initState() {
@@ -48,7 +53,54 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
     _tabController.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
+    _extratoScroll.dispose();
     super.dispose();
+  }
+
+  /// Handles a request to reveal a transaction in the Extrato: switch to the
+  /// Extrato sub-tab, scroll the row into view, highlight it briefly, then clear.
+  void _handleFocusRequest(String txId) {
+    if (_tabController.index != 0) _tabController.animateTo(0);
+    setState(() => _highlightTxId = txId);
+
+    void attempt(int tries) {
+      if (!mounted) return;
+      final txs = ref.read(statementDisplayTransactionsProvider);
+      final items = _buildGroupedItems(txs);
+      final index = items.indexWhere(
+          (it) => it is _TxItem && it.transaction.id == txId);
+      if (index < 0) return;
+      if (!_extratoScroll.hasClients) {
+        if (tries > 0) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => attempt(tries - 1));
+        }
+        return;
+      }
+      // Rows ~74px, day headers ~44px — estimate the offset and clamp.
+      var offset = 0.0;
+      for (var i = 0; i < index; i++) {
+        offset += items[i] is _DayHeaderItem ? 44.0 : 74.0;
+      }
+      final max = _extratoScroll.position.maxScrollExtent;
+      final target = (offset - 120).clamp(0.0, max);
+      _extratoScroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => attempt(6));
+
+    // Fade the highlight out after a moment.
+    Future.delayed(const Duration(milliseconds: 2600), () {
+      if (!mounted) return;
+      setState(() => _highlightTxId = null);
+      if (ref.read(focusedTransactionIdProvider) == txId) {
+        ref.read(focusedTransactionIdProvider.notifier).state = null;
+      }
+    });
   }
 
   void _openSearch() {
@@ -86,6 +138,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
         : DateFormat('MMMM yyyy', dateLoc).format(selectedMonth).capitalizeMonth();
 
     final cs = Theme.of(context).colorScheme;
+
+    // Another screen (e.g. a card invoice line) asked us to reveal a tx.
+    ref.listen<String?>(focusedTransactionIdProvider, (_, next) {
+      if (next != null) _handleFocusRequest(next);
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -302,6 +359,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                           }
                           final items = _buildGroupedItems(txs);
                           return ListView.builder(
+                            controller: _extratoScroll,
                             padding: const EdgeInsets.only(bottom: 80),
                             itemCount: items.length,
                             itemBuilder: (ctx, i) {
@@ -312,8 +370,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen>
                                   isFirst: i == 0,
                                 );
                               }
+                              final tx = (item as _TxItem).transaction;
                               return TransactionListTile(
-                                transaction: (item as _TxItem).transaction,
+                                transaction: tx,
+                                highlighted: tx.id == _highlightTxId,
                               );
                             },
                           );

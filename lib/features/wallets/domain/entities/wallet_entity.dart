@@ -41,6 +41,11 @@ class WalletEntity extends Equatable {
   /// Day of month (1-31) the invoice is due — credit cards only.
   final int dueDay;
 
+  /// Manually-entered closed-invoice totals, keyed by the invoice's closing
+  /// cycle ("YYYY-MM"). When present for a cycle, it REPLACES the app-computed
+  /// total for that fatura (the real amount the bank closed). Credit cards only.
+  final Map<String, double> closedInvoiceAmounts;
+
   /// Workspace (Carteira PF/PJ) this doc belongs to. Null = legacy pre-migration doc (treated as the default workspace).
   final String? workspaceId;
 
@@ -57,6 +62,7 @@ class WalletEntity extends Equatable {
     this.creditLimit = 0,
     this.closingDay = 1,
     this.dueDay = 10,
+    this.closedInvoiceAmounts = const {},
     this.workspaceId,
   });
 
@@ -75,6 +81,7 @@ class WalletEntity extends Equatable {
     double? creditLimit,
     int? closingDay,
     int? dueDay,
+    Map<String, double>? closedInvoiceAmounts,
     String? workspaceId,
   }) {
     return WalletEntity(
@@ -90,6 +97,7 @@ class WalletEntity extends Equatable {
       creditLimit: creditLimit ?? this.creditLimit,
       closingDay: closingDay ?? this.closingDay,
       dueDay: dueDay ?? this.dueDay,
+      closedInvoiceAmounts: closedInvoiceAmounts ?? this.closedInvoiceAmounts,
       workspaceId: workspaceId ?? this.workspaceId,
     );
   }
@@ -108,6 +116,7 @@ class WalletEntity extends Equatable {
         creditLimit,
         closingDay,
         dueDay,
+        closedInvoiceAmounts,
         workspaceId,
       ];
 }

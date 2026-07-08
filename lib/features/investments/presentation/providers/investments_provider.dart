@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/services/exchange_rate_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/investment_models.dart';
@@ -15,13 +16,28 @@ import '../../domain/investment_trade.dart';
 
 final investmentAssetsStreamProvider =
     StreamProvider<List<InvestmentAsset>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final fs = ref.watch(firestoreProvider);
+
+  // New-style shared member: server-side query by workspaceId.
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(fs, 'investment_assets', scope.workspaceId)
+        .snapshots()
+        .map((s) {
+      final list = s.docs
+          .map((d) => InvestmentAssetModel.fromFirestore(d) as InvestmentAsset)
+          .toList()
+        ..sort((a, b) => a.ticker.compareTo(b.ticker));
+      return list;
+    });
+  }
+
   final auth = ref.watch(authStateProvider);
   final uid = ref.watch(effectiveUserIdProvider);
   return auth.when(
     data: (user) {
       if (user == null || uid.isEmpty) return const Stream.empty();
-      return ref
-          .watch(firestoreProvider)
+      return fs
           .collection('investment_assets')
           .where('userId', isEqualTo: uid)
           .snapshots()
@@ -29,8 +45,9 @@ final investmentAssetsStreamProvider =
         final list = s.docs
             .map((d) => InvestmentAssetModel.fromFirestore(d) as InvestmentAsset)
             .toList();
-        list.sort((a, b) => a.ticker.compareTo(b.ticker));
-        return list;
+        final scoped = applyWorkspaceScope(list, (a) => a.workspaceId, scope);
+        scoped.sort((a, b) => a.ticker.compareTo(b.ticker));
+        return scoped;
       });
     },
     loading: () => const Stream.empty(),
@@ -40,19 +57,32 @@ final investmentAssetsStreamProvider =
 
 final investmentTradesStreamProvider =
     StreamProvider<List<InvestmentTrade>>((ref) {
+  final scope = ref.watch(activeLedgerScopeProvider);
+  final fs = ref.watch(firestoreProvider);
+
+  if (scope is MemberScope) {
+    return workspaceCollectionQuery(fs, 'investment_trades', scope.workspaceId)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => InvestmentTradeModel.fromFirestore(d) as InvestmentTrade)
+            .toList());
+  }
+
   final auth = ref.watch(authStateProvider);
   final uid = ref.watch(effectiveUserIdProvider);
   return auth.when(
     data: (user) {
       if (user == null || uid.isEmpty) return const Stream.empty();
-      return ref
-          .watch(firestoreProvider)
+      return fs
           .collection('investment_trades')
           .where('userId', isEqualTo: uid)
           .snapshots()
-          .map((s) => s.docs
-              .map((d) => InvestmentTradeModel.fromFirestore(d) as InvestmentTrade)
-              .toList());
+          .map((s) {
+        final list = s.docs
+            .map((d) => InvestmentTradeModel.fromFirestore(d) as InvestmentTrade)
+            .toList();
+        return applyWorkspaceScope(list, (t) => t.workspaceId, scope);
+      });
     },
     loading: () => const Stream.empty(),
     error: (_, __) => const Stream.empty(),
@@ -252,6 +282,7 @@ class InvestmentsNotifier extends StateNotifier<AsyncValue<void>> {
             InvestmentAssetModel(
               id: id,
               userId: _uid,
+              workspaceId: _ref.read(workspaceStampProvider),
               ticker: ticker,
               quoteSymbol: quoteSymbol,
               name: name,
@@ -300,6 +331,7 @@ class InvestmentsNotifier extends StateNotifier<AsyncValue<void>> {
             InvestmentTradeModel(
               id: id,
               userId: _uid,
+              workspaceId: _ref.read(workspaceStampProvider),
               assetId: assetId,
               side: side,
               quantity: quantity,
@@ -329,5 +361,7 @@ class InvestmentsNotifier extends StateNotifier<AsyncValue<void>> {
 
 final investmentsNotifierProvider =
     StateNotifierProvider<InvestmentsNotifier, AsyncValue<void>>((ref) {
-  return InvestmentsNotifier(ref, ref.watch(effectiveUserIdProvider));
+  // Home writes to the ACTIVE Carteira's owner (the master's uid for a shared
+  // member), matching how the 8 ledger collections stamp their docs.
+  return InvestmentsNotifier(ref, ref.watch(ledgerOwnerIdProvider));
 });

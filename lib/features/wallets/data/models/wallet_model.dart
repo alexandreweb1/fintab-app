@@ -16,6 +16,7 @@ class WalletModel extends WalletEntity {
     super.creditLimit,
     super.closingDay,
     super.dueDay,
+    super.closedInvoiceAmounts,
     super.workspaceId,
   });
 
@@ -34,8 +35,19 @@ class WalletModel extends WalletEntity {
       creditLimit: (data['creditLimit'] as num?)?.toDouble() ?? 0,
       closingDay: (data['closingDay'] as num?)?.toInt() ?? 1,
       dueDay: (data['dueDay'] as num?)?.toInt() ?? 10,
+      closedInvoiceAmounts: _parseClosedInvoices(data['closedInvoiceAmounts']),
       workspaceId: data['workspaceId'] as String?,
     );
+  }
+
+  static Map<String, double> _parseClosedInvoices(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, double>{};
+    raw.forEach((k, v) {
+      final d = (v as num?)?.toDouble();
+      if (k is String && d != null && d.isFinite) out[k] = d;
+    });
+    return out;
   }
 
   Map<String, dynamic> toFirestore() => {
@@ -50,6 +62,8 @@ class WalletModel extends WalletEntity {
         'creditLimit': creditLimit,
         'closingDay': closingDay,
         'dueDay': dueDay,
+        if (closedInvoiceAmounts.isNotEmpty)
+          'closedInvoiceAmounts': closedInvoiceAmounts,
         if (workspaceId != null) 'workspaceId': workspaceId,
       };
 
@@ -66,6 +80,7 @@ class WalletModel extends WalletEntity {
         creditLimit: entity.creditLimit,
         closingDay: entity.closingDay,
         dueDay: entity.dueDay,
+        closedInvoiceAmounts: entity.closedInvoiceAmounts,
         workspaceId: entity.workspaceId,
       );
 }

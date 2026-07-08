@@ -278,17 +278,24 @@ service cloud.firestore {
     // ── /investment_assets/{assetId} & /investment_trades/{tradeId} ───────────
     // Portfolio tracker (assets tracked + buy/sell trades). Owner or
     // collaborator; userId pinned on create and immutable on update.
+    // Now workspace-scoped like the other ledger collections: a workspaceId
+    // stamps each doc; access is granted by workspace membership (ws*) OR the
+    // pre-migration owner/collaborator paths (legacy*).
     match /investment_assets/{assetId} {
-      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
-                          && request.resource.data.userId == resource.data.userId;
-      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
     match /investment_trades/{tradeId} {
-      allow read, delete: if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner());
-      allow update:       if isSignedIn() && (isOwnerOfExistingDoc() || isCollaboratorOfOwner())
-                          && request.resource.data.userId == resource.data.userId;
-      allow create:       if isSignedIn() && (isCreatingOwnDoc() || isCollaboratorCreatingMastersDoc());
+      allow read:   if isSignedIn() && (wsReadable() || legacyAccess());
+      allow create: if isSignedIn() && (wsCreatable()
+                        || (legacyCreate() && !('workspaceId' in request.resource.data)));
+      allow update: if isSignedIn() && userIdUnchanged()
+                        && (wsEditable() || legacyAccess());
+      allow delete: if isSignedIn() && (wsEditable() || legacyAccess());
     }
 
     // ── /subscriptions/{userId} ───────────────────────────────────────────────

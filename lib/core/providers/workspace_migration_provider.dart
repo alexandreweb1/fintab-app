@@ -33,7 +33,14 @@ const _ledgerCollections = [
   'recurring_transactions',
   'category_rules',
   'bills',
+  // v2: investments joined the workspace-scoped ledger.
+  'investment_assets',
+  'investment_trades',
 ];
+
+/// Bumped whenever the backfill needs to re-run (e.g. new scoped collections).
+/// v1 = original 8 collections; v2 = + investments.
+const _kMigrationVersion = 2;
 
 bool _migrationRunning = false;
 
@@ -46,7 +53,9 @@ final workspaceMigrationProvider = FutureProvider<void>((ref) async {
   final profile = profileAsync.value;
   if (profile == null) return;
   if (profile['masterUserId'] != null) return; // collaborator: never migrates
-  if (profile['workspaceMigrationV1'] == true) return; // already done
+  final currentVersion = (profile['workspaceMigrationVersion'] as int?) ??
+      (profile['workspaceMigrationV1'] == true ? 1 : 0);
+  if (currentVersion >= _kMigrationVersion) return; // already up to date
   if (_migrationRunning) return;
 
   _migrationRunning = true;
@@ -129,9 +138,11 @@ final workspaceMigrationProvider = FutureProvider<void>((ref) async {
     }
 
     // ── 5. Mark done (interrupted runs resume from the top, idempotently). ──
-    await fs.collection('users').doc(uid).set(
-        {'workspaceMigrationV1': true}, SetOptions(merge: true));
-    debugPrint('[WorkspaceMigration] completed for $uid');
+    await fs.collection('users').doc(uid).set({
+      'workspaceMigrationV1': true,
+      'workspaceMigrationVersion': _kMigrationVersion,
+    }, SetOptions(merge: true));
+    debugPrint('[WorkspaceMigration] completed for $uid (v$_kMigrationVersion)');
   } catch (e) {
     debugPrint('[WorkspaceMigration] failed (will retry next launch): $e');
   } finally {

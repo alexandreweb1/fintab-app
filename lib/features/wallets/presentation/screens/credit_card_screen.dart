@@ -39,9 +39,43 @@ class CreditCardScreen extends ConsumerWidget {
     final owed = ref.watch(cardOwedProvider(walletId));
     final available = card.creditLimit - owed;
     final cardColor = Color(card.colorValue);
+    final theCard = card;
 
     return Scaffold(
-      appBar: AppBar(title: Text(card.name)),
+      appBar: AppBar(
+        title: Text(card.name),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: l10n.cardOptions,
+            onSelected: (v) {
+              switch (v) {
+                case 'due':
+                  _showChangeDueDateDialog(context, ref, theCard);
+                case 'delete':
+                  _showDeleteCardDialog(context, ref, theCard);
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'due',
+                child: Row(children: [
+                  const Icon(Icons.event_outlined, size: 20),
+                  const SizedBox(width: 12),
+                  Text(l10n.changeDueDate),
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(children: [
+                  Icon(Icons.delete_outline, size: 20, color: cs.error),
+                  const SizedBox(width: 12),
+                  Text(l10n.deleteCard, style: TextStyle(color: cs.error)),
+                ]),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -120,6 +154,79 @@ class CreditCardScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _showChangeDueDateDialog(
+      BuildContext context, WidgetRef ref, WalletEntity card) async {
+    final l10n = AppLocalizations.of(context);
+    int day = card.dueDay.clamp(1, 31);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.changeDueDate),
+        content: StatefulBuilder(
+          builder: (c, setSt) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${l10n.invoiceDue} '),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: day,
+                items: [
+                  for (var d = 1; d <= 31; d++)
+                    DropdownMenuItem(value: d, child: Text('$d')),
+                ],
+                onChanged: (v) => setSt(() => day = v ?? day),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(l10n.cancel)),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, true), child: Text(l10n.save)),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    await ref
+        .read(walletsNotifierProvider.notifier)
+        .update(card.copyWith(dueDay: day));
+  }
+
+  Future<void> _showDeleteCardDialog(
+      BuildContext context, WidgetRef ref, WalletEntity card) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('${l10n.deleteCard}: ${card.name}'),
+        content: Text(l10n.deleteCardKeepTxWarning),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(l10n.cancel)),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(c).colorScheme.error),
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final done =
+        await ref.read(walletsNotifierProvider.notifier).delete(card.id);
+    if (done) {
+      navigator.pop(); // leave the (now-deleted) card screen
+      messenger.showSnackBar(SnackBar(content: Text(l10n.cardDeleted)));
+    }
+  }
 }
 
 class _InvoiceCard extends ConsumerWidget {
@@ -195,21 +302,42 @@ class _InvoiceCard extends ConsumerWidget {
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(fmt(invoice.total),
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface)),
-                const SizedBox(width: 10),
-                Icon(Icons.event_outlined,
-                    size: 12, color: cs.onSurfaceVariant),
-                const SizedBox(width: 2),
-                Text(
-                  '${l10n.invoiceDue} ${CurrencyFormatter.formatDate(invoice.dueDate, dateLoc)}',
-                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                Row(
+                  children: [
+                    Text(fmt(invoice.effectiveTotal),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface)),
+                    if (invoice.isManual) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.edit_note_rounded,
+                          size: 14, color: cs.primary),
+                    ],
+                    const SizedBox(width: 10),
+                    Icon(Icons.event_outlined,
+                        size: 12, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        '${l10n.invoiceDue} ${CurrencyFormatter.formatDate(invoice.dueDate, dateLoc)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11, color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
                 ),
+                if (invoice.isManual)
+                  Text(
+                    '${l10n.invoiceComputed}: ${fmt(invoice.total)}',
+                    style: TextStyle(
+                        fontSize: 10.5, color: cs.onSurfaceVariant),
+                  ),
               ],
             ),
           ),
@@ -227,6 +355,10 @@ class _InvoiceCard extends ConsumerWidget {
                     fmt: fmt,
                     dateLoc: dateLoc,
                     cs: cs,
+                    onTap: () {
+                      focusTransactionInStatement(ref, t);
+                      Navigator.of(context).pop(); // reveal the Extrato
+                    },
                   )),
             if (invoice.paidAmount > 0) ...[
               const SizedBox(height: 6),
@@ -242,6 +374,25 @@ class _InvoiceCard extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF00A86B))),
                 ],
+              ),
+            ],
+            // Manually set the closed-invoice amount for this cycle (only once
+            // the fatura is no longer open/accumulating).
+            if (invoice.status != InvoiceStatus.open) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _showSetInvoiceValueDialog(context, ref),
+                  icon: const Icon(Icons.edit_note_rounded, size: 18),
+                  label: Text(invoice.isManual
+                      ? l10n.editInvoiceValue
+                      : l10n.setInvoiceValue),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               ),
             ],
             if (canPay) ...[
@@ -267,6 +418,92 @@ class _InvoiceCard extends ConsumerWidget {
       builder: (_) => _PayInvoiceDialog(card: card, invoice: invoice),
     );
   }
+
+  Future<void> _showSetInvoiceValueDialog(
+      BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final key = cardInvoiceCycleKey(invoice.closingDate);
+    final ctrl = TextEditingController(
+        text: invoice.isManual ? _fmtEdit(invoice.manualTotal!) : '');
+
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.setInvoiceValue),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.setInvoiceValueHint,
+                style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Text('${l10n.invoiceComputed}: ${fmt(invoice.total)}',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                prefixText: 'R\$ ',
+                labelText: l10n.setInvoiceValue,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (invoice.isManual)
+            TextButton(
+              onPressed: () async {
+                final map = Map<String, double>.from(card.closedInvoiceAmounts)
+                  ..remove(key);
+                Navigator.pop(c);
+                await ref
+                    .read(walletsNotifierProvider.notifier)
+                    .update(card.copyWith(closedInvoiceAmounts: map));
+              },
+              child: Text(l10n.clearInvoiceValue),
+            ),
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
+          FilledButton(
+            onPressed: () async {
+              final v = _parseMoney(ctrl.text);
+              if (v == null) return; // invalid → keep dialog open
+              final map = Map<String, double>.from(card.closedInvoiceAmounts)
+                ..[key] = v;
+              Navigator.pop(c);
+              await ref
+                  .read(walletsNotifierProvider.notifier)
+                  .update(card.copyWith(closedInvoiceAmounts: map));
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Formats a value for the money TextField (pt-BR-ish "1234,56").
+String _fmtEdit(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+
+/// Parses a user-typed money string ("1.842,00", "1842.00", "1842") to a finite
+/// double, or null when it isn't a usable number (guards NaN/Infinity).
+double? _parseMoney(String s) {
+  var t = s.trim().replaceAll(RegExp(r'[^\d,.\-]'), '');
+  if (t.isEmpty) return null;
+  if (t.contains(',') && t.contains('.')) {
+    // pt-BR: '.' thousands, ',' decimal.
+    t = t.replaceAll('.', '').replaceAll(',', '.');
+  } else if (t.contains(',')) {
+    t = t.replaceAll(',', '.');
+  }
+  final v = double.tryParse(t);
+  if (v == null || !v.isFinite || v < 0) return null;
+  return v;
 }
 
 class _TxRow extends StatelessWidget {
@@ -274,45 +511,56 @@ class _TxRow extends StatelessWidget {
   final String Function(double) fmt;
   final String dateLoc;
   final ColorScheme cs;
+  final VoidCallback? onTap;
 
   const _TxRow({
     required this.tx,
     required this.fmt,
     required this.dateLoc,
     required this.cs,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final isRefund = tx.isIncome;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tx.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13)),
-                Text(
-                  '${tx.category} · ${CurrencyFormatter.formatDate(tx.date, dateLoc)}',
-                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                ),
-              ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tx.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13)),
+                  Text(
+                    '${tx.category} · ${CurrencyFormatter.formatDate(tx.date, dateLoc)}',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            '${isRefund ? '- ' : ''}${fmt(tx.amount)}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isRefund ? const Color(0xFF00A86B) : cs.onSurface,
+            Text(
+              '${isRefund ? '- ' : ''}${fmt(tx.amount)}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isRefund ? const Color(0xFF00A86B) : cs.onSurface,
+              ),
             ),
-          ),
-        ],
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: cs.onSurfaceVariant),
+            ],
+          ],
+        ),
       ),
     );
   }

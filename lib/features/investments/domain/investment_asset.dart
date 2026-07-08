@@ -25,6 +25,10 @@ class InvestmentAsset extends Equatable {
   final String id;
   final String userId;
 
+  /// The Carteira (workspace) this asset belongs to. Null on pre-migration /
+  /// legacy docs, which the client treats as the owner's default Carteira.
+  final String? workspaceId;
+
   /// Human ticker shown to the user (e.g. PETR4, AAPL, BTC).
   final String ticker;
 
@@ -39,6 +43,7 @@ class InvestmentAsset extends Equatable {
   const InvestmentAsset({
     required this.id,
     required this.userId,
+    this.workspaceId,
     required this.ticker,
     required this.quoteSymbol,
     required this.name,
@@ -48,5 +53,5 @@ class InvestmentAsset extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, userId, ticker, quoteSymbol, name, kind, createdAt];
+      [id, userId, workspaceId, ticker, quoteSymbol, name, kind, createdAt];
 }

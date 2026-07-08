@@ -28,6 +28,7 @@ import '../widgets/dashboard_metric_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
+import '../../../workspaces/presentation/workspace_switcher.dart';
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const _kNavy = Color(0xFF1A2B4A);
@@ -362,14 +363,9 @@ class _DarkHeader extends ConsumerWidget {
             ),
           ),
 
-          Text(
-            'Dashboard',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 18 : 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          // Carteira selector — scopes ALL dashboard data to the picked
+          // Carteira (replaces the old global switcher bar).
+          const CarteiraHeaderSelector(),
 
           SizedBox(height: compact ? 10 : 16),
 

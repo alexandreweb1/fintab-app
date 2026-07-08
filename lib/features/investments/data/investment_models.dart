@@ -7,6 +7,7 @@ class InvestmentAssetModel extends InvestmentAsset {
   const InvestmentAssetModel({
     required super.id,
     required super.userId,
+    super.workspaceId,
     required super.ticker,
     required super.quoteSymbol,
     required super.name,
@@ -19,6 +20,7 @@ class InvestmentAssetModel extends InvestmentAsset {
     return InvestmentAssetModel(
       id: doc.id,
       userId: d['userId'] as String,
+      workspaceId: d['workspaceId'] as String?,
       ticker: d['ticker'] as String? ?? '',
       quoteSymbol: d['quoteSymbol'] as String? ?? '',
       name: d['name'] as String? ?? '',
@@ -29,6 +31,9 @@ class InvestmentAssetModel extends InvestmentAsset {
 
   Map<String, dynamic> toFirestore() => {
         'userId': userId,
+        // Omit workspaceId when null so pre-migration creates keep matching the
+        // legacy Firestore rule branch (no workspaceId in the payload).
+        if (workspaceId != null) 'workspaceId': workspaceId,
         'ticker': ticker,
         'quoteSymbol': quoteSymbol,
         'name': name,
@@ -41,6 +46,7 @@ class InvestmentTradeModel extends InvestmentTrade {
   const InvestmentTradeModel({
     required super.id,
     required super.userId,
+    super.workspaceId,
     required super.assetId,
     required super.side,
     required super.quantity,
@@ -55,6 +61,7 @@ class InvestmentTradeModel extends InvestmentTrade {
     return InvestmentTradeModel(
       id: doc.id,
       userId: d['userId'] as String,
+      workspaceId: d['workspaceId'] as String?,
       assetId: d['assetId'] as String? ?? '',
       side: TradeSide.fromId(d['side'] as String?),
       quantity: (d['quantity'] as num?)?.toDouble() ?? 0,
@@ -67,6 +74,7 @@ class InvestmentTradeModel extends InvestmentTrade {
 
   Map<String, dynamic> toFirestore() => {
         'userId': userId,
+        if (workspaceId != null) 'workspaceId': workspaceId,
         'assetId': assetId,
         'side': side.id,
         'quantity': quantity,

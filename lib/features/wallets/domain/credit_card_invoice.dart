@@ -23,8 +23,13 @@ class CardInvoice {
   /// Purchase/refund transactions that fall in this cycle (most recent first).
   final List<TransactionEntity> transactions;
 
-  /// Net total of the cycle (purchases minus refunds).
+  /// Net total of the cycle COMPUTED from transactions (purchases minus
+  /// refunds). Kept even when [manualTotal] overrides it, for reference.
   final double total;
+
+  /// Manually-entered closed-invoice total for this cycle, if the user set one.
+  /// When present it REPLACES [total] for all money math (owed/remaining/status).
+  final double? manualTotal;
 
   /// Payments allocated to this invoice (FIFO, oldest cycle first).
   final double paidAmount;
@@ -36,18 +41,29 @@ class CardInvoice {
     required this.dueDate,
     required this.transactions,
     required this.total,
+    this.manualTotal,
     required this.paidAmount,
     required this.status,
   });
 
+  /// The total that actually counts (manual override if set, else computed).
+  double get effectiveTotal => manualTotal ?? total;
+
+  /// Whether the displayed total came from a manually-entered closed value.
+  bool get isManual => manualTotal != null;
+
   double get remaining {
-    final r = total - paidAmount;
+    final r = effectiveTotal - paidAmount;
     return r < 0 ? 0 : r;
   }
 
   bool get isOpen => status == InvoiceStatus.open;
   bool get isPaid => status == InvoiceStatus.paid;
 }
+
+/// The `closedInvoiceAmounts` map key for an invoice closing on [closingDate].
+String cardInvoiceCycleKey(DateTime closingDate) =>
+    '${closingDate.year}-${closingDate.month.toString().padLeft(2, '0')}';
 
 DateTime _dateOnly(DateTime x) => DateTime(x.year, x.month, x.day);
 
@@ -127,20 +143,25 @@ List<CardInvoice> computeCardInvoices(
   final invoices = <CardInvoice>[];
   for (final key in keysAsc) {
     final closingDate = DateTime.fromMillisecondsSinceEpoch(key);
-    final total = cycleTotal[key] ?? 0;
+    final computed = cycleTotal[key] ?? 0;
     final txs = byCycle[key]!
       ..sort((a, b) => b.date.compareTo(a.date));
 
+    // A manually-entered closed value replaces the computed total for this
+    // cycle (used for owed/remaining/payment allocation).
+    final manual = card.closedInvoiceAmounts[cardInvoiceCycleKey(closingDate)];
+    final effective = manual ?? computed;
+
     // Allocate payments oldest-first, capped at the cycle's positive total.
     var paid = 0.0;
-    if (total > 0 && paymentPool > 0) {
-      paid = paymentPool >= total ? total : paymentPool;
+    if (effective > 0 && paymentPool > 0) {
+      paid = paymentPool >= effective ? effective : paymentPool;
       paymentPool -= paid;
     }
 
     final dueDate = dueDateForClosing(closingDate, closingDay, dueDay);
     final isCurrent = !closingDate.isBefore(today);
-    final fullyPaid = total > 0 && paid >= total - 0.001;
+    final fullyPaid = effective > 0 && paid >= effective - 0.001;
 
     final InvoiceStatus status;
     if (fullyPaid) {
@@ -157,7 +178,8 @@ List<CardInvoice> computeCardInvoices(
       closingDate: closingDate,
       dueDate: dueDate,
       transactions: txs,
-      total: total,
+      total: computed,
+      manualTotal: manual,
       paidAmount: paid,
       status: status,
     ));

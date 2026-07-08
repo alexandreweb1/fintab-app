@@ -13,6 +13,10 @@ enum TradeSide {
 class InvestmentTrade extends Equatable {
   final String id;
   final String userId;
+
+  /// The Carteira (workspace) this trade belongs to. Null on legacy docs
+  /// (treated as the owner's default Carteira).
+  final String? workspaceId;
   final String assetId;
   final TradeSide side;
   final double quantity;
@@ -24,6 +28,7 @@ class InvestmentTrade extends Equatable {
   const InvestmentTrade({
     required this.id,
     required this.userId,
+    this.workspaceId,
     required this.assetId,
     required this.side,
     required this.quantity,
@@ -36,8 +41,18 @@ class InvestmentTrade extends Equatable {
   bool get isBuy => side == TradeSide.buy;
 
   @override
-  List<Object?> get props =>
-      [id, userId, assetId, side, quantity, unitPrice, fees, date, createdAt];
+  List<Object?> get props => [
+        id,
+        userId,
+        workspaceId,
+        assetId,
+        side,
+        quantity,
+        unitPrice,
+        fees,
+        date,
+        createdAt,
+      ];
 }
 
 /// Result of consolidating a set of trades for one asset, using the Brazilian

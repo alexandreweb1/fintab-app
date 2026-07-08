@@ -15,7 +15,15 @@ const _kRed = Color(0xFFE05252);
 class TransactionListTile extends ConsumerWidget {
   final TransactionEntity transaction;
 
-  const TransactionListTile({super.key, required this.transaction});
+  /// Briefly tints the row when the user was navigated straight to it (e.g.
+  /// from a credit-card invoice line). Fades back once cleared.
+  final bool highlighted;
+
+  const TransactionListTile({
+    super.key,
+    required this.transaction,
+    this.highlighted = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,13 +104,22 @@ class TransactionListTile extends ConsumerWidget {
           context: context,
           builder: (_) => AddTransactionDialog(transaction: transaction),
         ),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
           margin: EdgeInsets.fromLTRB(hMargin, 0, hMargin, 10),
           padding: EdgeInsets.symmetric(
               horizontal: isCompact ? 10.0 : 14.0, vertical: 12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
+            color: highlighted
+                ? colorScheme.primary.withValues(alpha: 0.16)
+                : colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(16),
+            border: highlighted
+                ? Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.6),
+                    width: 1.5)
+                : null,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),

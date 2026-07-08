@@ -237,10 +237,15 @@ class _LiteracyOnboardingGateState
 // Theme
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Smooth horizontal slide for pushed routes on EVERY platform (Android's
+// default Zoom transition felt abrupt) — consistent "transições suaves".
 const _iosPageTransitions = PageTransitionsTheme(
   builders: {
     TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
     TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
   },
 );
 

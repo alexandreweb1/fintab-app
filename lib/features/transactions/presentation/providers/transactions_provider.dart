@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../data/datasources/transaction_remote_datasource.dart';
@@ -165,6 +166,35 @@ final statementMonthTransactionsProvider =
 });
 
 // --- Type filter for statement (null = show all) ---
+
+// --- Focus a specific transaction inside the Extrato (from other screens) ---
+
+/// When non-null, the Extrato list scrolls to and briefly highlights this tx id.
+/// Set via [focusTransactionInStatement]; the Extrato clears it once handled.
+final focusedTransactionIdProvider = StateProvider<String?>((ref) => null);
+
+/// Clears every statement filter, moves the Extrato to the transaction's month,
+/// asks it to scroll-to + highlight the row, and switches the bottom nav to the
+/// Statement tab. Callers on a pushed route (e.g. the card screen) should pop
+/// afterwards so the Extrato becomes visible.
+void focusTransactionInStatement(WidgetRef ref, TransactionEntity tx) {
+  // Clear filters so the target row can never be filtered out of the list.
+  ref.read(statementTypeFilterProvider.notifier).state = null;
+  ref.read(statementDateRangeProvider.notifier).state = null;
+  ref.read(statementCategoryFilterProvider.notifier).state = {};
+  ref.read(statementWalletFilterProvider.notifier).state = {};
+  ref.read(statementMinAmountFilterProvider.notifier).state = null;
+  ref.read(statementMaxAmountFilterProvider.notifier).state = null;
+  ref.read(statementTagFilterProvider.notifier).state = {};
+  ref.read(statementSearchQueryProvider.notifier).state = '';
+  ref.read(statementIsAnnualProvider.notifier).state = false;
+  // Jump to the transaction's month so it's in the displayed list.
+  ref.read(selectedMonthProvider.notifier).state =
+      DateTime(tx.date.year, tx.date.month, 1);
+  // Focus it, then move the bottom nav to the Statement tab (index 1).
+  ref.read(focusedTransactionIdProvider.notifier).state = tx.id;
+  ref.read(mainTabIndexProvider.notifier).state = 1;
+}
 
 final statementTypeFilterProvider = StateProvider<TransactionType?>(
   (ref) => null,

@@ -11,7 +11,6 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/providers/workspace_migration_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
-import '../../../workspaces/presentation/workspace_switcher.dart';
 import '../../../../core/services/bank_filter_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../notification_backlog/presentation/providers/backlog_provider.dart';
@@ -54,8 +53,8 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
-  double _tabOpacity = 1.0;
   bool _tabAnimating = false;
+  final PageController _pageController = PageController();
   StreamSubscription<NotificationSuggestion>? _notifSub;
 
   /// Last clipboard text already offered as a suggestion — avoids re-prompting
@@ -69,18 +68,23 @@ class _MainScreenState extends ConsumerState<MainScreen>
   Future<void> _changeTab(int newIndex) async {
     if (newIndex == _currentIndex || _tabAnimating) return;
     _tabAnimating = true;
-    setState(() => _tabOpacity = 0.0);
-    await Future<void>.delayed(const Duration(milliseconds: 130));
-    if (!mounted) {
-      _tabAnimating = false;
-      return;
-    }
-    setState(() {
-      _currentIndex = newIndex;
-      _tabOpacity = 1.0;
-    });
+    setState(() => _currentIndex = newIndex);
     ref.read(mainTabIndexProvider.notifier).state = newIndex;
+    // Horizontal slide between tabs while keeping every tab's state alive.
+    if (_pageController.hasClients) {
+      await _pageController.animateToPage(
+        newIndex,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+      );
+    }
     _tabAnimating = false;
+  }
+
+  void _onPageSettled(int i) {
+    if (_currentIndex == i) return;
+    setState(() => _currentIndex = i);
+    ref.read(mainTabIndexProvider.notifier).state = i;
   }
 
   static const _mobileScreens = [
@@ -114,6 +118,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     _notifSub = null;
     _shareSub?.cancel();
     _shareSub = null;
+    _pageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -555,7 +560,6 @@ class _MainScreenState extends ConsumerState<MainScreen>
         body: Column(
           children: [
             const UpdateBanner(),
-            const WorkspaceSwitcherBar(),
             Expanded(
               child: Row(
                 children: [
@@ -604,15 +608,13 @@ class _MainScreenState extends ConsumerState<MainScreen>
                     ],
                   ),
                   const VerticalDivider(width: 1, thickness: 1),
+                  // Web uses a side rail (no horizontal-slide requirement) — a
+                  // plain IndexedStack keeps every tab (incl. Settings) mounted
+                  // and avoids the PageView sweep that hung the web build.
                   Expanded(
-                    child: AnimatedOpacity(
-                      opacity: _tabOpacity,
-                      duration: const Duration(milliseconds: 130),
-                      curve: Curves.easeOut,
-                      child: IndexedStack(
-                        index: _currentIndex,
-                        children: _webScreens,
-                      ),
+                    child: IndexedStack(
+                      index: _currentIndex,
+                      children: _webScreens,
                     ),
                   ),
                 ],
@@ -628,16 +630,14 @@ class _MainScreenState extends ConsumerState<MainScreen>
       body: Column(
         children: [
           const UpdateBanner(),
-          const WorkspaceSwitcherBar(),
           Expanded(
-            child: AnimatedOpacity(
-              opacity: _tabOpacity,
-              duration: const Duration(milliseconds: 130),
-              curve: Curves.easeOut,
-              child: IndexedStack(
-                index: _currentIndex,
-                children: _mobileScreens,
-              ),
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: _onPageSettled,
+              children: [
+                for (final s in _mobileScreens) _KeepAlivePage(child: s),
+              ],
             ),
           ),
         ],
@@ -645,8 +645,9 @@ class _MainScreenState extends ConsumerState<MainScreen>
       bottomNavigationBar: _MobileNav(
         currentIndex: _currentIndex,
         onTap: _changeTab,
-        onAdd: () => showAnimatedDialog(
+        onAdd: (origin) => showAnimatedDialog(
           context: context,
+          sourceRect: origin,
           builder: (_) => const AddTransactionDialog(),
         ),
         l10n: l10n,
@@ -660,7 +661,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
 class _MobileNav extends StatelessWidget {
   final int currentIndex;
   final Future<void> Function(int) onTap;
-  final VoidCallback onAdd;
+
+  /// Receives the on-screen rect of the "+" button so the dialog can grow out
+  /// of it.
+  final void Function(Rect? origin) onAdd;
   final AppLocalizations l10n;
 
   const _MobileNav({
@@ -739,19 +743,33 @@ class _MobileNav extends StatelessWidget {
   }
 }
 
-class _AddNavButton extends StatelessWidget {
-  final VoidCallback onTap;
+class _AddNavButton extends StatefulWidget {
+  final void Function(Rect? origin) onTap;
 
   const _AddNavButton({required this.onTap});
+
+  @override
+  State<_AddNavButton> createState() => _AddNavButtonState();
+}
+
+class _AddNavButtonState extends State<_AddNavButton> {
+  final GlobalKey _key = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Center(
         child: GestureDetector(
-          onTap: onTap,
+          onTap: () {
+            final box = _key.currentContext?.findRenderObject() as RenderBox?;
+            final origin = (box != null && box.hasSize)
+                ? box.localToGlobal(Offset.zero) & box.size
+                : null;
+            widget.onTap(origin);
+          },
           behavior: HitTestBehavior.opaque,
           child: Container(
+            key: _key,
             width: 46,
             height: 46,
             decoration: BoxDecoration(
@@ -840,5 +858,28 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Keeps a tab's state alive inside the [PageView] (scroll offsets, inner
+/// TabControllers) — mirrors the old IndexedStack's always-mounted behavior so
+/// switching tabs never rebuilds them from scratch.
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

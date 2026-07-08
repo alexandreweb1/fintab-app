@@ -308,6 +308,29 @@ class AppLocalizations {
   String get invoiceDue => _t('Vence em', 'Due', 'Vence el');
   String get invoiceRemaining =>
       _t('Falta pagar', 'Remaining', 'Falta pagar');
+  // ── Card options (menu + invoice value editing) ──────────────────────────
+  String get cardOptions =>
+      _t('Opções do cartão', 'Card options', 'Opciones de la tarjeta');
+  String get changeDueDate => _t(
+      'Alterar vencimento', 'Change due date', 'Cambiar vencimiento');
+  String get deleteCard =>
+      _t('Excluir cartão', 'Delete card', 'Eliminar tarjeta');
+  String get deleteCardKeepTxWarning => _t(
+      'O cartão será removido. As compras dele continuam no seu extrato.',
+      'The card will be removed. Its transactions stay in your statement.',
+      'La tarjeta se eliminará. Sus compras permanecen en tu extracto.');
+  String get cardDeleted =>
+      _t('Cartão excluído', 'Card deleted', 'Tarjeta eliminada');
+  String get setInvoiceValue => _t(
+      'Definir valor da fatura', 'Set invoice amount', 'Definir importe');
+  String get editInvoiceValue => _t(
+      'Editar valor da fatura', 'Edit invoice amount', 'Editar importe');
+  String get setInvoiceValueHint => _t(
+      'Informe o valor com que esta fatura fechou. Ele substitui o total calculado.',
+      'Enter the amount this invoice closed at. It replaces the computed total.',
+      'Ingresa el importe con que cerró esta factura. Reemplaza el total calculado.');
+  String get invoiceComputed => _t('Calculado', 'Computed', 'Calculado');
+  String get clearInvoiceValue => _t('Limpar', 'Clear', 'Limpiar');
   String get payInvoice => _t('Pagar fatura', 'Pay invoice', 'Pagar factura');
   String get payInvoiceFrom =>
       _t('Pagar com', 'Pay from', 'Pagar con');

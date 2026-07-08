@@ -12,77 +12,122 @@ IconData workspaceIcon(WorkspaceType type) => type == WorkspaceType.business
     ? Icons.business_center_rounded
     : Icons.person_rounded;
 
-/// Slim global bar that shows the active Carteira and opens the switcher.
-/// Rendered above the tab content on every screen; hidden while the user has
-/// a single context (nothing to switch).
-class WorkspaceSwitcherBar extends ConsumerWidget {
-  const WorkspaceSwitcherBar({super.key});
+/// Short PF/PJ badge for a Carteira type. [onDark] tunes it for the navy
+/// dashboard header; otherwise it uses theme colors for light surfaces.
+class CarteiraTypeBadge extends StatelessWidget {
+  final WorkspaceType type;
+  final bool onDark;
+  const CarteiraTypeBadge({super.key, required this.type, this.onDark = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final isBiz = type == WorkspaceType.business;
+    final text = isBiz ? 'PJ' : 'PF';
+    final Color bg;
+    final Color fg;
+    if (onDark) {
+      bg = Colors.white.withValues(alpha: 0.16);
+      fg = isBiz ? const Color(0xFFE1BEE7) : Colors.white;
+    } else {
+      final base = isBiz ? const Color(0xFF7B1FA2) : Theme.of(context).colorScheme.primary;
+      bg = base.withValues(alpha: 0.12);
+      fg = base;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: fg,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+/// Home-header Carteira selector — a translucent pill (styled for the navy
+/// dashboard header) that opens an animated dropdown listing every Carteira.
+/// Replaces the old global switcher bar (removed).
+class CarteiraHeaderSelector extends ConsumerStatefulWidget {
+  const CarteiraHeaderSelector({super.key});
+
+  @override
+  ConsumerState<CarteiraHeaderSelector> createState() =>
+      _CarteiraHeaderSelectorState();
+}
+
+class _CarteiraHeaderSelectorState
+    extends ConsumerState<CarteiraHeaderSelector> {
+  final _pillKey = GlobalKey();
+
+  void _open() {
+    final box = _pillKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    showCarteiraMenu(context, anchorRect: rect);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    if (!ref.watch(canUseWorkspacesProvider)) return const SizedBox.shrink();
-
-    final own = (ref.watch(ownWorkspacesStreamProvider).value ?? const [])
-        .where((w) => !w.archived)
-        .toList();
-    final shared = ref.watch(sharedWorkspacesStreamProvider).value ?? const [];
-    final contexts = own.length + shared.length;
-    if (contexts < 2) return const SizedBox.shrink();
-
     final active = ref.watch(activeWorkspaceProvider);
     final combined = ref.watch(isCombinedViewProvider);
+    final type = active?.type ?? WorkspaceType.personal;
     final label = combined
         ? l10n.allWorkspaces
         : (active?.name ?? l10n.workspacePersonal);
     final icon = combined
         ? Icons.dashboard_customize_rounded
-        : workspaceIcon(active?.type ?? WorkspaceType.personal);
+        : workspaceIcon(type);
 
-    // Wrapped in its own SafeArea so the pill never renders under the status
-    // bar — it can't rely on UpdateBanner's SafeArea above it, since that
-    // banner collapses to nothing (no safe-area padding at all) when there's
-    // no pending update.
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-        child: Material(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(14),
-          elevation: 1,
-          shadowColor: Colors.black.withValues(alpha: 0.15),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => showWorkspaceSwitcherSheet(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 16, color: cs.primary),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Icon(Icons.unfold_more_rounded,
-                      size: 18, color: cs.onSurfaceVariant),
-                ],
+    return Material(
+      key: _pillKey,
+      color: Colors.white.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(30),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(30),
+        onTap: _open,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 7, 10, 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: Colors.white),
               ),
-            ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 170),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (!combined) ...[
+                const SizedBox(width: 7),
+                CarteiraTypeBadge(type: type, onDark: true),
+              ],
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 20, color: Colors.white),
+            ],
           ),
         ),
       ),
@@ -90,19 +135,58 @@ class WorkspaceSwitcherBar extends ConsumerWidget {
   }
 }
 
-/// Bottom sheet listing all contexts: own Carteiras, "Todas juntas",
-/// shared-in Carteiras, plus create/manage actions.
-Future<void> showWorkspaceSwitcherSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+/// Animated dropdown (anchored below [anchorRect]) listing all contexts: own
+/// Carteiras, "Todas juntas", shared-in Carteiras, plus create/manage actions.
+/// It grows out of the header pill — see [CarteiraHeaderSelector].
+Future<void> showCarteiraMenu(BuildContext context,
+    {required Rect anchorRect}) {
+  return showGeneralDialog<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (_) => const _SwitcherSheet(),
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black.withValues(alpha: 0.28),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+    transitionBuilder: (ctx, anim, sec, _) {
+      final curved = CurvedAnimation(
+        parent: anim,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      final mq = MediaQuery.of(ctx);
+      final screenW = mq.size.width;
+      final menuW = (screenW - 24).clamp(220.0, 360.0);
+      final maxH = mq.size.height * 0.6;
+      var left = anchorRect.center.dx - menuW / 2;
+      final maxLeft = screenW - menuW - 12;
+      left = left.clamp(12.0, maxLeft < 12.0 ? 12.0 : maxLeft);
+      final top = anchorRect.bottom + 6;
+      return Stack(
+        children: [
+          Positioned(
+            left: left,
+            top: top,
+            width: menuW,
+            child: FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH),
+                  child: const _CarteiraMenuCard(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
-class _SwitcherSheet extends ConsumerWidget {
-  const _SwitcherSheet();
+class _CarteiraMenuCard extends ConsumerWidget {
+  const _CarteiraMenuCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,82 +199,155 @@ class _SwitcherSheet extends ConsumerWidget {
     final active = ref.watch(activeWorkspaceProvider);
     final combined = ref.watch(isCombinedViewProvider);
     final isMaster = ref.watch(isMasterProvider);
+    final canSwitch = ref.watch(canUseWorkspacesProvider);
+    final defaultWsId = ref.watch(defaultWorkspaceIdProvider);
 
     void select(String? id) {
+      final isDefaultTarget = id == null || id == defaultWsId;
+      // Free users are pinned to the default Carteira — steer any other pick
+      // to the Pro upsell instead of silently snapping back.
+      if (!canSwitch && !isDefaultTarget) {
+        Navigator.of(context).pop();
+        showProGateBottomSheet(
+          context,
+          featureName: l10n.workspaces,
+          featureDescription: l10n.workspacesDesc,
+          featureIcon: Icons.business_center_rounded,
+        );
+        return;
+      }
       ref.read(activeWorkspaceIdProvider.notifier).select(id);
       Navigator.of(context).pop();
     }
 
-    return SafeArea(
+    Widget tile({
+      required Widget leading,
+      required String title,
+      Widget? badge,
+      String? subtitle,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [
+                      Flexible(
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600)),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(width: 8),
+                        badge,
+                      ],
+                    ]),
+                    if (subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(subtitle,
+                            style: TextStyle(
+                                fontSize: 11.5, color: cs.onSurfaceVariant)),
+                      ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: cs.surface,
+      elevation: 10,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Text(l10n.workspaceSwitchTo,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant)),
             ),
-            ...own.map((w) => ListTile(
-                  leading: Icon(workspaceIcon(w.type),
-                      color: w.isBusiness ? const Color(0xFF7B1FA2) : cs.primary),
-                  title: Text(w.name),
-                  subtitle: Text(w.isBusiness
-                      ? l10n.workspaceBusiness
-                      : l10n.workspacePersonal),
-                  trailing: (!combined && active?.id == w.id)
-                      ? Icon(Icons.check_circle_rounded, color: cs.primary)
-                      : null,
+            ...own.map((w) => tile(
+                  leading: _MenuLeadingIcon(
+                    icon: workspaceIcon(w.type),
+                    color: w.isBusiness ? const Color(0xFF7B1FA2) : cs.primary,
+                  ),
+                  title: w.name,
+                  badge: CarteiraTypeBadge(type: w.type),
+                  selected: !combined && active?.id == w.id,
                   onTap: () => select(w.id),
                 )),
             if (own.length > 1)
-              ListTile(
-                leading: const Icon(Icons.dashboard_customize_rounded),
-                title: Text(l10n.allWorkspaces),
-                subtitle: Text(l10n.allWorkspacesHint,
-                    style: const TextStyle(fontSize: 11.5)),
-                trailing: combined
-                    ? Icon(Icons.check_circle_rounded, color: cs.primary)
-                    : null,
+              tile(
+                leading: _MenuLeadingIcon(
+                  icon: Icons.dashboard_customize_rounded,
+                  color: cs.tertiary,
+                ),
+                title: l10n.allWorkspaces,
+                subtitle: l10n.allWorkspacesHint,
+                selected: combined,
                 onTap: () => select(kAllWorkspaces),
               ),
             if (shared.isNotEmpty) ...[
-              const Divider(height: 12),
+              const Divider(height: 8),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 2),
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
                 child: Text(l10n.workspaceSharedWithMe,
                     style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: cs.onSurfaceVariant)),
               ),
-              ...shared.map((w) => ListTile(
-                    leading: Icon(Icons.group_rounded, color: cs.tertiary),
-                    title: Text(w.name),
-                    subtitle: Text(w.isBusiness
-                        ? l10n.workspaceBusiness
-                        : l10n.workspacePersonal),
-                    trailing: active?.id == w.id
-                        ? Icon(Icons.check_circle_rounded, color: cs.primary)
-                        : null,
+              ...shared.map((w) => tile(
+                    leading:
+                        _MenuLeadingIcon(icon: Icons.group_rounded, color: cs.tertiary),
+                    title: w.name,
+                    badge: CarteiraTypeBadge(type: w.type),
+                    selected: active?.id == w.id,
                     onTap: () => select(w.id),
                   )),
             ],
             if (isMaster) ...[
-              const Divider(height: 12),
-              ListTile(
-                leading: Icon(Icons.add_circle_outline, color: cs.primary),
-                title: Text(l10n.newWorkspace),
+              const Divider(height: 8),
+              tile(
+                leading:
+                    _MenuLeadingIcon(icon: Icons.add_rounded, color: cs.primary),
+                title: l10n.newWorkspace,
+                selected: false,
                 onTap: () async {
                   Navigator.of(context).pop();
                   await showCreateWorkspaceDialog(context, ref);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: Text(l10n.manageWorkspaces),
+              tile(
+                leading: _MenuLeadingIcon(
+                    icon: Icons.settings_outlined, color: cs.onSurfaceVariant),
+                title: l10n.manageWorkspaces,
+                selected: false,
                 onTap: () {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(MaterialPageRoute(
@@ -202,6 +359,24 @@ class _SwitcherSheet extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MenuLeadingIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _MenuLeadingIcon({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 17, color: color),
     );
   }
 }
