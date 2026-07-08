@@ -2,7 +2,7 @@ name: my_finance_app
 description: Personal finance management app with Clean Architecture.
 publish_to: 'none'
 
-version: 1.1.0+156
+version: 1.1.0+157
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -55,6 +55,9 @@ dependencies:
   package_info_plus: ^8.0.0
   url_launcher: ^6.3.0
   in_app_update: ^4.2.3
+
+  # Store review prompt (App Store / Google Play)
+  in_app_review: ^2.0.12
 
   # App lock (PIN + biometrics)
   local_auth: ^2.3.0

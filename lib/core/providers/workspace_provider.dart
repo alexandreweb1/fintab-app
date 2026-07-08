@@ -57,11 +57,19 @@ final allWorkspacesProvider = Provider<List<WorkspaceEntity>>((ref) {
   return [...own, ...shared];
 });
 
-/// The owner's default ("Pessoal") workspace id from their profile — null
-/// until the migration has run.
+/// The owner's default ("Pessoal") workspace id — from the profile once the
+/// migration has run, else resolved from the own workspace docs (the migration
+/// creates the workspace BEFORE stamping the profile, and that second write
+/// can fail/lag; selection must keep working meanwhile).
 final defaultWorkspaceIdProvider = Provider<String?>((ref) {
   final profile = ref.watch(userProfileStreamProvider).value;
-  return profile?['defaultWorkspaceId'] as String?;
+  final fromProfile = profile?['defaultWorkspaceId'] as String?;
+  if (fromProfile != null) return fromProfile;
+  final own = ref.watch(ownWorkspacesStreamProvider).value ?? const [];
+  for (final w in own) {
+    if (w.isDefault) return w.id;
+  }
+  return null;
 });
 
 /// The workspaceId that write notifiers stamp on NEW ledger docs — follows the
@@ -129,7 +137,8 @@ class ActiveWorkspaceNotifier extends StateNotifier<String?> {
     if (_uid.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     final v = prefs.getString(_key);
-    if (mounted && v != null) state = v;
+    // Don't clobber a selection the user made while prefs were still loading.
+    if (mounted && v != null && state == null) state = v;
   }
 
   Future<void> select(String? workspaceId) async {
@@ -146,8 +155,11 @@ class ActiveWorkspaceNotifier extends StateNotifier<String?> {
 
 final activeWorkspaceIdProvider =
     StateNotifierProvider<ActiveWorkspaceNotifier, String?>((ref) {
-  final user = ref.watch(authStateProvider).value;
-  return ActiveWorkspaceNotifier(user?.id ?? '');
+  // Watch only the uid: authStateProvider re-emits on token refresh / profile
+  // reload, and recreating the notifier would drop the in-memory selection
+  // (racing a tap made moments earlier).
+  final uid = ref.watch(authStateProvider.select((a) => a.value?.id));
+  return ActiveWorkspaceNotifier(uid ?? '');
 });
 
 // ── Ledger read scope ────────────────────────────────────────────────────────
@@ -202,8 +214,12 @@ final activeLedgerScopeProvider = Provider<LedgerScope>((ref) {
   final profile = ref.watch(userProfileStreamProvider).value;
   final masterUserId = profile?['masterUserId'] as String?;
   final canSwitch = ref.watch(canUseWorkspacesProvider);
+  final subLoading = ref.watch(isSubscriptionLoadingProvider);
   final selectedRaw = ref.watch(activeWorkspaceIdProvider);
-  final selected = canSwitch ? selectedRaw : null; // free users: default only
+  // Free users are pinned to the default Carteira. While the subscription
+  // status is still loading we can't tell Pro from free — honor the selection
+  // instead of silently snapping back (the scope re-resolves once it lands).
+  final selected = (canSwitch || subLoading) ? selectedRaw : null;
 
   // ── Legacy account-wide collaborator: read the master's data by userId. ──
   if (masterUserId != null) {
@@ -222,9 +238,12 @@ final activeLedgerScopeProvider = Provider<LedgerScope>((ref) {
     return UserScope(masterUserId, ws, masterDefault);
   }
 
-  final defaultWs = profile?['defaultWorkspaceId'] as String?;
+  // Falls back to the own default workspace doc when the profile stamp is
+  // missing (migration interrupted / profile still syncing) — without this the
+  // selection below would be silently ignored and the switcher would look dead.
+  final defaultWs = ref.watch(defaultWorkspaceIdProvider);
 
-  // Pre-migration: exactly today's behavior (no filter).
+  // Pre-migration (no workspace docs at all): exactly today's behavior.
   if (defaultWs == null) return UserScope(user.id, null, null);
 
   if (selected == null) return UserScope(user.id, defaultWs, defaultWs);

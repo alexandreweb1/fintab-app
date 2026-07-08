@@ -874,6 +874,19 @@ class AppLocalizations {
       'Etiquetas (tags) são marcadores livres que você adiciona a uma transação para filtrar depois (ex.: "viagem-2026", "presente-aniversário").',
       'Tags are free labels you attach to a transaction so you can filter later (e.g., "trip-2026", "birthday-gift").',
       'Las etiquetas son marcadores libres que añades a una transacción para filtrar después (ej.: "viaje-2026", "regalo-cumpleaños").');
+
+  // ── Review prompt ────────────────────────────────────────────────────────
+  String get reviewPromptTitle => _t(
+      'Está gostando do Fintab?', 'Enjoying Fintab?', '¿Te gusta Fintab?');
+  String reviewPromptBody(String store) => _t(
+      'Sua avaliação na $store ajuda muito o app a crescer. Leva menos de um minuto!',
+      'Your review on the $store really helps the app grow. It takes less than a minute!',
+      '¡Tu reseña en $store ayuda mucho a que la app crezca. Toma menos de un minuto!');
+  String get reviewPromptRate =>
+      _t('Avaliar agora', 'Rate now', 'Calificar ahora');
+  String get reviewPromptLater => _t('Agora não', 'Not now', 'Ahora no');
+  String get reviewPromptAlreadyRated =>
+      _t('Já avaliei', 'Already rated', 'Ya califiqué');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

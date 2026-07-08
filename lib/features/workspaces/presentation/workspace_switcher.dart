@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/providers/effective_user_provider.dart';
 import '../../../core/providers/workspace_provider.dart';
+import '../../subscription/presentation/providers/subscription_provider.dart';
 import '../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../domain/workspace_entity.dart';
 import 'providers/workspaces_notifier.dart';
@@ -202,11 +203,17 @@ class _CarteiraMenuCard extends ConsumerWidget {
     final canSwitch = ref.watch(canUseWorkspacesProvider);
     final defaultWsId = ref.watch(defaultWorkspaceIdProvider);
 
-    void select(String? id) {
-      final isDefaultTarget = id == null || id == defaultWsId;
+    final subLoading = ref.watch(isSubscriptionLoadingProvider);
+
+    void select(String? id, {bool targetIsDefault = false}) {
+      final isDefaultTarget =
+          id == null || id == defaultWsId || targetIsDefault;
       // Free users are pinned to the default Carteira — steer any other pick
-      // to the Pro upsell instead of silently snapping back.
-      if (!canSwitch && !isDefaultTarget) {
+      // to the Pro upsell instead of silently snapping back. While the
+      // subscription is still loading we can't tell (and the gate sheet
+      // refuses to open), so honor the tap; the scope snaps back to the
+      // default if the user turns out to be free.
+      if (!canSwitch && !subLoading && !isDefaultTarget) {
         Navigator.of(context).pop();
         showProGateBottomSheet(
           context,
@@ -310,7 +317,7 @@ class _CarteiraMenuCard extends ConsumerWidget {
                   title: w.name,
                   badge: CarteiraTypeBadge(type: w.type),
                   selected: !combined && active?.id == w.id,
-                  onTap: () => select(w.id),
+                  onTap: () => select(w.id, targetIsDefault: w.isDefault),
                 )),
             if (own.length > 1)
               tile(

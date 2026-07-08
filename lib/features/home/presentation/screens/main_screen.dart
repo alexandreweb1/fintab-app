@@ -8,9 +8,13 @@ import 'package:quick_actions/quick_actions.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/navigation_provider.dart';
 import '../../../../core/providers/workspace_migration_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
+import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/review_prompt_service.dart';
+import '../../../app_lock/presentation/providers/app_lock_provider.dart';
 import '../../../../core/services/bank_filter_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../notification_backlog/presentation/providers/backlog_provider.dart';
@@ -37,6 +41,7 @@ import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../../transactions/presentation/screens/transactions_screen.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
+import '../widgets/review_prompt_dialog.dart';
 import '../widgets/update_banner.dart';
 import 'dashboard_screen.dart';
 import '../../../../core/providers/effective_user_provider.dart';
@@ -110,6 +115,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     _initShareIntent();
     _initQuickActions();
     _initInAppUpdate();
+    _initReviewPrompt();
   }
 
   @override
@@ -246,6 +252,48 @@ class _MainScreenState extends ConsumerState<MainScreen>
 
   Future<void> _initInAppUpdate() async {
     await InAppUpdateService.instance.checkAndPrompt();
+  }
+
+  /// Store-review nudge: on every open (until the user rates), suggest rating
+  /// the app — waiting out the app lock and the other startup prompts.
+  Future<void> _initReviewPrompt() async {
+    if (!await ReviewPromptService.instance.registerOpenAndShouldPrompt()) {
+      return;
+    }
+    // Let the startup prompts land first (notification permission fires at
+    // ~2s; share/quick-action/widget intents open the transaction dialog).
+    await Future<void>.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+
+    // Never cover the PIN/biometric lock screen — MainScreen stays mounted
+    // beneath it, so wait for the unlock instead of skipping the open.
+    if (ref.read(appLockProvider).locked) {
+      final unlocked = Completer<void>();
+      final sub = ref.listenManual(
+        appLockProvider.select((s) => s.locked),
+        (_, locked) {
+          if (!locked && !unlocked.isCompleted) unlocked.complete();
+        },
+      );
+      await unlocked.future;
+      sub.close();
+      if (!mounted) return;
+    }
+
+    // First-run onboarding still pending — don't stack on top of it.
+    if (ref.read(appSettingsProvider).literacyLevel ==
+        FinancialLiteracyLevel.unset) {
+      return;
+    }
+    // A captured transaction is about to open its own dialog.
+    if (ref.read(pendingSuggestionProvider) != null) return;
+    // A forced update takes priority over everything.
+    if (ref.read(appUpdateProvider).value?.forceUpdate == true) return;
+    // Some other dialog/sheet already sits on top of the home.
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+
+    AnalyticsService.instance.logEvent('review_prompt_shown');
+    await showReviewPromptDialog(context);
   }
 
   // ── Notification pipeline ──────────────────────────────────────────────────
