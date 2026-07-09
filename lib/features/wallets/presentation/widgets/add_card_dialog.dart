@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
-import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/money_input_formatter.dart';
 import '../../domain/bank_brands.dart';
 import '../../domain/entities/wallet_entity.dart';
@@ -49,7 +49,7 @@ class _AddCardDialogState extends ConsumerState<AddCardDialog> {
       messenger.showSnackBar(SnackBar(content: Text(l10n.cardName)));
       return;
     }
-    final uid = ref.read(effectiveUserIdProvider);
+    final uid = ref.read(ledgerOwnerIdProvider);
     if (uid.isEmpty) return;
     setState(() => _loading = true);
     final ok = await ref.read(walletsNotifierProvider.notifier).add(

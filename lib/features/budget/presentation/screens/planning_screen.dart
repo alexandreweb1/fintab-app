@@ -16,9 +16,10 @@ import '../../../goals/presentation/screens/goals_screen.dart';
 import '../../../recurring/presentation/screens/recurring_screen.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
-import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../../wallets/presentation/widgets/wallet_buckets_widgets.dart';
+import '../../../workspaces/presentation/workspace_switcher.dart';
 import '../../domain/entities/budget_entity.dart';
 import '../../domain/ideal_budget.dart';
 import '../providers/budget_provider.dart';
@@ -69,7 +70,11 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.planning),
+        titleSpacing: 12,
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: CarteiraHeaderSelector(onDark: false),
+        ),
         actions: _selectedTab == 0
             ? [
                 _ViewModeMenu(viewMode: viewMode),
@@ -1875,7 +1880,7 @@ class _IdealBudgetDialogState extends ConsumerState<_IdealBudgetDialog> {
 
     setState(() => _creating = true);
 
-    final effectiveUserId = ref.read(effectiveUserIdProvider);
+    final ownerId = ref.read(ledgerOwnerIdProvider);
     final existingCategories = ref.read(expenseCategoriesProvider);
     final categoriesByName = {
       for (final c in existingCategories) c.name.toLowerCase().trim(): c,
@@ -1891,7 +1896,7 @@ class _IdealBudgetDialogState extends ConsumerState<_IdealBudgetDialog> {
       // If the category doesn't exist yet, create it.
       if (category == null) {
         final ok = await ref.read(categoriesNotifierProvider.notifier).add(
-              userId: effectiveUserId,
+              userId: ownerId,
               name: item.categoryName,
               type: CategoryType.expense,
               iconCodePoint: _iconForCategory(item.categoryName).codePoint,

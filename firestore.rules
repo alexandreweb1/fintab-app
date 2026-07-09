@@ -177,8 +177,12 @@ service cloud.firestore {
     // mutation — an invitee adding THEMSELVES with an owner-assigned role — is
     // done by the acceptWorkspaceInvite Cloud Function (Admin SDK), never here.
     match /workspaces/{workspaceId} {
+      // `resource == null` = get() of a not-yet-existing doc (e.g. the
+      // migration probing ws_<uid>_default before creating it). Allow it so it
+      // returns "not found" instead of denying and aborting the migration.
       allow read:   if isSignedIn()
-                    && (resource.data.ownerId == request.auth.uid
+                    && (resource == null
+                        || resource.data.ownerId == request.auth.uid
                         || request.auth.uid in resource.data.memberUids);
       allow create: if isSignedIn()
                     && request.resource.data.ownerId == request.auth.uid

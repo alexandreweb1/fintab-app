@@ -83,6 +83,19 @@ final transactionsStreamProvider =
   );
 });
 
+/// ALL of the owner's transactions, UNSCOPED by Carteira — used by the "mover
+/// lançamentos entre Carteiras" tool so it can list any source Carteira's docs
+/// regardless of which one is currently active.
+final allOwnerTransactionsProvider =
+    StreamProvider<List<TransactionEntity>>((ref) {
+  final ownerId = ref.watch(ledgerOwnerIdProvider);
+  if (ownerId.isEmpty) return const Stream.empty();
+  return ref
+      .watch(getTransactionsUseCaseProvider)
+      .call(GetTransactionsParams(userId: ownerId))
+      .map((either) => either.getOrElse(() => []));
+});
+
 // --- Selected month (shared across all tabs) ---
 
 // ignore: non_constant_identifier_names

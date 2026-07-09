@@ -343,6 +343,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         l10n.settings,
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
       ),
+      actions: const [
+        Padding(
+          padding: EdgeInsets.only(right: 8),
+          child: Center(child: CarteiraHeaderSelector(onDark: false)),
+        ),
+      ],
     );
 
     final settingsContent = [

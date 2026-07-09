@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/providers/app_settings_provider.dart';
-import '../../../../core/providers/effective_user_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/category_icons.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
@@ -678,7 +678,7 @@ class _TypedWalletDialogState extends ConsumerState<TypedWalletDialog> {
 
     bool success;
     if (existing == null) {
-      final userId = ref.read(effectiveUserIdProvider);
+      final userId = ref.read(ledgerOwnerIdProvider);
       if (userId.isEmpty) {
         setState(() => _loading = false);
         return;

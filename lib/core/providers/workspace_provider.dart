@@ -69,6 +69,24 @@ final defaultWorkspaceIdProvider = Provider<String?>((ref) {
   for (final w in own) {
     if (w.isDefault) return w.id;
   }
+  // Resilience: if the migration never stamped the profile / created the
+  // deterministic "Pessoal" default (interrupted run, OR a Firestore rules
+  // get() on the not-yet-existing default doc was denied — the workspaces read
+  // rule dereferences resource.data.ownerId with no `resource == null` guard),
+  // fall back to the owner's FIRST Carteira (by order) as the de-facto default.
+  // Without this `defaultWs` stays null and activeLedgerScopeProvider takes the
+  // pre-migration branch that IGNORES the active-Carteira selection — making
+  // the switcher a dead no-op for owners who have Carteiras but no resolved
+  // default. Pick the lowest-order Carteira deterministically (independent of
+  // stream sort) since this choice anchors where legacy null-workspace docs
+  // are read.
+  if (own.isNotEmpty) {
+    var pick = own.first;
+    for (final w in own) {
+      if (w.order < pick.order) pick = w;
+    }
+    return pick.id;
+  }
   return null;
 });
 
@@ -96,8 +114,10 @@ final workspaceStampProvider = Provider<String?>((ref) {
 final workspaceStampIsDefaultProvider = Provider<bool>((ref) {
   final stamp = ref.watch(workspaceStampProvider);
   if (stamp == null) return true; // legacy mode behaves as default
-  final profile = ref.watch(userProfileStreamProvider).value;
-  if (profile?['defaultWorkspaceId'] == stamp) return true;
+  // The RESOLVED default (profile stamp, else an isDefault own doc, else the
+  // de-facto first-Carteira fallback) counts as default so budget doc-ids stay
+  // in the legacy (un-qualified) format there and don't duplicate on edit.
+  if (ref.watch(defaultWorkspaceIdProvider) == stamp) return true;
   final shared = ref.watch(sharedWorkspacesStreamProvider).value ?? const [];
   for (final w in shared) {
     if (w.id == stamp) return w.isDefault;

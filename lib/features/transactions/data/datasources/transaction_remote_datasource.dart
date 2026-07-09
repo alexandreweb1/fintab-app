@@ -8,6 +8,11 @@ abstract class TransactionRemoteDataSource {
   Future<TransactionModel> addTransaction(TransactionModel transaction);
   Future<void> updateTransaction(TransactionModel transaction);
   Future<void> deleteTransaction(String transactionId);
+
+  /// Re-homes [ids] to another Carteira by stamping [workspaceId] on each
+  /// (batched). Only `workspaceId` changes — `userId` and wallet refs are
+  /// preserved so the move is non-destructive and reversible.
+  Future<void> moveToWorkspace(List<String> ids, String workspaceId);
 }
 
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
@@ -70,6 +75,23 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
           .doc(transactionId)
           .delete()
           .timeout(_kTimeout);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> moveToWorkspace(List<String> ids, String workspaceId) async {
+    if (ids.isEmpty) return;
+    try {
+      const chunk = 400; // Firestore batch limit is 500.
+      for (var i = 0; i < ids.length; i += chunk) {
+        final batch = _firestore.batch();
+        for (final id in ids.skip(i).take(chunk)) {
+          batch.update(_collection.doc(id), {'workspaceId': workspaceId});
+        }
+        await batch.commit().timeout(_kTimeout);
+      }
     } catch (e) {
       throw ServerException(e.toString());
     }

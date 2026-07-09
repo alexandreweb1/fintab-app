@@ -26,9 +26,12 @@ import '../../../investments/presentation/providers/investments_provider.dart';
 import '../widgets/dashboard_insights_card.dart';
 import '../widgets/dashboard_metric_cards.dart';
 import '../../../../core/providers/navigation_provider.dart';
+import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/utils/platform_store.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
+import '../../../workspaces/domain/workspace_entity.dart';
+import '../../../workspaces/presentation/move_transactions_screen.dart';
 import '../../../workspaces/presentation/workspace_switcher.dart';
 import '../../../notification_backlog/presentation/screens/backlog_screen.dart';
 
@@ -65,6 +68,14 @@ class DashboardScreen extends ConsumerWidget {
     // welcome CTA that nudges the first transaction (activation).
     final allTx = ref.watch(transactionsStreamProvider).value;
     final isNewUser = allTx != null && allTx.isEmpty;
+    // Empty SECONDARY Carteira (user switched into a PF/PJ Carteira that has no
+    // lançamentos yet) → show a Carteira-specific empty state with a "move data
+    // from another Carteira" CTA instead of the generic first-transaction card.
+    final activeCarteira = ref.watch(activeWorkspaceProvider);
+    final isEmptySecondaryCarteira = isNewUser &&
+        activeCarteira != null &&
+        !ref.watch(isCombinedViewProvider) &&
+        activeCarteira.id != ref.watch(defaultWorkspaceIdProvider);
 
     final l10n = AppLocalizations.of(context);
     final dateLoc = ref.watch(dateLocaleProvider);
@@ -106,8 +117,13 @@ class DashboardScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
+          // ── Carteira secundária vazia → CTA de mover dados ──
+          if (isEmptySecondaryCarteira) ...[
+            _EmptyCarteiraCard(carteira: activeCarteira),
+            const SizedBox(height: 24),
+          ]
           // ── Boas-vindas / CTA da primeira transação (novo usuário) ──
-          if (isNewUser) ...[
+          else if (isNewUser) ...[
             const _WelcomeFirstTransactionCard(),
             const SizedBox(height: 24),
           ],
@@ -267,6 +283,86 @@ class _WelcomeFirstTransactionCard extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty secondary Carteira → move-data CTA ─────────────────────────────────
+class _EmptyCarteiraCard extends ConsumerWidget {
+  final WorkspaceEntity carteira;
+  const _EmptyCarteiraCard({required this.carteira});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(workspaceIcon(carteira.type), size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '"${carteira.name}" ainda está vazia',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                CarteiraTypeBadge(type: carteira.type),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Esta Carteira não tem lançamentos ainda. Adicione um novo ou '
+              'traga receitas e gastos de outra Carteira.',
+              style: TextStyle(
+                  color: cs.onSurfaceVariant, fontSize: 13.5, height: 1.3),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => showAnimatedDialog<void>(
+                      context: context,
+                      builder: (_) => const AddTransactionDialog(),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Adicionar'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MoveTransactionsScreen(
+                          initialSourceId:
+                              ref.read(defaultWorkspaceIdProvider),
+                          initialTargetId: carteira.id,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.drive_file_move_outline, size: 18),
+                    label: const Text('Mover dados'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

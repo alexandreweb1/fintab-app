@@ -7,6 +7,7 @@ import '../../../core/providers/workspace_provider.dart';
 import '../../subscription/presentation/providers/subscription_provider.dart';
 import '../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../domain/workspace_entity.dart';
+import 'move_transactions_screen.dart';
 import 'providers/workspaces_notifier.dart';
 
 IconData workspaceIcon(WorkspaceType type) => type == WorkspaceType.business
@@ -57,7 +58,11 @@ class CarteiraTypeBadge extends StatelessWidget {
 /// dashboard header) that opens an animated dropdown listing every Carteira.
 /// Replaces the old global switcher bar (removed).
 class CarteiraHeaderSelector extends ConsumerStatefulWidget {
-  const CarteiraHeaderSelector({super.key});
+  /// [onDark] tunes the pill for the navy dashboard header (white on
+  /// translucent white). Set false to render it on a light AppBar/surface
+  /// (theme colors) — used on the Planejamento and Ajustes screens.
+  final bool onDark;
+  const CarteiraHeaderSelector({super.key, this.onDark = true});
 
   @override
   ConsumerState<CarteiraHeaderSelector> createState() =>
@@ -78,6 +83,8 @@ class _CarteiraHeaderSelectorState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final onDark = widget.onDark;
     final active = ref.watch(activeWorkspaceProvider);
     final combined = ref.watch(isCombinedViewProvider);
     final type = active?.type ?? WorkspaceType.personal;
@@ -88,9 +95,18 @@ class _CarteiraHeaderSelectorState
         ? Icons.dashboard_customize_rounded
         : workspaceIcon(type);
 
+    final pillBg = onDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : cs.primary.withValues(alpha: 0.10);
+    final iconBg = onDark
+        ? Colors.white.withValues(alpha: 0.18)
+        : cs.primary.withValues(alpha: 0.16);
+    final fg = onDark ? Colors.white : cs.onSurface;
+    final iconFg = onDark ? Colors.white : cs.primary;
+
     return Material(
       key: _pillKey,
-      color: Colors.white.withValues(alpha: 0.12),
+      color: pillBg,
       borderRadius: BorderRadius.circular(30),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
@@ -103,20 +119,20 @@ class _CarteiraHeaderSelectorState
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: iconBg,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 14, color: Colors.white),
+                child: Icon(icon, size: 14, color: iconFg),
               ),
               const SizedBox(width: 8),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 170),
+                constraints: BoxConstraints(maxWidth: onDark ? 170 : 130),
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: fg,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -124,10 +140,9 @@ class _CarteiraHeaderSelectorState
               ),
               if (!combined) ...[
                 const SizedBox(width: 7),
-                CarteiraTypeBadge(type: type, onDark: true),
+                CarteiraTypeBadge(type: type, onDark: onDark),
               ],
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 20, color: Colors.white),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: fg),
             ],
           ),
         ),
@@ -532,7 +547,25 @@ class ManageWorkspacesScreen extends ConsumerWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
-        children: own
+        children: [
+          Card(
+            elevation: 0,
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            color: cs.primaryContainer.withValues(alpha: 0.35),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading:
+                  Icon(Icons.drive_file_move_outline, color: cs.primary),
+              title: const Text('Mover lançamentos entre Carteiras'),
+              subtitle:
+                  const Text('Reorganize receitas e gastos entre PF/PJ'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const MoveTransactionsScreen())),
+            ),
+          ),
+          ...own
             .map((w) => Card(
                   elevation: 0,
                   margin: const EdgeInsets.symmetric(vertical: 4),
@@ -581,8 +614,8 @@ class ManageWorkspacesScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                ))
-            .toList(),
+                )),
+        ],
       ),
     );
   }

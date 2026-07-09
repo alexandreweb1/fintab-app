@@ -66,19 +66,36 @@ final workspaceMigrationProvider = FutureProvider<void>((ref) async {
     // ── 1. Ensure the default workspace (deterministic id → idempotent). ──
     final wid = 'ws_${uid}_default';
     final wsRef = fs.collection('workspaces').doc(wid);
-    final wsSnap = await wsRef.get();
-    if (!wsSnap.exists) {
+    // A get() of the not-yet-existing default doc can be DENIED by the
+    // workspaces read rule (it dereferences resource.data.ownerId, and a
+    // missing doc has resource == null) — which used to throw here and abort
+    // the whole migration on every launch, so the default was never created
+    // and the Carteira switcher stayed dead. Treat any get() failure as
+    // "does not exist" and proceed to create it.
+    bool exists;
+    try {
+      exists = (await wsRef.get()).exists;
+    } catch (_) {
+      exists = false;
+    }
+    if (!exists) {
       // Legacy account-wide collaborators become editor members of "Pessoal".
-      final accepted = await fs
-          .collection('invitations')
-          .where('masterUserId', isEqualTo: uid)
-          .where('status', isEqualTo: 'accepted')
-          .get();
-      final collaboratorIds = accepted.docs
-          .map((d) => d.data()['collaboratorUserId'] as String?)
-          .whereType<String>()
-          .toSet()
-          .toList();
+      // Never let this optional lookup abort default creation.
+      List<String> collaboratorIds = const [];
+      try {
+        final accepted = await fs
+            .collection('invitations')
+            .where('masterUserId', isEqualTo: uid)
+            .where('status', isEqualTo: 'accepted')
+            .get();
+        collaboratorIds = accepted.docs
+            .map((d) => d.data()['collaboratorUserId'] as String?)
+            .whereType<String>()
+            .toSet()
+            .toList();
+      } catch (_) {
+        collaboratorIds = const [];
+      }
       await wsRef.set({
         'ownerId': uid,
         'name': 'Pessoal',
