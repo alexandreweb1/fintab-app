@@ -20,6 +20,7 @@ import '../../../subscription/presentation/providers/subscription_provider.dart'
 import '../../../subscription/presentation/widgets/pro_badge_widget.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/money_input_formatter.dart';
 import '../../../../core/utils/icon_data_utils.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
@@ -967,9 +968,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         if (newTotal > prevMonthExpense) {
           final diff = newTotal - prevMonthExpense;
           final justCrossed = curMonthExpense <= prevMonthExpense;
+          final fmtMoney = ref.read(currencyFormatterProvider);
           final message = justCrossed
-              ? 'Suas despesas ultrapassaram o mês passado em R\$ ${doubleToMoneyText(diff)}!'
-              : 'Atenção! R\$ ${doubleToMoneyText(diff)} acima das despesas do mês passado.';
+              ? 'Suas despesas ultrapassaram o mês passado em ${fmtMoney(diff)}!'
+              : 'Atenção! ${fmtMoney(diff)} acima das despesas do mês passado.';
           final messenger = ScaffoldMessenger.of(context);
           Navigator.of(context).pop();
           messenger
@@ -1088,7 +1090,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                         : const Color(0xFF10B981),
                   ),
                   decoration: InputDecoration(
-                    hintText: 'R\$ 0,00',
+                    hintText: '${ref.watch(currencySymbolProvider)} 0,00',
                     hintStyle: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,

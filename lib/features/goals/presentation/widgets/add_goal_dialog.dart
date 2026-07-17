@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/icon_data_utils.dart';
 import '../../../../core/utils/money_input_formatter.dart';
 import '../../domain/entities/goal_entity.dart';
@@ -116,6 +117,7 @@ class _AddGoalDialogState extends ConsumerState<AddGoalDialog> {
   @override
   Widget build(BuildContext context) {
     final color = Color(_colorValue);
+    final symbol = ref.watch(currencySymbolProvider);
     return AlertDialog(
       title: Text(_isEditing ? 'Editar meta' : 'Nova meta'),
       content: SizedBox(
@@ -238,10 +240,10 @@ class _AddGoalDialogState extends ConsumerState<AddGoalDialog> {
                   controller: _amountController,
                   keyboardType: TextInputType.number,
                   inputFormatters: [MoneyInputFormatter()],
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Valor da meta',
-                    hintText: 'R\$ 0,00',
-                    border: OutlineInputBorder(),
+                    hintText: '$symbol 0,00',
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Informe o valor';

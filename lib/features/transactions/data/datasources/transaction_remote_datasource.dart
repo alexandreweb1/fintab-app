@@ -41,12 +41,24 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
 
   @override
   Future<TransactionModel> addTransaction(TransactionModel transaction) async {
+    const timeoutMsg = ServerException(
+        'Tempo limite excedido. Verifique se o Firestore está habilitado '
+        'no Firebase Console.');
     try {
+      // When the caller provides a client-generated id, write it deterministically
+      // with .doc(id).set(): re-running the same write (recurrence generation,
+      // retry) overwrites the same doc instead of creating a duplicate, and the
+      // caller gets back the real doc id immediately (no phantom id from .add()).
+      if (transaction.id.isNotEmpty) {
+        await _collection
+            .doc(transaction.id)
+            .set(transaction.toFirestore())
+            .timeout(_kTimeout, onTimeout: () => throw timeoutMsg);
+        return transaction;
+      }
       final docRef = await _collection
           .add(transaction.toFirestore())
-          .timeout(_kTimeout, onTimeout: () => throw const ServerException(
-              'Tempo limite excedido. Verifique se o Firestore está habilitado '
-              'no Firebase Console.'));
+          .timeout(_kTimeout, onTimeout: () => throw timeoutMsg);
       final doc = await docRef.get().timeout(_kTimeout);
       return TransactionModel.fromFirestore(doc);
     } on ServerException {

@@ -1321,6 +1321,14 @@ class _AreaChartState extends State<_AreaChart> {
   }
 }
 
+/// Extracts the currency symbol from a formatter closure so compact axis labels
+/// follow the user's selected currency (e.g. "R$ 0,00" → "R$", "0,00 €" → "€",
+/// "US$ 0.00" → "US$"). Works whether the symbol is a prefix or a suffix.
+String _symbolFromFmt(String Function(double) fmt) {
+  final m = RegExp(r'[^\d\s.,\-]+').firstMatch(fmt(0));
+  return m?.group(0) ?? '';
+}
+
 class _AreaPainter extends CustomPainter {
   final List<_ChartPoint> points;
   final Color color;
@@ -1548,9 +1556,10 @@ class _AreaPainter extends CustomPainter {
   }
 
   String _compactFmt(double val) {
-    if (val >= 1000000) return 'R\$${(val / 1000000).toStringAsFixed(1)}M';
-    if (val >= 1000) return 'R\$${(val / 1000).toStringAsFixed(0)}K';
-    return 'R\$${val.toStringAsFixed(0)}';
+    final s = _symbolFromFmt(fmt);
+    if (val >= 1000000) return '$s${(val / 1000000).toStringAsFixed(1)}M';
+    if (val >= 1000) return '$s${(val / 1000).toStringAsFixed(0)}K';
+    return '$s${val.toStringAsFixed(0)}';
   }
 
   void _drawText(

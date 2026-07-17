@@ -88,9 +88,20 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
     'Preferências de UI (moeda, idioma, tema, layout do dashboard, contas ocultas, nível de letramento financeiro)',
   ]),
 
-  const Heading(3, '2.7 O que NÃO coletamos'),
+  const Heading(3, '2.7 Análise de uso e diagnóstico (opcional)'),
+  const Para(
+      'Para melhorar o app e corrigir erros, usamos o **Firebase Analytics** '
+      '(dados anônimos de uso: telas visitadas, recursos utilizados e eventos '
+      'de ativação) e o **Firebase Crashlytics** (relatórios de falhas e erros). '
+      'Esses dados **nunca** incluem seus valores, lançamentos ou informações '
+      'financeiras.'),
+  const Para(
+      'Você pode **desativar** essa coleta a qualquer momento em '
+      'Ajustes → Sobre → "Compartilhar dados de uso e falhas". Ao desativar, '
+      'interrompemos o envio de dados de uso e de falhas deste dispositivo.'),
+
+  const Heading(3, '2.8 O que NÃO coletamos'),
   const Bullets([
-    '**Não** usamos Google Analytics, Firebase Analytics ou Crashlytics.',
     '**Não** rastreamos você entre apps ou sites (não há IDFA / App Tracking Transparency).',
     '**Não** vendemos seus dados.',
     '**Não** usamos seus dados financeiros para treinar modelos de IA.',
@@ -166,9 +177,14 @@ final List<LegalBlock> _ptPrivacy = <LegalBlock>[
         '**Dado compartilhado:** `purchaseToken`, `productId`',
         '**Finalidade:** Processar e validar assinatura Pro (Android)',
       ],
+    [
+      '**Google LLC** — Firebase Analytics & Crashlytics',
+      '**Dado compartilhado:** Eventos anônimos de uso e relatórios de falha (sem dados financeiros); identificador da instalação do app',
+      '**Finalidade:** Métricas de uso e diagnóstico de erros — **desativável** em Ajustes → Sobre',
+    ],
   ]),
   const Para(
-      'Não há outros suboperadores. Não há SDKs de publicidade, analytics ou attribution.'),
+      'Não há outros suboperadores além dos listados. Não há SDKs de publicidade ou attribution, e você pode desativar a análise de uso e diagnóstico (Firebase Analytics/Crashlytics) em Ajustes → Sobre.'),
   const Heading(3, 'Sobre a função "compartilhar" (share)'),
   const Para(
       'Quando você exporta um relatório em PDF/Excel, o app usa o **share sheet nativo do sistema operacional**. O destino (e-mail, Drive, WhatsApp etc.) é escolhido por você; o Fintab não envia nada automaticamente a terceiros.'),
@@ -325,9 +341,19 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
     'UI preferences (currency, language, theme, dashboard layout, hidden wallets, financial literacy level)',
   ]),
 
-  const Heading(3, '2.7 What we DO NOT collect'),
+  const Heading(3, '2.7 Usage analytics & diagnostics (optional)'),
+  const Para(
+      'To improve the app and fix bugs we use **Firebase Analytics** (anonymous '
+      'usage data: screens viewed, features used and activation events) and '
+      '**Firebase Crashlytics** (crash and error reports). This data **never** '
+      'includes your amounts, transactions or any financial information.'),
+  const Para(
+      'You can **turn this off** anytime in Settings → About → "Share usage and '
+      'crash data". Turning it off stops usage and crash data being sent from '
+      'this device.'),
+
+  const Heading(3, '2.8 What we DO NOT collect'),
   const Bullets([
-    'We do **not** use Google Analytics, Firebase Analytics, or Crashlytics.',
     'We do **not** track you across apps or websites (no IDFA / App Tracking Transparency).',
     'We do **not** sell your data.',
     'We do **not** use your financial data to train AI models.',
@@ -402,9 +428,14 @@ final List<LegalBlock> _enPrivacy = <LegalBlock>[
         '**Data shared:** `purchaseToken`, `productId`',
         '**Purpose:** Process and validate Pro subscription (Android)',
       ],
+    [
+      '**Google LLC** — Firebase Analytics & Crashlytics',
+      '**Data shared:** Anonymous usage events and crash reports (no financial data); app installation identifier',
+      '**Purpose:** Usage metrics and error diagnostics — **can be turned off** in Settings → About',
+    ],
   ]),
   const Para(
-      'There are no other subprocessors. No advertising, analytics, or attribution SDKs.'),
+      'There are no other subprocessors beyond those listed. No advertising or attribution SDKs, and you can turn off usage analytics and diagnostics (Firebase Analytics/Crashlytics) in Settings → About.'),
   const Heading(3, 'About the "share" function'),
   const Para(
       'When you export a report as PDF/Excel, the app uses the **OS-native share sheet**. The destination (email, Drive, WhatsApp, etc.) is chosen by you; Fintab does not send anything automatically to third parties.'),

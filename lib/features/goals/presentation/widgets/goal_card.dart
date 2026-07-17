@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/icon_data_utils.dart';
-import '../../../../core/utils/money_input_formatter.dart';
 import '../../domain/entities/goal_entity.dart';
 import '../providers/goals_provider.dart';
 
@@ -21,6 +21,7 @@ class GoalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentAmount = ref.watch(goalCurrentAmountProvider(goal.id));
+    final fmt = ref.watch(currencyFormatterProvider);
     final color = Color(goal.colorValue);
     final progress = goal.progressPercent(currentAmount).clamp(0.0, 1.0);
     final isCompleted = goal.isCompleted(currentAmount);
@@ -137,14 +138,14 @@ class GoalCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'R\$ ${doubleToMoneyText(currentAmount)}',
+                  fmt(currentAmount),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  'Meta: R\$ ${doubleToMoneyText(goal.targetAmount)}',
+                  'Meta: ${fmt(goal.targetAmount)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -156,7 +157,7 @@ class GoalCard extends ConsumerWidget {
             if (!isCompleted) ...[
               const SizedBox(height: 2),
               Text(
-                'Faltam R\$ ${doubleToMoneyText((goal.targetAmount - currentAmount).clamp(0, double.infinity))}  •  ${(progress * 100).toStringAsFixed(0)}%',
+                'Faltam ${fmt((goal.targetAmount - currentAmount).clamp(0, double.infinity))}  •  ${(progress * 100).toStringAsFixed(0)}%',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

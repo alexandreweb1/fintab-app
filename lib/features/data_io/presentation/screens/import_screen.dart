@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
@@ -385,7 +386,7 @@ class _DefaultsCard extends StatelessWidget {
   }
 }
 
-class _PreviewList extends StatelessWidget {
+class _PreviewList extends ConsumerWidget {
   final List<ParsedTransaction> transactions;
   final Set<int> selected;
   final ValueChanged<int> onToggle;
@@ -399,10 +400,10 @@ class _PreviewList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final df = DateFormat('dd/MM/yyyy');
-    final fmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final fmt = ref.watch(currencyFormatterProvider);
     final allSelected = selected.length == transactions.length;
 
     return Card(
@@ -452,7 +453,7 @@ class _PreviewList extends StatelessWidget {
                 subtitle: Text(df.format(tx.date)),
                 secondary: Text(
                   (tx.type == TransactionType.income ? '+ ' : '- ') +
-                      fmt.format(tx.amount),
+                      fmt(tx.amount),
                   style: TextStyle(
                     color: tx.type == TransactionType.income
                         ? Colors.green.shade700

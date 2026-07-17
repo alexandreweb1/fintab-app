@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/providers/app_settings_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../../data/excel_exporter.dart';
@@ -102,11 +103,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           : 'todos';
 
       if (_format == _ExportFormat.pdf) {
+        final currency = ref.read(appSettingsProvider).currency;
         final bytes = await PdfExporter().build(
           transactions: transactions,
           title: 'Extrato financeiro',
           rangeStart: start,
           rangeEnd: end,
+          currencyLocale: currency.locale,
+          currencySymbol: currency.symbol,
         );
         await Printing.sharePdf(
           bytes: bytes,

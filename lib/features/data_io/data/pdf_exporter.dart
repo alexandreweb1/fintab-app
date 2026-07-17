@@ -15,10 +15,13 @@ class PdfExporter {
     required String title,
     required DateTime? rangeStart,
     required DateTime? rangeEnd,
+    String currencyLocale = 'pt_BR',
+    String currencySymbol = 'R\$',
   }) async {
     final doc = pw.Document();
     final df = DateFormat('dd/MM/yyyy');
-    final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final currency =
+        NumberFormat.currency(locale: currencyLocale, symbol: currencySymbol);
 
     double income = 0;
     double expense = 0;

@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/providers/app_settings_provider.dart';
 import 'core/services/analytics_service.dart';
+import 'core/services/crash_reporting_service.dart';
 import 'core/utils/firebase_options.dart';
 import 'features/app_lock/presentation/widgets/app_lock_gate.dart';
 import 'features/auth/domain/entities/user_entity.dart';
@@ -44,7 +45,7 @@ Future<void> main() async {
         (ref) => AppSettingsNotifier(settings),
       ),
     ],
-    child: const FirebaseInitializer(),
+    child: FirebaseInitializer(telemetryEnabled: settings.telemetryEnabled),
   ));
 }
 
@@ -53,7 +54,8 @@ Future<void> main() async {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class FirebaseInitializer extends StatefulWidget {
-  const FirebaseInitializer({super.key});
+  final bool telemetryEnabled;
+  const FirebaseInitializer({super.key, required this.telemetryEnabled});
 
   @override
   State<FirebaseInitializer> createState() => _FirebaseInitializerState();
@@ -83,6 +85,11 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
     } catch (_) {
       // Settings can only be applied once; ignore if already configured.
     }
+    // Route uncaught errors to Crashlytics, then apply the user's telemetry
+    // consent to BOTH Crashlytics and Analytics (opt-out silences both).
+    CrashReportingService.instance.install();
+    await CrashReportingService.instance.setEnabled(widget.telemetryEnabled);
+    await AnalyticsService.instance.setEnabled(widget.telemetryEnabled);
     return app;
   }
 

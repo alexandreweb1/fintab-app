@@ -1187,6 +1187,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final symbol = ref.watch(currencySymbolProvider);
 
     // Unique categories from ALL visible transactions
     final allTxs = ref.watch(visibleTransactionsProvider);
@@ -1321,7 +1322,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                               decimal: true),
                           decoration: InputDecoration(
                             labelText: l10n.filterMin,
-                            prefixText: 'R\$ ',
+                            prefixText: '$symbol ',
                             isDense: true,
                             border: const OutlineInputBorder(),
                           ),
@@ -1336,7 +1337,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                               decimal: true),
                           decoration: InputDecoration(
                             labelText: l10n.filterMax,
-                            prefixText: 'R\$ ',
+                            prefixText: '$symbol ',
                             isDense: true,
                             border: const OutlineInputBorder(),
                           ),

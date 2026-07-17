@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/providers/workspace_provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/money_input_formatter.dart';
 import '../../domain/bank_brands.dart';
 import '../../domain/entities/wallet_entity.dart';
@@ -71,6 +72,7 @@ class _AddCardDialogState extends ConsumerState<AddCardDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final symbol = ref.watch(currencySymbolProvider);
     final br = kBankBrands.where((b) => !b.international && b.id != 'other');
     final intl = kBankBrands.where((b) => b.international);
     final other = kBankBrands.firstWhere((b) => b.id == 'other');
@@ -110,7 +112,7 @@ class _AddCardDialogState extends ConsumerState<AddCardDialog> {
                 inputFormatters: [MoneyInputFormatter()],
                 decoration: InputDecoration(
                     labelText: '${l10n.creditLimit} (${l10n.optional})',
-                    prefixText: 'R\$ ',
+                    prefixText: '$symbol ',
                     border: const OutlineInputBorder()),
               ),
               const SizedBox(height: 12),

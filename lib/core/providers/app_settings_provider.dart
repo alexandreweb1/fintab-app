@@ -154,6 +154,10 @@ class AppSettings {
   final FinancialLiteracyLevel literacyLevel;
   final CategorySortMode categorySortMode;
 
+  /// Single consent flag governing BOTH Firebase Analytics and Crashlytics.
+  /// Defaults to on; the user can opt out in Ajustes → Sobre.
+  final bool telemetryEnabled;
+
   const AppSettings({
     this.currency = AppCurrency.brl,
     this.language = AppLanguage.portuguese,
@@ -161,6 +165,7 @@ class AppSettings {
     this.hiddenWalletIds = const {},
     this.literacyLevel = FinancialLiteracyLevel.unset,
     this.categorySortMode = CategorySortMode.mostUsed,
+    this.telemetryEnabled = true,
   });
 
   AppSettings copyWith({
@@ -170,6 +175,7 @@ class AppSettings {
     Set<String>? hiddenWalletIds,
     FinancialLiteracyLevel? literacyLevel,
     CategorySortMode? categorySortMode,
+    bool? telemetryEnabled,
   }) =>
       AppSettings(
         currency: currency ?? this.currency,
@@ -178,6 +184,7 @@ class AppSettings {
         hiddenWalletIds: hiddenWalletIds ?? this.hiddenWalletIds,
         literacyLevel: literacyLevel ?? this.literacyLevel,
         categorySortMode: categorySortMode ?? this.categorySortMode,
+        telemetryEnabled: telemetryEnabled ?? this.telemetryEnabled,
       );
 }
 
@@ -192,6 +199,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   static const _keyHiddenWallets = 'hidden_wallet_ids';
   static const _keyLiteracyLevel = 'app_literacy_level';
   static const _keyCategorySortMode = 'app_category_sort_mode';
+  static const _keyTelemetryEnabled = 'telemetry_enabled';
 
   AppSettingsNotifier(super.initial);
 
@@ -225,6 +233,14 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     await prefs.setString(_keyCategorySortMode, mode.name);
   }
 
+  /// Persists the telemetry consent flag. Applying it to Firebase
+  /// Analytics/Crashlytics is done by the caller (settings toggle + startup).
+  Future<void> setTelemetryEnabled(bool enabled) async {
+    state = state.copyWith(telemetryEnabled: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyTelemetryEnabled, enabled);
+  }
+
   Future<void> toggleWalletVisibility(String walletId) async {
     final hidden = Set<String>.from(state.hiddenWalletIds);
     if (hidden.contains(walletId)) {
@@ -248,6 +264,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final hiddenList = prefs.getStringList(_keyHiddenWallets) ?? [];
     final literacyLevelStr = prefs.getString(_keyLiteracyLevel);
     final categorySortModeStr = prefs.getString(_keyCategorySortMode);
+    final telemetryEnabled = prefs.getBool(_keyTelemetryEnabled) ?? true;
 
     final AppLanguage language;
     if (savedLanguageCode != null) {
@@ -273,6 +290,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       hiddenWalletIds: Set<String>.from(hiddenList),
       literacyLevel: FinancialLiteracyLevel.fromString(literacyLevelStr),
       categorySortMode: CategorySortMode.fromString(categorySortModeStr),
+      telemetryEnabled: telemetryEnabled,
     );
   }
 }

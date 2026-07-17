@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/services/local_notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
@@ -101,11 +102,12 @@ class BillsNotifier extends StateNotifier<AsyncValue<void>> {
     if (when == null || bill.reminderDaysBefore < 0 || bill.isPaid) return;
     final verb = bill.isPayable ? 'Pagar' : 'Receber';
     final amount = bill.amount.toStringAsFixed(2).replaceAll('.', ',');
+    final symbol = _ref.read(currencySymbolProvider);
     LocalNotificationService.instance.scheduleBillReminder(
       id: _notifId(bill.id),
       title: '📅 $verb: ${bill.title}',
       body: 'Vence em ${bill.dueDate.day.toString().padLeft(2, '0')}/'
-          '${bill.dueDate.month.toString().padLeft(2, '0')} · R\$ $amount',
+          '${bill.dueDate.month.toString().padLeft(2, '0')} · $symbol $amount',
       when: when,
     );
   }

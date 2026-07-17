@@ -422,6 +422,7 @@ class _InvoiceCard extends ConsumerWidget {
   Future<void> _showSetInvoiceValueDialog(
       BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
+    final symbol = ref.read(currencySymbolProvider);
     final key = cardInvoiceCycleKey(invoice.closingDate);
     final ctrl = TextEditingController(
         text: invoice.isManual ? _fmtEdit(invoice.manualTotal!) : '');
@@ -446,7 +447,7 @@ class _InvoiceCard extends ConsumerWidget {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                prefixText: 'R\$ ',
+                prefixText: '$symbol ',
                 labelText: l10n.setInvoiceValue,
                 border: const OutlineInputBorder(),
               ),

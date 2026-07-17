@@ -1975,6 +1975,7 @@ class _IdealBudgetDialogState extends ConsumerState<_IdealBudgetDialog> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fmt = ref.watch(currencyFormatterProvider);
+    final symbol = ref.watch(currencySymbolProvider);
     final income = _income;
 
     return AlertDialog(
@@ -2000,10 +2001,10 @@ class _IdealBudgetDialogState extends ConsumerState<_IdealBudgetDialog> {
               controller: _incomeCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [MoneyInputFormatter()],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Receita mensal',
-                prefixText: 'R\$ ',
-                border: OutlineInputBorder(),
+                prefixText: '$symbol ',
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() => _showPreview = _income > 0),
             ),

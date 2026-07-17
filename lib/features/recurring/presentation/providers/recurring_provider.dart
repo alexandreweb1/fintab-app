@@ -182,8 +182,15 @@ final recurringGeneratorProvider = FutureProvider<int>((ref) async {
   for (final rec in recurrences) {
     DateTime? next = rec.nextOccurrence();
     while (next != null && !next.isAfter(today)) {
+      // Deterministic id per (recurrence, occurrence date): if the generator
+      // ever runs twice for the same date (retry, two devices, pointer/write
+      // out of sync) the write overwrites the same doc instead of duplicating
+      // the salary/subscription entry.
+      final dateKey = '${next.year.toString().padLeft(4, '0')}'
+          '${next.month.toString().padLeft(2, '0')}'
+          '${next.day.toString().padLeft(2, '0')}';
       final tx = TransactionEntity(
-        id: const Uuid().v4(),
+        id: 'rec_${rec.id}_$dateKey',
         userId: rec.userId,
         workspaceId: rec.workspaceId,
         title: rec.title,
@@ -199,8 +206,12 @@ final recurringGeneratorProvider = FutureProvider<int>((ref) async {
         AddTransactionParams(transaction: tx),
       );
 
-      result.fold((_) => null, (_) => generated++);
-
+      // Only advance the pointer when the occurrence was actually written.
+      // On failure, stop this recurrence so the missed occurrence is retried
+      // on the next launch instead of being silently skipped forever.
+      final ok = result.fold((_) => false, (_) => true);
+      if (!ok) break;
+      generated++;
       await ds.updateLastGenerated(id: rec.id, date: next);
       next = rec.nextOccurrence(afterDate: next);
     }

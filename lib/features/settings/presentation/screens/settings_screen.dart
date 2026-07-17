@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/crash_reporting_service.dart';
 import '../../../../core/services/referral_service.dart';
 import '../../../../core/utils/platform_store.dart';
 import '../../../../core/utils/animated_dialog.dart';
@@ -3748,30 +3750,105 @@ class NotificationsSettingsScreen extends StatelessWidget {
       );
 }
 
-class AboutSettingsScreen extends StatelessWidget {
+class AboutSettingsScreen extends ConsumerWidget {
   const AboutSettingsScreen({super.key});
+
   @override
-  Widget build(BuildContext context) => _SubScreen(title: 'Sobre', children: [
-        _SettingsCard(children: [
-          ListTile(
-            leading: const _IconBadge(Icons.privacy_tip_outlined,
-                color: Color(0xFF5C6BC0)),
-            title: const Text('Política de Privacidade'),
-            trailing: const Icon(Icons.chevron_right, size: 20),
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            leading: const _IconBadge(Icons.description_outlined,
-                color: Color(0xFF5C6BC0)),
-            title: const Text('Termos de Uso'),
-            trailing: const Icon(Icons.chevron_right, size: 20),
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TermsOfUseScreen())),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        const Center(child: _AppVersionLabel()),
-      ]);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final telemetryOn =
+        ref.watch(appSettingsProvider.select((s) => s.telemetryEnabled));
+    return _SubScreen(title: 'Sobre', children: [
+      // ── Suporte ────────────────────────────────────────────────────
+      _SettingsCard(children: [
+        ListTile(
+          leading: const _IconBadge(Icons.mail_outline_rounded,
+              color: Color(0xFF26A69A)),
+          title: const Text('Fale conosco'),
+          subtitle: const Text('Dúvidas, sugestões ou elogios'),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => _openSupportMail(context, ref, isBug: false),
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.bug_report_outlined,
+              color: Color(0xFFEF5350)),
+          title: const Text('Reportar um problema'),
+          subtitle: const Text('Algo errado? Nos conte o que aconteceu'),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => _openSupportMail(context, ref, isBug: true),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      // ── Privacidade e dados ────────────────────────────────────────
+      _SettingsCard(children: [
+        SwitchListTile(
+          secondary: const _IconBadge(Icons.insights_outlined,
+              color: Color(0xFF5C6BC0)),
+          title: const Text('Compartilhar dados de uso e falhas'),
+          subtitle: const Text(
+              'Ajuda a melhorar o app e corrigir erros. Enviamos apenas dados '
+              'anônimos de uso e relatórios de falha — nunca seus valores, '
+              'lançamentos ou informações financeiras.'),
+          value: telemetryOn,
+          onChanged: (v) {
+            ref.read(appSettingsProvider.notifier).setTelemetryEnabled(v);
+            AnalyticsService.instance.setEnabled(v);
+            CrashReportingService.instance.setEnabled(v);
+          },
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.privacy_tip_outlined,
+              color: Color(0xFF5C6BC0)),
+          title: const Text('Política de Privacidade'),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+        ),
+        const Divider(height: 1, indent: 56),
+        ListTile(
+          leading: const _IconBadge(Icons.description_outlined,
+              color: Color(0xFF5C6BC0)),
+          title: const Text('Termos de Uso'),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TermsOfUseScreen())),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      const Center(child: _AppVersionLabel()),
+    ]);
+  }
+
+  /// Opens the user's mail client with a pre-filled message so support isn't a
+  /// dead end (the only alternative was a 1-star review). Includes app version,
+  /// platform and uid — NOT financial data — to speed up diagnosis.
+  static Future<void> _openSupportMail(BuildContext context, WidgetRef ref,
+      {required bool isBug}) async {
+    const email = 'alexandreweb2@gmail.com';
+    final info = await PackageInfo.fromPlatform();
+    final uid = ref.read(effectiveUserIdProvider);
+    final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+    final subject = isBug ? 'Fintab — Reportar problema' : 'Fintab — Contato';
+    final body = '\n\n———\n'
+        'Escreva sua mensagem acima desta linha.\n'
+        'App: Fintab v${info.version}+${info.buildNumber}\n'
+        'Plataforma: $platform\n'
+        'ID: $uid';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=${Uri.encodeComponent(subject)}'
+          '&body=${Uri.encodeComponent(body)}',
+    );
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível abrir o e-mail. '
+              'Escreva para alexandreweb2@gmail.com'),
+        ),
+      );
+    }
+  }
 }

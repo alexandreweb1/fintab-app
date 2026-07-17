@@ -45,6 +45,12 @@ final currencyFormatterProvider = Provider<String Function(double)>((ref) {
   return fmt.format;
 });
 
+/// Just the symbol of the current app currency (e.g. 'R$', 'US$', '€').
+/// Use for input prefixes/hints where only the symbol is needed.
+final currencySymbolProvider = Provider<String>((ref) {
+  return ref.watch(appSettingsProvider).currency.symbol;
+});
+
 /// Returns the locale string for [DateFormat] based on the current language
 /// (e.g. 'pt_BR', 'en_US', 'es_ES').
 final dateLocaleProvider = Provider<String>((ref) {

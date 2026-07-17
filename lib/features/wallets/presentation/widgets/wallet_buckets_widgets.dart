@@ -715,6 +715,7 @@ class _TypedWalletDialogState extends ConsumerState<TypedWalletDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final symbol = ref.watch(currencySymbolProvider);
     return AlertDialog(
       title: Text(_title),
       content: SizedBox(
@@ -735,11 +736,11 @@ class _TypedWalletDialogState extends ConsumerState<TypedWalletDialog> {
                 controller: _targetCtrl,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Meta (opcional)',
                   hintText: '0,00',
-                  prefixText: 'R\$ ',
-                  border: OutlineInputBorder(),
+                  prefixText: '$symbol ',
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -881,6 +882,7 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
   Widget build(BuildContext context) {
     final dateLoc = ref.watch(dateLocaleProvider);
     final regularWallets = ref.watch(regularWalletsProvider);
+    final symbol = ref.watch(currencySymbolProvider);
     final cs = Theme.of(context).colorScheme;
     final accent = widget.isAporte
         ? const Color(0xFF388E3C)
@@ -939,11 +941,11 @@ class _TransferDialogState extends ConsumerState<TransferDialog> {
                 autofocus: true,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Valor',
                   hintText: '0,00',
-                  prefixText: 'R\$ ',
-                  border: OutlineInputBorder(),
+                  prefixText: '$symbol ',
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
