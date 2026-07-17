@@ -16,7 +16,11 @@ class CrashReportingService {
 
   /// Routes uncaught Flutter and platform errors to Crashlytics. Call once,
   /// after `Firebase.initializeApp()`.
+  ///
+  /// No-op on web: firebase_crashlytics has no web implementation — calling
+  /// it there throws MissingPluginException and would break app startup.
   void install() {
+    if (kIsWeb) return;
     FlutterError.onError = _crashlytics.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       _crashlytics.recordError(error, stack, fatal: true);
@@ -25,13 +29,17 @@ class CrashReportingService {
   }
 
   /// Enable/disable collection — same consent decision as Analytics.
-  Future<void> setEnabled(bool enabled) =>
-      _crashlytics.setCrashlyticsCollectionEnabled(enabled);
+  Future<void> setEnabled(bool enabled) {
+    if (kIsWeb) return Future.value();
+    return _crashlytics.setCrashlyticsCollectionEnabled(enabled);
+  }
 
   /// Record a non-fatal error (a swallowed stream/query failure, a parse
   /// guard tripping) with optional [reason] so we learn about integrity
   /// issues in production instead of them failing silently.
   Future<void> recordNonFatal(Object error, StackTrace stack,
-          {String? reason}) =>
-      _crashlytics.recordError(error, stack, reason: reason, fatal: false);
+      {String? reason}) {
+    if (kIsWeb) return Future.value();
+    return _crashlytics.recordError(error, stack, reason: reason, fatal: false);
+  }
 }

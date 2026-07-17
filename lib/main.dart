@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/l10n/app_localizations.dart';
 import 'core/providers/app_settings_provider.dart';
+import 'core/providers/effective_user_provider.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/crash_reporting_service.dart';
 import 'core/utils/firebase_options.dart';
@@ -16,7 +17,8 @@ import 'features/auth/domain/entities/user_entity.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/home/presentation/screens/main_screen.dart';
-import 'features/onboarding/presentation/screens/literacy_onboarding_dialog.dart';
+import 'features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -167,12 +169,13 @@ class AppRouter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authAsync = ref.watch(authStateProvider);
 
-    // Pop all pushed routes when the user signs out so the login screen
-    // becomes visible immediately instead of leaving settings/other screens
-    // sitting on top of the navigation stack.
+    // Pop all pushed routes on ANY user transition (login, logout, account
+    // switch): auth screens pushed over the pre-auth onboarding — and any
+    // stale route — must clear so the new home takes over. Guarded by uid
+    // change so mid-session re-emissions never yank the user out of a screen.
     ref.listen<AsyncValue<UserEntity?>>(authStateProvider, (previous, next) {
       next.whenData((user) {
-        if (user == null) {
+        if (previous?.value?.id != user?.id) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
       });
@@ -180,9 +183,8 @@ class AppRouter extends ConsumerWidget {
 
     return authAsync.when(
       data: (UserEntity? user) => user != null
-          ? const AppLockGate(
-              child: _LiteracyOnboardingGate(child: MainScreen()))
-          : const LoginScreen(),
+          ? const AppLockGate(child: _OnboardingGate(child: MainScreen()))
+          : const _PreAuthGate(),
       loading: () => const _SplashScreen(),
       error: (error, _) => _FirebaseErrorScreen(error: error.toString()),
     );
@@ -190,52 +192,139 @@ class AppRouter extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Onboarding gate — pergunta o nível de familiaridade financeira
-// uma única vez, na 1ª abertura após login/cadastro.
+// Pré-cadastro — a pesquisa de onboarding roda ANTES da criação da conta;
+// a conta entra na ponte "salve seu plano". Uma vez por aparelho.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _LiteracyOnboardingGate extends ConsumerStatefulWidget {
-  final Widget child;
-  const _LiteracyOnboardingGate({required this.child});
+class _PreAuthGate extends ConsumerWidget {
+  const _PreAuthGate();
 
   @override
-  ConsumerState<_LiteracyOnboardingGate> createState() =>
-      _LiteracyOnboardingGateState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final stashAsync = ref.watch(onboardingStashProvider);
+
+    return stashAsync.when(
+      loading: () => const _SplashScreen(),
+      error: (_, __) => const LoginScreen(),
+      data: (stash) {
+        // Pesquisa concluída mas conta ainda não criada → direto na ponte.
+        if (stash?['surveyDone'] == true) {
+          return OnboardingFlowScreen(
+            mode: OnboardingFlowMode.preAuth,
+            initialData: stash,
+            startAtBridge: true,
+          );
+        }
+        // Aparelho que já passou pela pesquisa (ou já teve login) → login.
+        if (settings.preAuthOnboardingDone) return const LoginScreen();
+        // Primeiro uso neste aparelho → pesquisa (retomando respostas
+        // parciais de uma sessão interrompida, se houver).
+        return OnboardingFlowScreen(
+          mode: OnboardingFlowMode.preAuth,
+          initialData: stash,
+          resuming: stash != null,
+        );
+      },
+    );
+  }
 }
 
-class _LiteracyOnboardingGateState
-    extends ConsumerState<_LiteracyOnboardingGate> {
+// ─────────────────────────────────────────────────────────────────────────────
+// Onboarding gate — abre o fluxo de primeiro uso (pesquisa → plano →
+// compromisso → paywall) uma única vez após login/cadastro. Substitui o
+// antigo LiteracyOnboardingDialog: a pergunta de nível de familiaridade
+// agora é a 4ª do fluxo e grava o mesmo AppSettings.literacyLevel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _OnboardingGate extends ConsumerStatefulWidget {
+  final Widget child;
+  const _OnboardingGate({required this.child});
+
+  @override
+  ConsumerState<_OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends ConsumerState<_OnboardingGate> {
   bool _showing = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Há uma conta neste aparelho — a pesquisa pré-cadastro nunca mais
+      // deve abrir sozinha aqui.
+      if (mounted && !ref.read(appSettingsProvider).preAuthOnboardingDone) {
+        ref.read(appSettingsProvider.notifier).setPreAuthOnboardingDone();
+      }
+      _maybeShow();
+    });
   }
 
   void _maybeShow() {
     if (!mounted || _showing) return;
-    final level = ref.read(appSettingsProvider).literacyLevel;
-    if (level == FinancialLiteracyLevel.unset) {
-      _showing = true;
-      LiteracyOnboardingDialog.show(context).whenComplete(() {
-        _showing = false;
+    // Tri-state: null = perfil/stash ainda carregando (o listener abaixo
+    // dispara de novo quando o valor definitivo chegar).
+    if (ref.read(needsOnboardingProvider) != true) return;
+
+    // Telas de auth ainda na pilha (o pop pós-cadastro do AppRouter/registro
+    // está em andamento): abrir agora deixaria o fluxo ser varrido pelo
+    // popUntil — foi exatamente o bug do "sumiu em 1 segundo". Reagenda.
+    if (ModalRoute.of(context)?.isCurrent != true) {
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted) _maybeShow();
       });
+      return;
     }
+    _showing = true;
+
+    final onb = ref.read(userProfileStreamProvider).value?['onboardingProfile']
+        as Map<String, dynamic>?;
+    final stash = ref.read(onboardingStashProvider).value;
+    ref.read(onboardingFlowProvider.notifier).maybeLogAbandoned(onb);
+
+    final Widget screen;
+    if (stash?['surveyDone'] == true) {
+      // Pesquisa respondida antes do cadastro → grava as respostas na conta
+      // e segue direto para compromisso + paywall.
+      screen = OnboardingFlowScreen(
+        mode: OnboardingFlowMode.postAuthContinue,
+        initialData: stash,
+        persistOnStart: true,
+      );
+    } else if (onb?['archetype'] != null) {
+      // Pesquisa concluída numa sessão anterior → retoma no compromisso.
+      screen = OnboardingFlowScreen(
+        mode: OnboardingFlowMode.postAuthContinue,
+        initialData: onb,
+      );
+    } else {
+      // Fallback: conta criada sem passar pela pesquisa (ou abandono no
+      // meio dela) → fluxo completo, com respostas parciais pré-marcadas.
+      screen = OnboardingFlowScreen(
+        mode: OnboardingFlowMode.postAuthFull,
+        initialData: onb,
+        resuming: onb?['startedAt'] != null,
+      );
+    }
+
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => screen,
+        ))
+        .whenComplete(() => _showing = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Caso o nível mude para `unset` em runtime (ex.: usuário trocou de conta),
-    // re-exibe o onboarding.
-    ref.listen<FinancialLiteracyLevel>(
-      appSettingsProvider.select((s) => s.literacyLevel),
-      (prev, next) {
-        if (next == FinancialLiteracyLevel.unset) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
-        }
-      },
-    );
+    // Reavalia quando o perfil termina de carregar ou quando o usuário
+    // troca de conta (needsOnboarding volta a true).
+    ref.listen<bool?>(needsOnboardingProvider, (prev, next) {
+      if (next == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
+      }
+    });
     return widget.child;
   }
 }

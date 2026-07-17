@@ -1,6 +1,6 @@
 /// Suggested expense allocation as a percentage of monthly income,
-/// based on the 50/30/20 rule (50% needs, 30% wants, 20% savings)
-/// adapted to common Brazilian household categories.
+/// based on the 50/30/20 rule adapted to common Brazilian household
+/// categories: 50% needs, 20% wants, 30% savings.
 ///
 /// Total adds up to 70% — the remaining 30% is reserved for savings
 /// and investments (not represented as expense budgets).

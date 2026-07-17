@@ -158,6 +158,10 @@ class AppSettings {
   /// Defaults to on; the user can opt out in Ajustes → Sobre.
   final bool telemetryEnabled;
 
+  /// True once this DEVICE has been through the pre-signup onboarding survey
+  /// (or any account has signed in here) — the pre-auth flow shows only once.
+  final bool preAuthOnboardingDone;
+
   const AppSettings({
     this.currency = AppCurrency.brl,
     this.language = AppLanguage.portuguese,
@@ -166,6 +170,7 @@ class AppSettings {
     this.literacyLevel = FinancialLiteracyLevel.unset,
     this.categorySortMode = CategorySortMode.mostUsed,
     this.telemetryEnabled = true,
+    this.preAuthOnboardingDone = false,
   });
 
   AppSettings copyWith({
@@ -176,6 +181,7 @@ class AppSettings {
     FinancialLiteracyLevel? literacyLevel,
     CategorySortMode? categorySortMode,
     bool? telemetryEnabled,
+    bool? preAuthOnboardingDone,
   }) =>
       AppSettings(
         currency: currency ?? this.currency,
@@ -185,6 +191,8 @@ class AppSettings {
         literacyLevel: literacyLevel ?? this.literacyLevel,
         categorySortMode: categorySortMode ?? this.categorySortMode,
         telemetryEnabled: telemetryEnabled ?? this.telemetryEnabled,
+        preAuthOnboardingDone:
+            preAuthOnboardingDone ?? this.preAuthOnboardingDone,
       );
 }
 
@@ -200,6 +208,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   static const _keyLiteracyLevel = 'app_literacy_level';
   static const _keyCategorySortMode = 'app_category_sort_mode';
   static const _keyTelemetryEnabled = 'telemetry_enabled';
+  static const _keyPreAuthOnboardingDone = 'preauth_onboarding_done';
 
   AppSettingsNotifier(super.initial);
 
@@ -241,6 +250,12 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     await prefs.setBool(_keyTelemetryEnabled, enabled);
   }
 
+  Future<void> setPreAuthOnboardingDone() async {
+    state = state.copyWith(preAuthOnboardingDone: true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyPreAuthOnboardingDone, true);
+  }
+
   Future<void> toggleWalletVisibility(String walletId) async {
     final hidden = Set<String>.from(state.hiddenWalletIds);
     if (hidden.contains(walletId)) {
@@ -265,6 +280,8 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final literacyLevelStr = prefs.getString(_keyLiteracyLevel);
     final categorySortModeStr = prefs.getString(_keyCategorySortMode);
     final telemetryEnabled = prefs.getBool(_keyTelemetryEnabled) ?? true;
+    final preAuthOnboardingDone =
+        prefs.getBool(_keyPreAuthOnboardingDone) ?? false;
 
     final AppLanguage language;
     if (savedLanguageCode != null) {
@@ -291,6 +308,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       literacyLevel: FinancialLiteracyLevel.fromString(literacyLevelStr),
       categorySortMode: CategorySortMode.fromString(categorySortModeStr),
       telemetryEnabled: telemetryEnabled,
+      preAuthOnboardingDone: preAuthOnboardingDone,
     );
   }
 }
