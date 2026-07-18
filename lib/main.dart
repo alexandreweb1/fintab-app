@@ -252,11 +252,19 @@ class _OnboardingGateState extends ConsumerState<_OnboardingGate> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       // Há uma conta neste aparelho — a pesquisa pré-cadastro nunca mais
       // deve abrir sozinha aqui.
-      if (mounted && !ref.read(appSettingsProvider).preAuthOnboardingDone) {
+      if (!ref.read(appSettingsProvider).preAuthOnboardingDone) {
         ref.read(appSettingsProvider.notifier).setPreAuthOnboardingDone();
       }
+      // As respostas coletadas ANTES do cadastro vivem só no stash do
+      // aparelho. O onboardingStashProvider (FutureProvider) guardou o valor
+      // lido na abertura do app — null, antes de a pesquisa existir — e nunca
+      // mais releu. Invalidamos aqui, no cruzamento do login, para que
+      // needsOnboardingProvider/_maybeShow enxerguem surveyDone:true e abram
+      // o compromisso + paywall. Sem isto, o fluxo pós-cadastro nunca aparece.
+      ref.invalidate(onboardingStashProvider);
       _maybeShow();
     });
   }

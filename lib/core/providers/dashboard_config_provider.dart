@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ─── Section enum ─────────────────────────────────────────────────────────────
 
 enum DashboardSection {
+  plan,
   insights,
   investments,
   safeToSpend,
@@ -22,6 +23,8 @@ enum DashboardSection {
 
   String get label {
     switch (this) {
+      case DashboardSection.plan:
+        return 'Seu plano';
       case DashboardSection.insights:
         return 'Insights & Projeção';
       case DashboardSection.investments:
@@ -49,6 +52,8 @@ enum DashboardSection {
 
   String get description {
     switch (this) {
+      case DashboardSection.plan:
+        return 'Seu perfil e o plano 50/30/20 do onboarding';
       case DashboardSection.insights:
         return 'Alertas de orçamento e projeção de fim de mês';
       case DashboardSection.investments:
@@ -100,6 +105,7 @@ class DashboardConfig {
   /// approved in the Personalizar Dashboard screen.
   static const DashboardConfig defaultConfig = DashboardConfig(
     order: [
+      DashboardSection.plan, // Seu plano (recap do onboarding)
       DashboardSection.incomeExpense, // Receitas & Despesas
       DashboardSection.financialHealth, // Saúde Financeira
       DashboardSection.budgets, // Resumo de Orçamentos

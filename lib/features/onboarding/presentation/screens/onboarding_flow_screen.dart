@@ -132,11 +132,12 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     if (stepId == 'plan_result') {
       notifier.markStepReached(stepId, index);
       logOnboardingEvent('onboarding_plan_viewed');
-      if (widget.mode == OnboardingFlowMode.preAuth) {
-        // A pesquisa deste aparelho está feita — relançamentos pré-login
-        // caem direto na ponte, nunca de volta nas 8 perguntas.
-        ref.read(appSettingsProvider.notifier).setPreAuthOnboardingDone();
-      }
+      // NÃO marcar preAuthOnboardingDone aqui: alterar o AppSettings no meio
+      // do fluxo faz o _PreAuthGate reconstruir e — com o stash ainda "frio"
+      // (null em cache nesta sessão) — trocar o reveal do plano por uma
+      // LoginScreen, engolindo a ponte "Salve seu plano". O marcador é gravado
+      // após o login (ver _OnboardingGate); relançamentos pré-login caem na
+      // ponte pelo stash surveyDone:true, relido a cada nova sessão do app.
     } else if (stepId == 'commitment') {
       notifier.markStepReached(stepId, index);
       logOnboardingEvent('commitment_viewed');
@@ -821,65 +822,83 @@ class _QuestionPageState<T> extends State<_QuestionPage<T>> {
         const SizedBox(height: 8),
         widget.header,
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            children: [
-              if (widget.microHeader != null) ...[
-                Text(
-                  widget.microHeader!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: cs.primary,
-                    fontWeight: FontWeight.w600,
+          // Centraliza o conteúdo verticalmente quando cabe na tela; quando é
+          // maior (telas baixas / fonte grande), o IntrinsicHeight assume a
+          // altura natural e a rolagem entra normalmente. crossAxisAlignment
+          // fica em stretch para os cards de opção manterem a largura total.
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.maxHeight - 24).clamp(0.0, double.infinity),
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.microHeader != null) ...[
+                        Text(
+                          widget.microHeader!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Text(
+                        widget.title,
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (widget.subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.subtitle!,
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                      if (widget.privacyNote != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.lock_outline,
+                                size: 16, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                widget.privacyNote!,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      for (final option in widget.options) ...[
+                        _OptionCard(
+                          icon: option.icon,
+                          title: option.title,
+                          description: option.description,
+                          empathyLine:
+                              _isSelected(option) ? option.empathyLine : null,
+                          selected: _isSelected(option),
+                          onTap: () => _select(option),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-              ],
-              Text(
-                widget.title,
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
-              if (widget.subtitle != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  widget.subtitle!,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ],
-              if (widget.privacyNote != null) ...[
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.lock_outline,
-                        size: 16, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        widget.privacyNote!,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 20),
-              for (final option in widget.options) ...[
-                _OptionCard(
-                  icon: option.icon,
-                  title: option.title,
-                  description: option.description,
-                  empathyLine:
-                      _isSelected(option) ? option.empathyLine : null,
-                  selected: _isSelected(option),
-                  onTap: () => _select(option),
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
+            ),
           ),
         ),
         Padding(
@@ -1025,13 +1044,6 @@ class _PlanResultPage extends ConsumerWidget {
     required this.onBack,
   });
 
-  static const _archetypeNames = {
-    OnboardingArchetype.viraJogo: 'Virada de Jogo',
-    OnboardingArchetype.detetive: 'Detetive do Dinheiro',
-    OnboardingArchetype.sonho: 'Sonho em Construção',
-    OnboardingArchetype.estrategista: 'Estrategista',
-  };
-
   static const _archetypePhrases = {
     OnboardingArchetype.viraJogo:
         'Você decidiu encarar as contas de frente. Ver tudo é o primeiro '
@@ -1077,53 +1089,69 @@ class _PlanResultPage extends ConsumerWidget {
           ],
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            children: [
-              staggered(Text(
-                'Pronto. Este é o seu ponto de partida.',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              )),
-              const SizedBox(height: 16),
-
-              // Chip do arquétipo
-              staggered(Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: cs.primary.withValues(alpha: 0.4)),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.maxHeight - 16).clamp(0.0, double.infinity),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'SEU PERFIL: '
-                      '${_archetypeNames[answers.archetype]!.toUpperCase()}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: cs.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(phrase, style: theme.textTheme.bodySmall),
-                  ],
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      staggered(Text(
+                        'Pronto. Este é o seu ponto de partida.',
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      )),
+                      const SizedBox(height: 16),
+
+                      // Chip do arquétipo
+                      staggered(Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: cs.primary.withValues(alpha: 0.4)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'SEU PERFIL: '
+                              '${answers.archetype.displayName.toUpperCase()}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: cs.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(phrase, style: theme.textTheme.bodySmall),
+                          ],
+                        ),
+                      )),
+                      const SizedBox(height: 16),
+
+                      // Card do plano modelo
+                      staggered(
+                          _PlanCard(plan: plan, answers: answers, fmt: fmt)),
+                      const SizedBox(height: 16),
+
+                      // Card da projeção
+                      staggered(
+                          _ProjectionCard(projection: projection, fmt: fmt)),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
-              )),
-              const SizedBox(height: 16),
-
-              // Card do plano modelo
-              staggered(_PlanCard(plan: plan, answers: answers, fmt: fmt)),
-              const SizedBox(height: 16),
-
-              // Card da projeção
-              staggered(_ProjectionCard(projection: projection, fmt: fmt)),
-              const SizedBox(height: 8),
-            ],
+              ),
+            ),
           ),
         ),
         Padding(
@@ -1487,103 +1515,121 @@ class _CommitmentPageState extends ConsumerState<_CommitmentPage> {
         else
           const SizedBox(height: 16),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            children: [
-              Text(
-                'Seu compromisso',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Não é com o app. É com você.',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 20),
-
-              // Moldura de "termo"
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outlineVariant),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.maxHeight - 16).clamp(0.0, double.infinity),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.handshake_outlined,
-                        size: 32, color: cs.primary),
-                    const SizedBox(height: 12),
-                    Text.rich(
-                      TextSpan(
-                        style: theme.textTheme.bodyLarge
-                            ?.copyWith(height: 1.5),
-                        children: [
-                          const TextSpan(text: 'Eu, '),
-                          TextSpan(
-                            text: name.isEmpty ? '________' : name,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700),
-                          ),
-                          const TextSpan(
-                            text:
-                                ', me comprometo a olhar para o meu dinheiro '
-                                'sem medo, registrar meus gastos com '
-                                'honestidade e dar pelo menos um passo por '
-                                'mês em direção à minha liberdade financeira.',
-                          ),
-                        ],
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Seu compromisso',
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Seu nome',
-                        isDense: true,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Não é com o app. É com você.',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    CheckboxListTile(
-                      value: _accepted,
-                      onChanged: (v) =>
-                          setState(() => _accepted = v ?? false),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(
-                        'Li e assumo este compromisso comigo mesmo(a).',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                    if (_accepted)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4, top: 2),
-                        child: Text(
-                          'Confirmado em $today',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
-                          ),
+                      const SizedBox(height: 20),
+
+                      // Moldura de "termo"
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.handshake_outlined,
+                                size: 32, color: cs.primary),
+                            const SizedBox(height: 12),
+                            Text.rich(
+                              TextSpan(
+                                style: theme.textTheme.bodyLarge
+                                    ?.copyWith(height: 1.5),
+                                children: [
+                                  const TextSpan(text: 'Eu, '),
+                                  TextSpan(
+                                    text: name.isEmpty ? '________' : name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700),
+                                  ),
+                                  const TextSpan(
+                                    text:
+                                        ', me comprometo a olhar para o meu '
+                                        'dinheiro sem medo, registrar meus '
+                                        'gastos com honestidade e dar pelo '
+                                        'menos um passo por mês em direção à '
+                                        'minha liberdade financeira.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _nameController,
+                              textCapitalization: TextCapitalization.words,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: 'Seu nome',
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            CheckboxListTile(
+                              value: _accepted,
+                              onChanged: (v) =>
+                                  setState(() => _accepted = v ?? false),
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: Text(
+                                'Li e assumo este compromisso comigo '
+                                'mesmo(a).',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (_accepted)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 4, top: 2),
+                                child: Text(
+                                  'Confirmado em $today',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 10),
+                      Text(
+                        'Seu compromisso fica guardado na sua conta — só o '
+                        'seu nome e a data.',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Seu compromisso fica guardado na sua conta — só o seu nome '
-                'e a data.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
         Padding(
@@ -1640,41 +1686,57 @@ class _AuthBridgePage extends StatelessWidget {
           ],
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            children: [
-              Icon(Icons.cloud_done_outlined, size: 48, color: cs.primary),
-              const SizedBox(height: 16),
-              Text(
-                'Salve seu plano',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.maxHeight - 16).clamp(0.0, double.infinity),
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Icon(Icons.cloud_done_outlined,
+                          size: 48, color: cs.primary),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Salve seu plano',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Crie sua conta grátis para guardar seu plano e suas '
+                        'respostas — e continuar de onde parou, no celular ou '
+                        'no computador.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant, height: 1.4),
+                      ),
+                      const SizedBox(height: 24),
+                      const _BridgeItem(
+                        icon: Icons.savings_outlined,
+                        text: 'Seu plano modelo fica guardado na sua conta',
+                      ),
+                      const _BridgeItem(
+                        icon: Icons.lock_outline,
+                        text:
+                            'Suas respostas ficam só na sua conta — nunca saem '
+                            'dela',
+                      ),
+                      const _BridgeItem(
+                        icon: Icons.devices_outlined,
+                        text: 'Continue no celular e na web com o mesmo login',
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Crie sua conta grátis para guardar seu plano e suas '
-                'respostas — e continuar de onde parou, no celular ou no '
-                'computador.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant, height: 1.4),
-              ),
-              const SizedBox(height: 24),
-              const _BridgeItem(
-                icon: Icons.savings_outlined,
-                text: 'Seu plano modelo fica guardado na sua conta',
-              ),
-              const _BridgeItem(
-                icon: Icons.lock_outline,
-                text:
-                    'Suas respostas ficam só na sua conta — nunca saem dela',
-              ),
-              const _BridgeItem(
-                icon: Icons.devices_outlined,
-                text: 'Continue no celular e na web com o mesmo login',
-              ),
-            ],
+            ),
           ),
         ),
         Padding(

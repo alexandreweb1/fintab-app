@@ -139,6 +139,20 @@ enum OnboardingArchetype {
 
   final String id;
   const OnboardingArchetype(this.id);
+
+  /// Nome exibível do arquétipo (usado no reveal e no card "Seu plano").
+  String get displayName {
+    switch (this) {
+      case OnboardingArchetype.viraJogo:
+        return 'Virada de Jogo';
+      case OnboardingArchetype.detetive:
+        return 'Detetive do Dinheiro';
+      case OnboardingArchetype.sonho:
+        return 'Sonho em Construção';
+      case OnboardingArchetype.estrategista:
+        return 'Estrategista';
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,6 +187,26 @@ class OnboardingAnswers {
     this.incomeBand,
     this.incomeAnswered = false,
   });
+
+  /// Reconstrói as respostas a partir do mapa `onboardingProfile` gravado em
+  /// users/{uid} (mesmos nomes de campo do stash pré-cadastro). Usado pelo
+  /// `hydrate` do fluxo e pelo card "Seu plano" do dashboard.
+  factory OnboardingAnswers.fromProfileMap(Map<String, dynamic> data) {
+    return OnboardingAnswers(
+      goal: OnboardingGoal.fromId(data['goal'] as String?),
+      currentMethod:
+          OnboardingMethod.fromId(data['currentMethod'] as String?),
+      controlStyle:
+          OnboardingControlStyle.fromId(data['controlStyle'] as String?),
+      literacyLevel: data['literacyLevel'] as String?,
+      monthEnd: OnboardingMonthEnd.fromId(data['monthEnd'] as String?),
+      leak: OnboardingLeak.fromId(data['leak'] as String?),
+      household: OnboardingHousehold.fromId(data['household'] as String?),
+      incomeBand: OnboardingIncomeBand.fromId(data['incomeBand'] as String?),
+      incomeAnswered:
+          data['incomeAnswered'] == true || data['incomeBand'] != null,
+    );
+  }
 
   /// Os flags `clearX` permitem retratar uma resposta ("Pular" depois de já
   /// ter respondido): `copyWith(campo: null)` sozinho seria no-op.

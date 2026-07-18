@@ -22,6 +22,8 @@ import '../../../wallets/presentation/providers/wallets_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/insights_provider.dart';
 import '../widgets/dashboard_extra_cards.dart';
+import '../widgets/plan_summary_card.dart';
+import '../../../onboarding/presentation/providers/onboarding_provider.dart';
 import '../../../investments/presentation/providers/investments_provider.dart';
 import '../widgets/dashboard_insights_card.dart';
 import '../widgets/dashboard_metric_cards.dart';
@@ -58,6 +60,7 @@ class DashboardScreen extends ConsumerWidget {
     final expense = ref.watch(dashboardMonthExpenseProvider);
     final visibleTxs = ref.watch(visibleTransactionsProvider);
     final budgetSummaries = ref.watch(dashboardBudgetSummaryProvider);
+    final planAnswers = ref.watch(onboardingPlanAnswersProvider);
     final selectedMonth = ref.watch(dashboardSelectedMonthProvider);
     final config = ref.watch(dashboardConfigProvider);
     final insights = ref.watch(dashboardInsightsProvider);
@@ -130,6 +133,12 @@ class DashboardScreen extends ConsumerWidget {
 
           // ── Seções dinâmicas ordenadas pelo usuário ──
           for (final section in config.visibleSections) ...[
+            if (section == DashboardSection.plan && planAnswers != null) ...[
+              const _SectionHeader(title: 'Seu plano', subtitle: ''),
+              const SizedBox(height: 8),
+              const PlanSummaryCard(),
+              const SizedBox(height: 24),
+            ],
             if (section == DashboardSection.insights &&
                 hasInsightsSection) ...[
               _SectionHeader(title: 'Insights', subtitle: monthLabel),
@@ -1758,6 +1767,8 @@ class _SectionTile extends StatelessWidget {
 
   IconData _sectionIcon(DashboardSection s) {
     switch (s) {
+      case DashboardSection.plan:
+        return Icons.assignment_outlined;
       case DashboardSection.insights:
         return Icons.auto_awesome_outlined;
       case DashboardSection.investments:

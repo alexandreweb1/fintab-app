@@ -9,6 +9,8 @@ import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../domain/onboarding_profile.dart';
 
 /// Eventos de funil do onboarding. Envolto em try/catch: analytics nunca
@@ -62,6 +64,16 @@ final needsOnboardingProvider = Provider<bool?>((ref) {
     appSettingsProvider.select((s) => s.literacyLevel),
   );
   return literacy == FinancialLiteracyLevel.unset;
+});
+
+/// Respostas do onboarding reconstruídas de users/{uid}.onboardingProfile, ou
+/// null se a pesquisa ainda não foi concluída (sem arquétipo gravado). Alimenta
+/// o card "Seu plano" do dashboard e o gate que decide exibi-lo.
+final onboardingPlanAnswersProvider = Provider<OnboardingAnswers?>((ref) {
+  final profile = ref.watch(userProfileStreamProvider).value;
+  final onb = profile?['onboardingProfile'] as Map<String, dynamic>?;
+  if (onb == null || onb['archetype'] == null) return null;
+  return OnboardingAnswers.fromProfileMap(onb);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,20 +146,7 @@ class OnboardingFlowNotifier extends StateNotifier<OnboardingAnswers> {
   /// Carrega respostas de uma sessão anterior — tanto do stash pré-cadastro
   /// quanto do mapa `onboardingProfile` do Firestore (mesmos nomes de campo).
   void hydrate(Map<String, dynamic> data) {
-    state = OnboardingAnswers(
-      goal: OnboardingGoal.fromId(data['goal'] as String?),
-      currentMethod:
-          OnboardingMethod.fromId(data['currentMethod'] as String?),
-      controlStyle:
-          OnboardingControlStyle.fromId(data['controlStyle'] as String?),
-      literacyLevel: data['literacyLevel'] as String?,
-      monthEnd: OnboardingMonthEnd.fromId(data['monthEnd'] as String?),
-      leak: OnboardingLeak.fromId(data['leak'] as String?),
-      household: OnboardingHousehold.fromId(data['household'] as String?),
-      incomeBand: OnboardingIncomeBand.fromId(data['incomeBand'] as String?),
-      incomeAnswered:
-          data['incomeAnswered'] == true || data['incomeBand'] != null,
-    );
+    state = OnboardingAnswers.fromProfileMap(data);
     _answeredSteps
       ..clear()
       ..addAll(((data['answered'] as List?) ?? const []).whereType<String>());
@@ -390,6 +389,62 @@ class OnboardingFlowNotifier extends StateNotifier<OnboardingAnswers> {
         : DateTime.now().difference(_startedAt!).inSeconds;
     logOnboardingEvent('onboarding_completed', {'elapsed_seconds': elapsed});
     _merge({'completedAt': FieldValue.serverTimestamp()});
+    // Materializa o plano modelo como orçamentos reais do mês corrente, para o
+    // usuário já encontrar tudo pronto na Home. Fire-and-forget: nunca trava a
+    // saída do fluxo.
+    _autoCreatePlanBudgets();
+  }
+
+  /// Cria os orçamentos do plano modelo (regra 50/30/20 adaptada) a partir das
+  /// respostas, no mês corrente. Idempotente: o id do orçamento é
+  /// determinístico por categoria+mês, então re-execuções sobrescrevem em vez
+  /// de duplicar. Só roda quando o usuário informou a renda — sem renda o plano
+  /// é apenas percentual, sem valor a orçar. Melhor-esforço: uma falha (rede,
+  /// ou categorias padrão ainda não semeadas) nunca derruba o fim do
+  /// onboarding.
+  Future<void> _autoCreatePlanBudgets() async {
+    final plan = buildOnboardingPlan(state);
+    if (plan.incomeReference == null) return;
+    try {
+      // As categorias padrão batem 1:1 com o template do plano, mas são
+      // semeadas de forma preguiçosa quando a MainScreen monta. Esperamos elas
+      // existirem antes de mapear nome→id, evitando orçamentos órfãos.
+      var categories = _ref.read(expenseCategoriesProvider);
+      for (var attempt = 0; attempt < 12 && categories.isEmpty; attempt++) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        categories = _ref.read(expenseCategoriesProvider);
+      }
+      if (categories.isEmpty) return;
+      final byName = {
+        for (final c in categories) c.name.toLowerCase().trim(): c,
+      };
+      final month = DateTime.now();
+      // Dispara as escritas concorrentemente: cada set() enfileira a escrita
+      // local do Firestore de imediato, então mesmo offline — ou se o app for
+      // fechado logo após o onboarding — as 8 já entram na fila de
+      // sincronização (o laço sequencial deixava de fora as não-alcançadas, e
+      // fazia os orçamentos "pingarem" na Home ao longo de vários segundos).
+      // Relê o notifier por chamada para sobreviver a uma reconstrução do
+      // provider (ex.: troca de workspace) no meio.
+      final writes = <Future<void>>[];
+      for (final item in plan.items) {
+        final amount = item.amount;
+        if (amount == null || amount <= 0) continue;
+        final category = byName[item.categoryName.toLowerCase().trim()];
+        if (category == null) continue;
+        writes.add(
+          _ref.read(budgetNotifierProvider.notifier).set(
+                categoryId: category.id,
+                categoryName: category.name,
+                limitAmount: amount,
+                month: month,
+              ),
+        );
+      }
+      await Future.wait(writes);
+    } catch (_) {
+      // Auto-criação é melhor-esforço; o usuário pode criar manualmente depois.
+    }
   }
 }
 
