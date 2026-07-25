@@ -8,6 +8,7 @@ import '../../domain/investment_asset.dart';
 import '../../domain/investment_trade.dart';
 import '../providers/investments_provider.dart';
 import '../widgets/asset_price_chart.dart';
+import '../widgets/price_alert_dialog.dart';
 import 'investments_screen.dart' show fmtNative;
 
 const _kGreen = Color(0xFF00A86B);
@@ -39,6 +40,11 @@ class AssetDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(asset.ticker),
         actions: [
+          IconButton(
+            tooltip: l10n.investCreateAlert,
+            icon: const Icon(Icons.add_alert_outlined),
+            onPressed: () => openPriceAlertDialog(context, ref, asset: asset),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'delete') {

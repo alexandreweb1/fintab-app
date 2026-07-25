@@ -8,6 +8,7 @@ import '../../../settings/presentation/screens/currency_converter_screen.dart';
 import '../providers/investments_provider.dart';
 import 'add_asset_screen.dart';
 import 'asset_detail_screen.dart';
+import 'price_alerts_screen.dart';
 
 const _kGreen = Color(0xFF00A86B);
 
@@ -81,6 +82,12 @@ class _InvestmentsViewState extends ConsumerState<InvestmentsView> {
                     MaterialPageRoute(builder: (_) => const AddAssetScreen())),
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(l10n.investAddAsset),
+              ),
+              IconButton(
+                tooltip: l10n.investAlerts,
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const PriceAlertsScreen())),
               ),
               IconButton(
                 tooltip: l10n.currencyRefreshRates,

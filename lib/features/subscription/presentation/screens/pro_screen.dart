@@ -458,6 +458,12 @@ class _FeaturesCard extends StatelessWidget {
               title: 'Investimentos',
               description:
                   'Acompanhe ações (B3 e EUA) e cripto com cotação real, preço médio e quanto você está ganhando ou perdendo.',
+            ),
+            const _FeatureRow(
+              icon: Icons.notifications_active_rounded,
+              title: 'Alertas de preço',
+              description:
+                  'Seja avisado por notificação quando uma ação ou cripto atingir o preço que você definir.',
               isLast: true,
             ),
           ],

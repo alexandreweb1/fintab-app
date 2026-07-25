@@ -1,5 +1,6 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {logger} = require("firebase-functions");
 const {initializeApp} = require("firebase-admin/app");
 const {
@@ -7,6 +8,7 @@ const {
   FieldValue,
   Timestamp,
 } = require("firebase-admin/firestore");
+const {getMessaging} = require("firebase-admin/messaging");
 
 initializeApp();
 const db = getFirestore();
@@ -260,5 +262,189 @@ exports.grantReferralReward = onDocumentCreated(
       } catch (err) {
         logger.error("grantReferralReward failed", {inviteeId, err});
       }
+    },
+);
+
+// ── Price alerts (investimentos) ─────────────────────────────────────────────
+// Every 15 min: fetch quotes for all active alerts and fire the ones whose
+// target was crossed. Fires at most once per alert (transaction guards against
+// the app-side on-open checker racing this job), flips the alert to inactive
+// and pushes an FCM notification to every device of the alert's owner.
+// Quote endpoints/formats mirror lib/features/investments/data/
+// investment_quote_service.dart (Yahoo v8 chart meta + CoinGecko simple/price).
+
+const QUOTE_HEADERS = {"User-Agent": "Mozilla/5.0 (Fintab)"};
+
+/** pt-BR / en-US currency formatting, matching the app's fmtNative. Cheap
+ * crypto (< 1 unit) keeps up to 8 decimals so targets don't render as 0,00. */
+function fmtAlertMoney(v, currency, crypto) {
+  const maxDigits = crypto && Math.abs(v) < 1 ? 8 : 2;
+  return new Intl.NumberFormat(currency === "USD" ? "en-US" : "pt-BR", {
+    style: "currency",
+    currency: currency === "USD" ? "USD" : "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: maxDigits,
+  }).format(v);
+}
+
+async function fetchStockPrice(symbol) {
+  try {
+    const url = "https://query1.finance.yahoo.com/v8/finance/chart/" +
+        encodeURIComponent(symbol) + "?range=1d&interval=1d";
+    const r = await fetch(url,
+        {headers: QUOTE_HEADERS, signal: AbortSignal.timeout(8000)});
+    if (!r.ok) return null;
+    const j = await r.json();
+    const p = j && j.chart && j.chart.result && j.chart.result[0] &&
+        j.chart.result[0].meta && j.chart.result[0].meta.regularMarketPrice;
+    return typeof p === "number" && isFinite(p) ? p : null;
+  } catch (e) {
+    logger.warn("priceAlertsCheck stock fetch failed", {symbol, e: String(e)});
+    return null;
+  }
+}
+
+async function fetchCryptoPrices(ids) {
+  if (!ids.length) return {};
+  try {
+    const url = "https://api.coingecko.com/api/v3/simple/price?ids=" +
+        encodeURIComponent(ids.join(",")) + "&vs_currencies=brl";
+    const r = await fetch(url,
+        {headers: QUOTE_HEADERS, signal: AbortSignal.timeout(8000)});
+    if (!r.ok) return {};
+    const j = await r.json();
+    const out = {};
+    for (const id of ids) {
+      const p = j && j[id] && j[id].brl;
+      if (typeof p === "number" && isFinite(p)) out[id] = p;
+    }
+    return out;
+  } catch (e) {
+    logger.warn("priceAlertsCheck crypto fetch failed", {e: String(e)});
+    return {};
+  }
+}
+
+exports.priceAlertsCheck = onSchedule(
+    {
+      schedule: "every 15 minutes",
+      region: "us-central1",
+      memory: "256MiB",
+      timeoutSeconds: 120,
+    },
+    async () => {
+      const snap = await db.collection("price_alerts")
+          .where("active", "==", true).limit(500).get();
+      if (snap.empty) return;
+
+      // One fetch per unique symbol: crypto batched, stocks sequential (keeps
+      // Yahoo happy; alert volume is small).
+      const stockSyms = new Set();
+      const cryptoIds = new Set();
+      for (const d of snap.docs) {
+        const a = d.data();
+        if (!a.quoteSymbol) continue;
+        if (a.kind === "crypto") cryptoIds.add(a.quoteSymbol);
+        else stockSyms.add(a.quoteSymbol);
+      }
+      const prices = await fetchCryptoPrices([...cryptoIds]);
+      for (const sym of stockSyms) {
+        const p = await fetchStockPrice(sym);
+        if (p != null) prices[sym] = p;
+      }
+
+      let fired = 0;
+      for (const doc of snap.docs) {
+        const a = doc.data();
+        const price = prices[a.quoteSymbol];
+        const target = Number(a.targetPrice);
+        if (price == null || !isFinite(price) || price <= 0 ||
+            !isFinite(target) || target <= 0) continue;
+        const hit = a.condition === "below" ? price <= target : price >= target;
+        if (!hit) continue;
+
+        // Delivery check BEFORE the claim: with no push tokens (e.g. iOS
+        // while APNs isn't configured) the alert must stay active so the
+        // app-side checker can still deliver it locally on next open.
+        let tokDoc = null;
+        let tokens = [];
+        try {
+          tokDoc = await db.collection("fcm_tokens").doc(a.userId).get();
+          tokens = tokDoc.exists && Array.isArray(tokDoc.data().tokens) ?
+              tokDoc.data().tokens.filter((t) => typeof t === "string") : [];
+        } catch (err) {
+          logger.error("priceAlertsCheck token read failed",
+              {alertId: doc.id, err: String(err)});
+        }
+        if (!tokens.length) continue;
+
+        // Claim the trigger atomically — loses gracefully to the app-side
+        // checker or a previous run.
+        const won = await db.runTransaction(async (t) => {
+          const fresh = await t.get(doc.ref);
+          if (!fresh.exists || fresh.data().active !== true) return false;
+          t.update(doc.ref, {
+            active: false,
+            triggeredAt: FieldValue.serverTimestamp(),
+            triggeredPrice: price,
+          });
+          return true;
+        }).catch((err) => {
+          logger.error("priceAlertsCheck claim failed",
+              {alertId: doc.id, err: String(err)});
+          return false;
+        });
+        if (!won) continue;
+
+        try {
+          const currency = a.kind === "stockUs" ? "USD" : "BRL";
+          const isCrypto = a.kind === "crypto";
+          const up = a.condition !== "below";
+          const res = await getMessaging().sendEachForMulticast({
+            tokens,
+            notification: {
+              title: (up ? "📈 " : "📉 ") + a.ticker + " atingiu " +
+                  fmtAlertMoney(price, currency, isCrypto),
+              body: "Seu alerta de " + (up ? "acima de " : "abaixo de ") +
+                  fmtAlertMoney(target, currency, isCrypto) +
+                  " disparou. Toque para ver.",
+            },
+            data: {type: "price_alert", alertId: doc.id},
+            android: {notification: {channelId: "price_alerts"}},
+            apns: {payload: {aps: {sound: "default"}}},
+          });
+          // Prune ONLY dead registration tokens — a payload-level
+          // invalid-argument fails for every token and must not wipe the doc.
+          const dead = [];
+          res.responses.forEach((r, i) => {
+            const code = r.error && r.error.code;
+            if (code === "messaging/registration-token-not-registered" ||
+                code === "messaging/invalid-registration-token") {
+              dead.push(tokens[i]);
+            }
+          });
+          if (dead.length) {
+            await tokDoc.ref.update({tokens: FieldValue.arrayRemove(...dead)})
+                .catch(() => {});
+          }
+          if (res.successCount === 0) {
+            throw new Error("no push delivered (" +
+                res.failureCount + " failures)");
+          }
+          fired++;
+        } catch (err) {
+          logger.error("priceAlertsCheck push failed",
+              {alertId: doc.id, err: String(err)});
+          // Undo the claim so the alert can still fire later (next scheduled
+          // run after token pruning, or the app-side local checker).
+          await doc.ref.update({
+            active: true,
+            triggeredAt: FieldValue.delete(),
+            triggeredPrice: FieldValue.delete(),
+          }).catch((e2) => logger.error("priceAlertsCheck revert failed",
+              {alertId: doc.id, err: String(e2)}));
+        }
+      }
+      logger.info("priceAlertsCheck done", {alerts: snap.size, fired});
     },
 );

@@ -319,6 +319,23 @@ service cloud.firestore {
       allow create:               if isSignedIn() && isCreatingOwnDoc();
     }
 
+    // ── /price_alerts/{alertId} ──────────────────────────────────────────────
+    // Personal price alerts (investments) — they follow the account, not the
+    // Carteira, so only the owning user can read/write them.
+    match /price_alerts/{alertId} {
+      allow read, delete: if isSignedIn() && isOwnerOfExistingDoc();
+      allow update:       if isSignedIn() && isOwnerOfExistingDoc()
+                              && userIdUnchanged();
+      allow create:       if isSignedIn() && isCreatingOwnDoc();
+    }
+
+    // ── /fcm_tokens/{userId} ─────────────────────────────────────────────────
+    // Push tokens for the account's devices (doc ID == uid). Read server-side
+    // by the scheduled price-alert Cloud Function.
+    match /fcm_tokens/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     // ── /invitations/{invitationId} ───────────────────────────────────────────
     // Master: creates 'pending' invitations for their own account, may change
     //         only the status afterwards (e.g. 'removed'), and may delete.

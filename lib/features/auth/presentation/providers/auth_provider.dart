@@ -10,6 +10,7 @@ import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import '../../domain/usecases/sign_up_usecase.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/usecases/usecase.dart';
 
 // --- Infrastructure Providers ---
@@ -158,12 +159,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> signOut() async {
+    // Unregister this device's push token while still authenticated.
+    await PushNotificationService.instance.removeToken();
     await _signOut(const NoParams());
     state = const AuthState();
   }
 
   Future<bool> deleteAccount({String? password}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
+    await PushNotificationService.instance.removeToken();
     final result = await _authRepository.deleteAccount(password: password);
     return result.fold(
       (failure) {

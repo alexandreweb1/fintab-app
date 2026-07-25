@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../data/investment_quote_service.dart';
 import '../../domain/investment_asset.dart';
 import '../widgets/add_to_portfolio_dialog.dart';
 import '../widgets/asset_price_chart.dart';
+import '../widgets/price_alert_dialog.dart';
 import 'investments_screen.dart' show fmtNative;
 
 const _kGreen = Color(0xFF00A86B);
@@ -12,7 +14,7 @@ const _kGreen = Color(0xFF00A86B);
 /// Read-only preview of an asset the user is considering (before it's in the
 /// portfolio): live quote, price chart with period filters and factual data,
 /// plus an "add to portfolio" action.
-class AssetPreviewScreen extends StatefulWidget {
+class AssetPreviewScreen extends ConsumerStatefulWidget {
   final String ticker;
   final String quoteSymbol;
   final String name;
@@ -26,10 +28,11 @@ class AssetPreviewScreen extends StatefulWidget {
   });
 
   @override
-  State<AssetPreviewScreen> createState() => _AssetPreviewScreenState();
+  ConsumerState<AssetPreviewScreen> createState() =>
+      _AssetPreviewScreenState();
 }
 
-class _AssetPreviewScreenState extends State<AssetPreviewScreen> {
+class _AssetPreviewScreenState extends ConsumerState<AssetPreviewScreen> {
   bool _loading = true;
   AssetQuote? _quote;
 
@@ -74,7 +77,28 @@ class _AssetPreviewScreenState extends State<AssetPreviewScreen> {
     final canAdd = !_loading && q != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.ticker)),
+      appBar: AppBar(
+        title: Text(widget.ticker),
+        actions: [
+          IconButton(
+            tooltip: l10n.investCreateAlert,
+            icon: const Icon(Icons.add_alert_outlined),
+            onPressed: () => openPriceAlertDialog(
+              context,
+              ref,
+              asset: InvestmentAsset(
+                id: '',
+                userId: '',
+                ticker: widget.ticker,
+                quoteSymbol: widget.quoteSymbol,
+                name: widget.name,
+                kind: widget.kind,
+                createdAt: DateTime.now(),
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: canAdd ? _add : null,
         backgroundColor: canAdd ? null : cs.surfaceContainerHighest,

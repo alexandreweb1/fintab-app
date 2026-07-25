@@ -1,8 +1,11 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  plugins:
-    - custom_lint
+  # custom_lint desativado no editor p/ economizar ~1.4GB de RAM (máquina 8GB).
+  # Os lints do riverpod continuam disponíveis: rode `dart run custom_lint` no
+  # terminal antes de commitar. Para reativar ao vivo, descomente as 2 linhas:
+  # plugins:
+  #   - custom_lint
   exclude:
     - "**/*.g.dart"
 

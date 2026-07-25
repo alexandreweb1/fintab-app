@@ -473,6 +473,46 @@ class AppLocalizations {
       'Enter the quantity and price to track this asset in your portfolio.',
       'Ingresa la cantidad y el precio para seguir este activo en tu cartera.');
 
+  // ── Price alerts (investments, Pro) ─────────────────────────────────────────
+  String get investAlerts =>
+      _t('Alertas de preço', 'Price alerts', 'Alertas de precio');
+  String get investAlertsDesc => _t(
+      'Receba uma notificação quando uma ação ou cripto atingir o preço que você definir.',
+      'Get notified when a stock or crypto reaches the price you set.',
+      'Recibe una notificación cuando una acción o cripto alcance el precio que definas.');
+  String get investCreateAlert =>
+      _t('Criar alerta', 'Create alert', 'Crear alerta');
+  String get investAlertCondAbove => _t('Acima de', 'Above', 'Por encima de');
+  String get investAlertCondBelow => _t('Abaixo de', 'Below', 'Por debajo de');
+  String get investAlertTargetPrice =>
+      _t('Preço-alvo', 'Target price', 'Precio objetivo');
+  String get investAlertAsset => _t('Ativo', 'Asset', 'Activo');
+  String get investAlertActive => _t('Ativo', 'Active', 'Activa');
+  String get investAlertTriggered => _t('Disparado', 'Triggered', 'Disparada');
+  String get investAlertRearm =>
+      _t('Reativar alerta', 'Re-arm alert', 'Reactivar alerta');
+  String get investAlertDelete =>
+      _t('Excluir alerta', 'Delete alert', 'Eliminar alerta');
+  String get investAlertSaved => _t('Alerta criado', 'Alert created', 'Alerta creada');
+  String get investAlertsEmpty =>
+      _t('Nenhum alerta criado', 'No alerts yet', 'Sin alertas');
+  String get investAlertsEmptyDesc => _t(
+      'Crie alertas para ser avisado quando uma ação ou cripto atingir um preço. Abra um ativo e toque no sino.',
+      'Create alerts to be notified when a stock or crypto hits a price. Open an asset and tap the bell.',
+      'Crea alertas para recibir avisos cuando una acción o cripto alcance un precio. Abre un activo y toca la campana.');
+  String get investAlertNeedAsset => _t(
+      'Adicione ou abra um ativo para criar um alerta.',
+      'Add or open an asset to create an alert.',
+      'Agrega o abre un activo para crear una alerta.');
+  String get investAlertTargetAboveError => _t(
+      'Para alerta de "acima", o preço-alvo deve ser maior que a cotação atual',
+      'For an "above" alert, the target must be higher than the current price',
+      'Para una alerta de "por encima", el objetivo debe superar el precio actual');
+  String get investAlertTargetBelowError => _t(
+      'Para alerta de "abaixo", o preço-alvo deve ser menor que a cotação atual',
+      'For a "below" alert, the target must be lower than the current price',
+      'Para una alerta de "por debajo", el objetivo debe ser menor que el precio actual');
+
   // ── Workspaces ("Carteiras" PF/PJ) ─────────────────────────────────────────
   String get workspaces => _t('Carteiras', 'Spaces', 'Espacios');
   String get workspacePersonal => _t('Pessoal (PF)', 'Personal', 'Personal');

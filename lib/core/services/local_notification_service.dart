@@ -11,12 +11,16 @@ import 'notification_suggestion.dart';
 /// Callback invoked when the user taps on a transaction suggestion notification.
 typedef OnSuggestionTap = void Function(NotificationSuggestion suggestion);
 
+/// Callback invoked when the user taps a price-alert notification.
+typedef OnPriceAlertTap = void Function();
+
 class LocalNotificationService {
   LocalNotificationService._();
   static final instance = LocalNotificationService._();
 
   final _plugin = FlutterLocalNotificationsPlugin();
   OnSuggestionTap? _onSuggestionTap;
+  OnPriceAlertTap? _onPriceAlertTap;
 
   static const _channelId = 'transaction_suggestions';
   static const _channelName = 'Sugestões de lançamento';
@@ -28,10 +32,22 @@ class LocalNotificationService {
   static const _billChannelDesc =
       'Avisa quando uma conta a pagar ou receber está perto do vencimento';
 
+  // The id must match the Cloud Function's `android.notification.channelId`
+  // and the manifest's default_notification_channel_id, so FCM pushes landing
+  // with the app in background use this same channel.
+  static const _alertChannelId = 'price_alerts';
+  static const _alertChannelName = 'Alertas de preço';
+  static const _alertChannelDesc =
+      'Avisa quando um ativo atinge o preço-alvo de um alerta';
+
   bool _tzReady = false;
 
-  Future<void> init({required OnSuggestionTap onSuggestionTap}) async {
+  Future<void> init({
+    required OnSuggestionTap onSuggestionTap,
+    OnPriceAlertTap? onPriceAlertTap,
+  }) async {
     _onSuggestionTap = onSuggestionTap;
+    _onPriceAlertTap = onPriceAlertTap;
 
     // Timezone DB — required by zonedSchedule for bill reminders.
     try {
@@ -66,6 +82,21 @@ class LocalNotificationService {
         _plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+
+    // Pre-create the price-alerts channel so FCM pushes delivered while the
+    // app is in background (which bypass this plugin) land on it.
+    try {
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _alertChannelId,
+          _alertChannelName,
+          description: _alertChannelDesc,
+          importance: Importance.high,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[LocalNotif] createNotificationChannel failed: $e');
+    }
 
     // Request iOS permission (Darwin).
     await _plugin
@@ -161,11 +192,45 @@ class LocalNotificationService {
     }
   }
 
+  /// Shows an immediate price-alert notification. [title]/[body] come ready
+  /// from the checker (or from a foreground FCM message).
+  Future<void> showPriceAlert({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await _plugin.show(
+        id,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _alertChannelId,
+            _alertChannelName,
+            channelDescription: _alertChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        payload: jsonEncode({'kind': 'price_alert'}),
+      );
+    } catch (e) {
+      debugPrint('[LocalNotif] showPriceAlert failed: $e');
+    }
+  }
+
   void _onNotificationResponse(NotificationResponse response) {
     final payload = response.payload;
     if (payload == null) return;
     try {
       final map = jsonDecode(payload) as Map<String, dynamic>;
+      if (map['kind'] == 'price_alert') {
+        _onPriceAlertTap?.call();
+        return;
+      }
       final suggestion = NotificationSuggestion.fromJson(map);
       _onSuggestionTap?.call(suggestion);
     } catch (_) {}

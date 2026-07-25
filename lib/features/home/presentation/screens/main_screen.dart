@@ -20,9 +20,14 @@ import '../../../../core/utils/animated_dialog.dart';
 import '../../../notification_backlog/presentation/providers/backlog_provider.dart';
 import '../../../../core/services/app_update_service.dart';
 import '../../../../core/services/in_app_update_service.dart';
+import '../../../../core/services/local_notification_service.dart';
 import '../../../../core/services/notification_listener_service.dart';
 import '../../../../core/services/notification_permission_dialog.dart';
+import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/services/home_widget_service.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../investments/presentation/providers/price_alerts_provider.dart';
+import '../../../investments/presentation/screens/price_alerts_screen.dart';
 import '../providers/dashboard_provider.dart';
 import '../../../../core/services/notification_providers.dart';
 import '../../../../core/services/notification_suggestion.dart';
@@ -111,11 +116,48 @@ class _MainScreenState extends ConsumerState<MainScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initLocalNotifications();
     _initNotificationFeature();
     _initShareIntent();
     _initQuickActions();
     _initInAppUpdate();
     _initReviewPrompt();
+    _initPriceAlerts();
+  }
+
+  /// Boots the local-notifications plugin: timezone DB (bill reminders depend
+  /// on it), tap routing and the POST_NOTIFICATIONS / iOS permission request.
+  Future<void> _initLocalNotifications() async {
+    if (kIsWeb) return;
+    await LocalNotificationService.instance.init(
+      onSuggestionTap: (s) {
+        if (mounted) ref.read(pendingSuggestionProvider.notifier).state = s;
+      },
+      onPriceAlertTap: () {
+        if (mounted) {
+          ref.read(pendingPriceAlertTapProvider.notifier).state = true;
+        }
+      },
+    );
+  }
+
+  /// Registers for FCM pushes (scheduled price-alert checks) and runs the
+  /// on-open alert check once the startup prompts have settled.
+  Future<void> _initPriceAlerts() async {
+    if (kIsWeb) return;
+    await Future<void>.delayed(const Duration(seconds: 6));
+    if (!mounted) return;
+    final uid = ref.read(authStateProvider).value?.id ?? '';
+    if (uid.isEmpty) return;
+    await PushNotificationService.instance.init(
+      uid: uid,
+      onAlertTap: () {
+        if (mounted) {
+          ref.read(pendingPriceAlertTapProvider.notifier).state = true;
+        }
+      },
+    );
+    await ref.read(priceAlertCheckerProvider).checkNow(force: true);
   }
 
   @override
@@ -144,6 +186,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
       _checkClipboardSuggestion();
       // Kick the outbox sync in case items piled up while the app was killed.
       ref.read(backlogSyncWorkerProvider).tickNow();
+      // Re-evaluate price alerts (throttled internally to every 10 min).
+      ref.read(priceAlertCheckerProvider).checkNow();
     }
   }
 
@@ -578,6 +622,14 @@ class _MainScreenState extends ConsumerState<MainScreen>
     // Listen for external navigation (e.g. from dashboard cards)
     ref.listen<int>(mainTabIndexProvider, (_, next) {
       if (next != _currentIndex) _changeTab(next);
+    });
+
+    // Open the price-alerts screen when an alert notification is tapped
+    ref.listen<bool>(pendingPriceAlertTapProvider, (_, fired) {
+      if (!fired) return;
+      ref.read(pendingPriceAlertTapProvider.notifier).state = false;
+      Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PriceAlertsScreen()));
     });
 
     // Open AddTransactionDialog when a notification suggestion is tapped
