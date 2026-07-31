@@ -368,14 +368,16 @@ class _ActionsRow extends ConsumerWidget {
   }
 
   Future<void> _importManually(BuildContext context, WidgetRef ref) async {
-    // Mark as imported immediately so the UI updates; user can still cancel the dialog.
-    await ref.read(backlogNotifierProvider.notifier).markManuallyImported(item.id);
-    if (!context.mounted) return;
+    // Open the transaction dialog first, then flag the item as imported only if
+    // the user actually saves (via onSaved). Cancelling leaves it in "Pendentes"
+    // instead of stranding it as "Importada" with no transaction behind it.
+    final notifier = ref.read(backlogNotifierProvider.notifier);
     await showAnimatedDialog<void>(
       context: context,
       builder: (_) => AddTransactionDialog(
         initialAmount: item.amount,
         initialType: item.type,
+        onSaved: () => notifier.markManuallyImported(item.id),
       ),
     );
   }

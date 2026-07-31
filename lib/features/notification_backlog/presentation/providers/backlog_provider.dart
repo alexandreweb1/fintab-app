@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -147,21 +149,37 @@ class BacklogNotifier extends StateNotifier<AsyncValue<void>> {
     } catch (e) {
       debugPrint('[Backlog] outbox.updateStatus failed: $e');
     }
-    // Also try Firestore — if the item was already synced under this id,
-    // the update will succeed; if not, the doc doesn't exist yet and we ignore
-    // (the worker will upload the up-to-date payload from the outbox).
-    try {
-      await _ds.markStatus(
-        backlogItemId,
-        status: BacklogItemStatus.autoImported,
-        transactionId: transactionId,
-      );
-    } catch (_) {
-      // Expected if doc isn't in Firestore yet — outbox holds the new status.
-    }
+    // Also mirror the status to Firestore — if the item was already synced
+    // under this id the update succeeds; if not, the doc doesn't exist yet and
+    // the worker uploads the up-to-date payload from the outbox later.
+    //
+    // Fire-and-forget on purpose: awaiting this network write would hang the
+    // caller whenever Firestore is unreachable or the doc doesn't exist under
+    // this id (with offline persistence the write Future stays pending until
+    // the server acks). The awaited outbox update above already reflects the
+    // new status locally.
+    unawaited(
+      _ds
+          .markStatus(
+            backlogItemId,
+            status: BacklogItemStatus.autoImported,
+            transactionId: transactionId,
+          )
+          .catchError((Object _) {
+        // Expected if doc isn't in Firestore yet — outbox holds the new status.
+      }),
+    );
   }
 
   /// Marks one item as manually imported (user clicked "Importar").
+  ///
+  /// The local outbox update is awaited (fast, no network) so the UI flips
+  /// immediately. The Firestore write is fire-and-forget: awaiting it here used
+  /// to hang the caller when Firestore was unreachable or the doc didn't exist
+  /// under this id (for a still-local item the doc lives under a different, not-
+  /// yet-synced id, so `.doc(id).update()` never resolves with offline
+  /// persistence). That hang blocked `_importManually` from ever opening the
+  /// import dialog — the item flipped to "Importada" but no dialog appeared.
   Future<void> markManuallyImported(String itemId) async {
     try {
       await _outbox.updateStatus(
@@ -169,11 +187,13 @@ class BacklogNotifier extends StateNotifier<AsyncValue<void>> {
         status: BacklogItemStatus.manuallyImported,
       );
     } catch (_) {}
-    try {
-      await _ds.markStatus(itemId, status: BacklogItemStatus.manuallyImported);
-    } catch (e) {
-      debugPrint('[Backlog] markManuallyImported failed: $e');
-    }
+    unawaited(
+      _ds
+          .markStatus(itemId, status: BacklogItemStatus.manuallyImported)
+          .catchError((Object e) {
+        debugPrint('[Backlog] markManuallyImported firestore failed: $e');
+      }),
+    );
   }
 
   /// Permanently removes one item from the backlog (Firestore + outbox).

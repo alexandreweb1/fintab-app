@@ -16,6 +16,11 @@ import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../category_rules/domain/category_rule_matcher.dart';
 import '../../../category_rules/presentation/providers/category_rules_provider.dart';
+import '../../../budget/domain/entities/budget_entity.dart';
+import '../../../budget/presentation/providers/budget_insights_provider.dart';
+import '../../../budget/presentation/providers/budget_nudge_signal_provider.dart';
+import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../../core/services/budget_nudge_service.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../subscription/presentation/widgets/pro_badge_widget.dart';
 import '../../../subscription/presentation/widgets/pro_gate_widget.dart';
@@ -46,12 +51,18 @@ class AddTransactionDialog extends ConsumerStatefulWidget {
   /// Pre-selects a wallet (e.g. launching a purchase straight onto a card).
   final String? initialWalletId;
 
+  /// Called right after a transaction is successfully saved (created or
+  /// updated), before the dialog closes. Used by the notification backlog to
+  /// only flag an item as imported once the user actually confirms the save.
+  final VoidCallback? onSaved;
+
   const AddTransactionDialog({
     super.key,
     this.transaction,
     this.initialAmount,
     this.initialType,
     this.initialWalletId,
+    this.onSaved,
   });
 
   @override
@@ -263,8 +274,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       // Guard the listener so this programmatic write doesn't reopen the box.
       _applyingSuggestion = true;
       _titleController.text = fill;
-      _titleController.selection =
-          TextSelection.collapsed(offset: fill.length);
+      _titleController.selection = TextSelection.collapsed(offset: fill.length);
       _applyingSuggestion = false;
       _lastTitleNorm = normalizeForSearch(fill);
     }
@@ -772,8 +782,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   }
 
   Future<void> _removeAttachment(String url) async {
-    setState(() => _attachmentUrls =
-        _attachmentUrls.where((u) => u != url).toList());
+    setState(() =>
+        _attachmentUrls = _attachmentUrls.where((u) => u != url).toList());
     // Best-effort cleanup in storage (ignored on failure).
     unawaited(ReceiptStorageService.deleteByUrl(url));
   }
@@ -793,7 +803,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       children: [
         Row(
           children: [
-            Icon(Icons.attach_file_rounded, size: 18, color: cs.onSurfaceVariant),
+            Icon(Icons.attach_file_rounded,
+                size: 18, color: cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(l10n.attachments,
                 style: TextStyle(
@@ -955,6 +966,9 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
     if (!mounted) return;
     if (success) {
+      // Notify openers (e.g. the notification backlog) that a save happened,
+      // before any early-return branch below closes the dialog.
+      widget.onSaved?.call();
       if (!_isEditing) {
         if (wasFirstTransaction) {
           AnalyticsService.instance.logFirstTransaction();
@@ -994,7 +1008,16 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
           return;
         }
       }
+      // Budget nudge — offer to track/plan when this expense fell outside the
+      // budget (fires on every out-of-plan expense until the user opts out).
+      final nudge =
+          (!_isEditing && _type == TransactionType.expense && _category != null)
+              ? await _decideBudgetNudge(category: _category!, amount: amount)
+              : null;
+      if (!mounted) return;
+      final nudgeNotifier = ref.read(pendingBudgetNudgeProvider.notifier);
       Navigator.of(context).pop();
+      if (nudge != null) nudgeNotifier.state = nudge;
     } else {
       final errorMsg =
           ref.read(transactionsNotifierProvider).error?.toString() ??
@@ -1007,6 +1030,50 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         ),
       );
     }
+  }
+
+  /// Decides which (if any) budget nudge to surface after saving [category].
+  /// Returns null when the category is already budgeted, when the nudge was
+  /// silenced, or while the Pro status is still unknown.
+  Future<BudgetNudgePayload?> _decideBudgetNudge({
+    required String category,
+    required double amount,
+  }) async {
+    final txMonth = DateTime(_date.year, _date.month, 1);
+    List<BudgetEntity> monthBudgets = const [];
+    try {
+      monthBudgets = await ref
+          .read(budgetsForMonthProvider(txMonth).future)
+          .timeout(const Duration(seconds: 2), onTimeout: () => const []);
+    } catch (_) {
+      monthBudgets = const [];
+    }
+    if (!mounted) return null;
+
+    final key = category.toLowerCase().trim();
+    final covered =
+        monthBudgets.any((b) => b.categoryName.toLowerCase().trim() == key);
+    if (covered) return null;
+
+    final isPro = ref.read(isProProvider);
+    // Never upsell a user whose Pro status hasn't loaded yet.
+    if (!isPro && ref.read(isSubscriptionLoadingProvider)) return null;
+
+    final isUpsell = !isPro;
+    final show =
+        await BudgetNudgeService.instance.shouldShow(isUpsell: isUpsell);
+    if (!mounted || !show) return null;
+
+    if (!isPro) {
+      final fora = ref.read(unplannedSpendingProvider).total;
+      return BudgetNudgePayload.freeEducational(
+          category: category, foraDoPlano: fora);
+    }
+    if (monthBudgets.isNotEmpty) {
+      return BudgetNudgePayload.createForCategory(
+          category: category, suggested: amount);
+    }
+    return BudgetNudgePayload.startBudgets(category: category);
   }
 
   @override
@@ -1289,7 +1356,8 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                     initialValue: _installments,
                     decoration: InputDecoration(
                       labelText: l10n.installments,
-                      prefixIcon: const Icon(Icons.credit_card_rounded, size: 20),
+                      prefixIcon:
+                          const Icon(Icons.credit_card_rounded, size: 20),
                       border: const OutlineInputBorder(),
                     ),
                     items: List.generate(24, (i) => i + 1)
@@ -1299,8 +1367,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                                   n == 1 ? l10n.installmentSingle : '${n}x'),
                             ))
                         .toList(),
-                    onChanged: (v) =>
-                        setState(() => _installments = v ?? 1),
+                    onChanged: (v) => setState(() => _installments = v ?? 1),
                   ),
                 ],
                 // ── Goal selector (income only) ──────────────────────
@@ -1544,17 +1611,17 @@ class _AttachmentThumb extends StatelessWidget {
                       errorBuilder: (_, __, ___) => Icon(
                           Icons.broken_image_outlined,
                           color: cs.onSurfaceVariant),
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : const Center(
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  ),
-                                ),
+                      loadingBuilder: (context, child, progress) => progress ==
+                              null
+                          ? child
+                          : const Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
                     )
                   : Icon(Icons.picture_as_pdf_rounded,
                       color: cs.error, size: 30),

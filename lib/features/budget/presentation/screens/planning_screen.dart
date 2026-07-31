@@ -22,6 +22,9 @@ import '../../../wallets/presentation/widgets/wallet_buckets_widgets.dart';
 import '../../../workspaces/presentation/workspace_switcher.dart';
 import '../../domain/entities/budget_entity.dart';
 import '../../domain/ideal_budget.dart';
+import '../../domain/month_closeout.dart';
+import '../providers/budget_insights_provider.dart';
+import '../providers/budget_nudge_signal_provider.dart';
 import '../providers/budget_provider.dart';
 
 class PlanningScreen extends ConsumerStatefulWidget {
@@ -60,13 +63,49 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
     final selectedMonth = ref.watch(selectedMonthProvider);
     final viewMode = ref.watch(budgetViewModeProvider);
     final summaries = ref.watch(activeBudgetSummariesProvider);
+    final unplanned = ref.watch(unplannedSpendingProvider);
     final budgetsAsync = viewMode == BudgetPeriod.monthly
         ? ref.watch(budgetsStreamProvider)
         : ref.watch(budgetsByYearStreamProvider);
 
     final sortedSummaries = [...summaries]
-      ..sort((a, b) =>
-          a.budget.categoryName.compareTo(b.budget.categoryName));
+      ..sort((a, b) => a.budget.categoryName.compareTo(b.budget.categoryName));
+
+    // A nudge CTA (from the add-transaction sheet) can ask us to open the
+    // pre-filled budget dialog / template chooser once Orçamentos is up.
+    // Uses watch (not listen) so a request set BEFORE this tab was ever built
+    // (e.g. a Pro user with no budgets who never opened Planejamento) is still
+    // picked up on the first build.
+    if (ref.watch(pendingBudgetDialogProvider) != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final req = ref.read(pendingBudgetDialogProvider);
+        if (req == null) return; // already handled by an earlier frame
+        ref.read(pendingBudgetDialogProvider.notifier).state = null;
+        final month = ref.read(selectedMonthProvider);
+        final vm = ref.read(budgetViewModeProvider);
+        if (_tabController.index != 0) _tabController.animateTo(0);
+        if (req.kind == BudgetDialogKind.templateChooser) {
+          showBudgetTemplateChooser(context, ref, month: month, viewMode: vm);
+        } else {
+          final categories = ref.read(expenseCategoriesProvider);
+          final matches = categories
+              .where((c) =>
+                  c.name.toLowerCase().trim() ==
+                  req.categoryName.toLowerCase().trim())
+              .toList();
+          showAnimatedDialog(
+            context: context,
+            builder: (_) => _AddBudgetDialog(
+              month: month,
+              period: vm,
+              initialCategory: matches.isNotEmpty ? matches.first : null,
+              initialLimit: req.suggested,
+            ),
+          );
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -148,7 +187,11 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
                             month: selectedMonth, viewMode: viewMode)
                         : ListView.builder(
                             padding: const EdgeInsets.only(bottom: 24),
-                            itemCount: sortedSummaries.length + 2,
+                            itemCount: sortedSummaries.length +
+                                2 +
+                                (unplanned.isEmpty
+                                    ? 0
+                                    : unplanned.items.length + 1),
                             itemBuilder: (ctx, i) {
                               if (i == 0) {
                                 return _AnimatedListItem(
@@ -159,19 +202,39 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
                                   ),
                                 );
                               }
-                              if (i == sortedSummaries.length + 1) {
+                              if (i <= sortedSummaries.length) {
                                 return _AnimatedListItem(
                                   index: i,
-                                  child: _AddBudgetButton(
-                                    month: selectedMonth,
-                                    viewMode: viewMode,
-                                  ),
+                                  child: _BudgetCard(
+                                      summary: sortedSummaries[i - 1]),
                                 );
                               }
+                              // Não planejados: header + one row per category.
+                              final afterCards = i - sortedSummaries.length - 1;
+                              final unplannedRows = unplanned.isEmpty
+                                  ? 0
+                                  : unplanned.items.length + 1;
+                              if (afterCards < unplannedRows) {
+                                if (afterCards == 0) {
+                                  return _AnimatedListItem(
+                                    index: i,
+                                    child: _UnplannedSectionHeader(
+                                        total: unplanned.total),
+                                  );
+                                }
+                                return _AnimatedListItem(
+                                  index: i,
+                                  child: _UnplannedCategoryRow(
+                                      item: unplanned.items[afterCards - 1]),
+                                );
+                              }
+                              // Last item: add-budget button.
                               return _AnimatedListItem(
                                 index: i,
-                                child: _BudgetCard(
-                                    summary: sortedSummaries[i - 1]),
+                                child: _AddBudgetButton(
+                                  month: selectedMonth,
+                                  viewMode: viewMode,
+                                ),
                               );
                             },
                           ),
@@ -397,6 +460,7 @@ class _BudgetSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fmt = ref.watch(currencyFormatterProvider);
     final l10n = AppLocalizations.of(context);
+    final closeout = ref.watch(monthCloseoutProvider);
 
     final totalPlanned =
         summaries.fold(0.0, (sum, s) => sum + s.budget.limitAmount);
@@ -493,9 +557,8 @@ class _BudgetSummaryCard extends ConsumerWidget {
                       icon: isOver
                           ? Icons.warning_amber_rounded
                           : Icons.savings_outlined,
-                      label: isOver
-                          ? l10n.budgetExceeded
-                          : l10n.budgetRemaining,
+                      label:
+                          isOver ? l10n.budgetExceeded : l10n.budgetRemaining,
                       value: fmt(remaining.abs()),
                       valueColor: progressColor,
                     ),
@@ -503,6 +566,266 @@ class _BudgetSummaryCard extends ConsumerWidget {
                 ],
               ),
             ),
+            // ── Fechamento do mês: fora do plano + folga + projeção ──
+            ..._buildCloseoutSection(context, closeout, fmt, cs),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The "como vou fechar o mês" block appended below the three summary
+  /// columns. Rendered only when there's something outside the plan or income
+  /// to project against.
+  List<Widget> _buildCloseoutSection(
+    BuildContext context,
+    MonthCloseout closeout,
+    String Function(double) fmt,
+    ColorScheme cs,
+  ) {
+    final hasFora = closeout.totalForaDoPlano > 0.005;
+    final hasIncome = closeout.income > 0.005;
+    if (!hasFora && !hasIncome) return const [];
+
+    final overspending = closeout.overspend > 0.005;
+    final accent = overspending ? Colors.red.shade600 : const Color(0xFFFFA726);
+    final accentDark =
+        overspending ? Colors.red.shade700 : const Color(0xFFEF6C00);
+    final surplus = closeout.projectedResult >= 0;
+
+    return [
+      const SizedBox(height: 16),
+      Divider(color: cs.outlineVariant, height: 1),
+      const SizedBox(height: 12),
+      if (hasIncome) _closeoutKvRow(cs, 'Receita do mês', fmt(closeout.income)),
+      if (closeout.unplannedTotal > 0.005) ...[
+        const SizedBox(height: 6),
+        _closeoutKvRow(cs, 'Não planejados', fmt(closeout.unplannedTotal)),
+      ],
+      if (hasFora) ...[
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: accent.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: accentDark),
+                  const SizedBox(width: 6),
+                  const Text('Fora do plano',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Spacer(),
+                  Text(
+                    fmt(closeout.totalForaDoPlano),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: accentDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Estouros ${fmt(closeout.overspend)} · '
+                'Não planejado ${fmt(closeout.unplannedTotal)}',
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+              if (closeout.availableRoom > 0.005) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                        closeout.canRebalance
+                            ? Icons.swap_horiz_rounded
+                            : Icons.info_outline_rounded,
+                        size: 13,
+                        color: cs.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        closeout.canRebalance
+                            ? 'Folga em outros orçamentos: '
+                                '${fmt(closeout.availableRoom)} — dá pra remanejar'
+                            : 'Folga em outros orçamentos: '
+                                '${fmt(closeout.availableRoom)} — não cobre tudo',
+                        style:
+                            TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+      if (hasIncome) ...[
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(
+                surplus
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                size: 18,
+                color: surplus ? Colors.green.shade600 : Colors.red.shade600),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                surplus ? 'Sobra prevista no mês' : 'Déficit previsto no mês',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+            Text(
+              fmt(closeout.projectedResult.abs()),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: surplus ? Colors.green.shade700 : Colors.red.shade700,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ];
+  }
+}
+
+/// A simple label / value row used inside the closeout section.
+Widget _closeoutKvRow(ColorScheme cs, String label, String value) {
+  return Row(
+    children: [
+      Text(label, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+      const Spacer(),
+      Text(value,
+          style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface)),
+    ],
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Não planejados" — spending in categories with no budget this period
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UnplannedSectionHeader extends ConsumerWidget {
+  final double total;
+
+  const _UnplannedSectionHeader({required this.total});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = ref.watch(currencyFormatterProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long_outlined,
+                  size: 18, color: cs.onSurfaceVariant),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Não planejados',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+              Text(fmt(total),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: cs.onSurface)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Gastos em categorias sem orçamento neste período.',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnplannedCategoryRow extends ConsumerWidget {
+  final UnplannedCategorySpend item;
+
+  const _UnplannedCategoryRow({required this.item});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = ref.watch(currencyFormatterProvider);
+    final categories = ref.watch(expenseCategoriesProvider);
+    final key = item.categoryName.toLowerCase().trim();
+    final cat = categories.cast<CategoryEntity?>().firstWhere(
+          (c) => c!.name.toLowerCase().trim() == key,
+          orElse: () => null,
+        );
+    final catIcon = cat != null
+        ? (kCategoryIconMap[cat.iconCodePoint] ?? Icons.category)
+        : Icons.category;
+    final catColor = cat != null ? Color(cat.colorValue) : cs.onSurfaceVariant;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: catColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(catIcon, size: 18, color: catColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.categoryName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.txCount} lançamento${item.txCount != 1 ? 's' : ''} '
+                    '· sem orçamento',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(fmt(item.amount),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           ],
         ),
       ),
@@ -640,8 +963,8 @@ class _BudgetCard extends ConsumerWidget {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.5)),
+                border:
+                    Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
               ),
               padding: EdgeInsets.fromLTRB(hPad, 14, rPad, 14),
               child: Column(
@@ -686,8 +1009,7 @@ class _BudgetCard extends ConsumerWidget {
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: cs.surfaceContainerHighest,
-                                        borderRadius:
-                                            BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
                                             color: cs.outlineVariant),
                                       ),
@@ -724,8 +1046,8 @@ class _BudgetCard extends ConsumerWidget {
                             if (summary.carryIn != 0) ...[
                               const SizedBox(height: 1),
                               Text(
-                                AppLocalizations.of(context).budgetCarriedOver(
-                                    fmt(summary.carryIn)),
+                                AppLocalizations.of(context)
+                                    .budgetCarriedOver(fmt(summary.carryIn)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -783,9 +1105,8 @@ class _BudgetCard extends ConsumerWidget {
                                   ),
                                   FilledButton(
                                     style: FilledButton.styleFrom(
-                                        backgroundColor: Theme.of(ctx)
-                                            .colorScheme
-                                            .error),
+                                        backgroundColor:
+                                            Theme.of(ctx).colorScheme.error),
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(true),
                                     child: const Text('Excluir'),
@@ -895,8 +1216,7 @@ class _EmptyBudgets extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.pie_chart_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.outlineVariant),
+              size: 64, color: Theme.of(context).colorScheme.outlineVariant),
           const SizedBox(height: 16),
           Text(
             '${l10n.noBudgetsForMonth}\n$periodLabel',
@@ -913,9 +1233,7 @@ class _EmptyBudgets extends ConsumerWidget {
                   )
                 : const Icon(Icons.post_add_outlined, size: 18),
             label: Text(l10n.createBudgets),
-            onPressed: isLoading
-                ? null
-                : () => _onCreatePressed(context, ref),
+            onPressed: isLoading ? null : () => _onCreatePressed(context, ref),
           ),
         ],
       ),
@@ -923,60 +1241,245 @@ class _EmptyBudgets extends ConsumerWidget {
   }
 
   Future<void> _onCreatePressed(BuildContext context, WidgetRef ref) async {
-    // For period views, jump straight to the add dialog: copy-from-previous
-    // and base-on-spending are monthly-only flows.
-    if (viewMode != BudgetPeriod.monthly) {
-      await showAnimatedDialog(
-        context: context,
-        builder: (_) => _AddBudgetDialog(month: month, period: viewMode),
+    await showBudgetTemplateChooser(context, ref,
+        month: month, viewMode: viewMode);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Budget template chooser — reused by the empty state AND the post-save nudge
+// (Pro user with no budgets → "começar a orçar a partir de um modelo").
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<void> showBudgetTemplateChooser(
+  BuildContext context,
+  WidgetRef ref, {
+  required DateTime month,
+  required BudgetPeriod viewMode,
+}) async {
+  // For period views, jump straight to the add dialog: copy-from-previous
+  // and base-on-spending are monthly-only flows.
+  if (viewMode != BudgetPeriod.monthly) {
+    await showAnimatedDialog(
+      context: context,
+      builder: (_) => _AddBudgetDialog(month: month, period: viewMode),
+    );
+    return;
+  }
+
+  final l10n = AppLocalizations.of(context);
+  final dateLoc = ref.read(dateLocaleProvider);
+  final currentMonthLabel =
+      DateFormat('MMMM yyyy', dateLoc).format(month).capitalizeMonth();
+
+  final choice = await showAnimatedDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('${l10n.createBudgetsFor} $currentMonthLabel'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _BudgetOptionTile(
+            icon: Icons.copy_outlined,
+            title: l10n.copyPrevLimits,
+            subtitle: l10n.copyPrevLimitsDesc,
+            onTap: () => Navigator.of(ctx).pop('copy'),
+          ),
+          const SizedBox(height: 8),
+          _BudgetOptionTile(
+            icon: Icons.insights_outlined,
+            title: l10n.baseOnSpending,
+            subtitle: l10n.baseOnSpendingDesc,
+            onTap: () => Navigator.of(ctx).pop('spending'),
+          ),
+          const SizedBox(height: 8),
+          _BudgetOptionTile(
+            icon: Icons.auto_awesome_outlined,
+            title: 'Orçamento ideal',
+            subtitle: 'Sugestão baseada na sua receita (regra 50/30/20)',
+            onTap: () => Navigator.of(ctx).pop('ideal'),
+          ),
+          const SizedBox(height: 8),
+          _BudgetOptionTile(
+            icon: Icons.add_circle_outline,
+            title: l10n.createManually,
+            subtitle: l10n.createManuallyDesc,
+            onTap: () => Navigator.of(ctx).pop('manual'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(null),
+          child: Text(l10n.cancel),
+        ),
+      ],
+    ),
+  );
+
+  if (choice == null || !context.mounted) return;
+
+  if (choice == 'manual') {
+    await showAnimatedDialog(
+      context: context,
+      builder: (_) => _AddBudgetDialog(month: month, period: viewMode),
+    );
+    return;
+  }
+
+  if (choice == 'ideal') {
+    await showAnimatedDialog(
+      context: context,
+      builder: (_) => _IdealBudgetDialog(month: month),
+    );
+    return;
+  }
+
+  // Ask the user which month to use as reference
+  final sourceMonth = await _pickBudgetSourceMonth(context, ref, month);
+  if (sourceMonth == null || !context.mounted) return;
+
+  if (choice == 'copy') {
+    // Fetch budgets for the chosen source month
+    final budgets = await ref.read(budgetsForMonthProvider(sourceMonth).future);
+    if (!context.mounted) return;
+    if (budgets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Nenhum orçamento encontrado no mês selecionado.')),
       );
       return;
     }
-    await _showCopyOptionsDialog(context, ref);
+    final success =
+        await ref.read(budgetNotifierProvider.notifier).copyFromPreviousMonth(
+              previousBudgets: budgets,
+              targetMonth: month,
+            );
+    if (!context.mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.errorReplicating)),
+      );
+    }
+  } else {
+    // Build budgets from expense categories with spending in the chosen month
+    final allTransactions = ref.read(visibleTransactionsProvider);
+    final expenseCategories = ref.read(expenseCategoriesProvider);
+    final spending = <String, double>{};
+    for (final t in allTransactions) {
+      if (t.isExpense &&
+          t.date.year == sourceMonth.year &&
+          t.date.month == sourceMonth.month) {
+        spending[t.category] = (spending[t.category] ?? 0.0) + t.amount;
+      }
+    }
+    final categoryByName = {for (final c in expenseCategories) c.name: c};
+    final spendingBudgets = spending.entries
+        .map((entry) {
+          final category = categoryByName[entry.key];
+          if (category == null) return null;
+          return BudgetEntity(
+            id: '',
+            userId: '',
+            categoryId: category.id,
+            categoryName: category.name,
+            limitAmount: entry.value,
+            month: month,
+          );
+        })
+        .whereType<BudgetEntity>()
+        .toList();
+    if (spendingBudgets.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.errorReplicating)),
+        );
+      }
+      return;
+    }
+    final success =
+        await ref.read(budgetNotifierProvider.notifier).copyFromPreviousMonth(
+              previousBudgets: spendingBudgets,
+              targetMonth: month,
+            );
+    if (!context.mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.errorReplicating)),
+      );
+    }
   }
+}
 
-  Future<void> _showCopyOptionsDialog(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final l10n = AppLocalizations.of(context);
-    final dateLoc = ref.read(dateLocaleProvider);
-    final currentMonthLabel =
-        DateFormat('MMMM yyyy', dateLoc).format(month).capitalizeMonth();
+Future<DateTime?> _pickBudgetSourceMonth(
+    BuildContext context, WidgetRef ref, DateTime month) async {
+  final l10n = AppLocalizations.of(context);
+  final dateLoc = ref.read(dateLocaleProvider);
 
-    final choice = await showAnimatedDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${l10n.createBudgetsFor} $currentMonthLabel'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+  // Default: previous month relative to target
+  final prevMonth = DateTime(month.year, month.month - 1, 1);
+  int selectedMonth = prevMonth.month;
+  int selectedYear = prevMonth.year;
+
+  // Year range: 5 years back from current target month year
+  final years = List.generate(6, (i) => month.year - i);
+  final monthNames = List.generate(
+    12,
+    (i) => DateFormat('MMMM', dateLoc)
+        .format(DateTime(2000, i + 1))
+        .capitalizeMonth(),
+  );
+
+  return showAnimatedDialog<DateTime>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text(l10n.selectSourceMonth),
+        content: Row(
           children: [
-            _BudgetOptionTile(
-              icon: Icons.copy_outlined,
-              title: l10n.copyPrevLimits,
-              subtitle: l10n.copyPrevLimitsDesc,
-              onTap: () => Navigator.of(ctx).pop('copy'),
+            // Month dropdown
+            Expanded(
+              flex: 3,
+              child: DropdownButtonFormField<int>(
+                initialValue: selectedMonth,
+                decoration: const InputDecoration(
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(),
+                ),
+                items: List.generate(
+                  12,
+                  (i) => DropdownMenuItem(
+                    value: i + 1,
+                    child: Text(monthNames[i]),
+                  ),
+                ),
+                onChanged: (v) {
+                  if (v != null) setState(() => selectedMonth = v);
+                },
+              ),
             ),
-            const SizedBox(height: 8),
-            _BudgetOptionTile(
-              icon: Icons.insights_outlined,
-              title: l10n.baseOnSpending,
-              subtitle: l10n.baseOnSpendingDesc,
-              onTap: () => Navigator.of(ctx).pop('spending'),
-            ),
-            const SizedBox(height: 8),
-            _BudgetOptionTile(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Orçamento ideal',
-              subtitle: 'Sugestão baseada na sua receita (regra 50/30/20)',
-              onTap: () => Navigator.of(ctx).pop('ideal'),
-            ),
-            const SizedBox(height: 8),
-            _BudgetOptionTile(
-              icon: Icons.add_circle_outline,
-              title: l10n.createManually,
-              subtitle: l10n.createManuallyDesc,
-              onTap: () => Navigator.of(ctx).pop('manual'),
+            const SizedBox(width: 12),
+            // Year dropdown
+            Expanded(
+              flex: 2,
+              child: DropdownButtonFormField<int>(
+                initialValue: selectedYear,
+                decoration: const InputDecoration(
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(),
+                ),
+                items: years
+                    .map((y) => DropdownMenuItem(
+                          value: y,
+                          child: Text(y.toString()),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => selectedYear = v);
+                },
+              ),
             ),
           ],
         ),
@@ -985,195 +1488,15 @@ class _EmptyBudgets extends ConsumerWidget {
             onPressed: () => Navigator.of(ctx).pop(null),
             child: Text(l10n.cancel),
           ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(ctx).pop(DateTime(selectedYear, selectedMonth, 1)),
+            child: Text(l10n.confirm),
+          ),
         ],
       ),
-    );
-
-    if (choice == null || !context.mounted) return;
-
-    if (choice == 'manual') {
-      await showAnimatedDialog(
-        context: context,
-        builder: (_) => _AddBudgetDialog(month: month, period: viewMode),
-      );
-      return;
-    }
-
-    if (choice == 'ideal') {
-      await showAnimatedDialog(
-        context: context,
-        builder: (_) => _IdealBudgetDialog(month: month),
-      );
-      return;
-    }
-
-    // Ask the user which month to use as reference
-    final sourceMonth = await _pickSourceMonth(context, ref);
-    if (sourceMonth == null || !context.mounted) return;
-
-    if (choice == 'copy') {
-      // Fetch budgets for the chosen source month
-      final budgets =
-          await ref.read(budgetsForMonthProvider(sourceMonth).future);
-      if (!context.mounted) return;
-      if (budgets.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Nenhum orçamento encontrado no mês selecionado.')),
-        );
-        return;
-      }
-      final success = await ref
-          .read(budgetNotifierProvider.notifier)
-          .copyFromPreviousMonth(
-            previousBudgets: budgets,
-            targetMonth: month,
-          );
-      if (!context.mounted) return;
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.errorReplicating)),
-        );
-      }
-    } else {
-      // Build budgets from expense categories with spending in the chosen month
-      final allTransactions = ref.read(visibleTransactionsProvider);
-      final expenseCategories = ref.read(expenseCategoriesProvider);
-      final spending = <String, double>{};
-      for (final t in allTransactions) {
-        if (t.isExpense &&
-            t.date.year == sourceMonth.year &&
-            t.date.month == sourceMonth.month) {
-          spending[t.category] = (spending[t.category] ?? 0.0) + t.amount;
-        }
-      }
-      final categoryByName = {for (final c in expenseCategories) c.name: c};
-      final spendingBudgets = spending.entries
-          .map((entry) {
-            final category = categoryByName[entry.key];
-            if (category == null) return null;
-            return BudgetEntity(
-              id: '',
-              userId: '',
-              categoryId: category.id,
-              categoryName: category.name,
-              limitAmount: entry.value,
-              month: month,
-            );
-          })
-          .whereType<BudgetEntity>()
-          .toList();
-      if (spendingBudgets.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.errorReplicating)),
-          );
-        }
-        return;
-      }
-      final success = await ref
-          .read(budgetNotifierProvider.notifier)
-          .copyFromPreviousMonth(
-            previousBudgets: spendingBudgets,
-            targetMonth: month,
-          );
-      if (!context.mounted) return;
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.errorReplicating)),
-        );
-      }
-    }
-  }
-
-  Future<DateTime?> _pickSourceMonth(
-      BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context);
-    final dateLoc = ref.read(dateLocaleProvider);
-
-    // Default: previous month relative to target
-    final prevMonth = DateTime(month.year, month.month - 1, 1);
-    int selectedMonth = prevMonth.month;
-    int selectedYear = prevMonth.year;
-
-    // Year range: 5 years back from current target month year
-    final years = List.generate(6, (i) => month.year - i);
-    final monthNames = List.generate(
-      12,
-      (i) => DateFormat('MMMM', dateLoc)
-          .format(DateTime(2000, i + 1))
-          .capitalizeMonth(),
-    );
-
-    return showAnimatedDialog<DateTime>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: Text(l10n.selectSourceMonth),
-          content: Row(
-            children: [
-              // Month dropdown
-              Expanded(
-                flex: 3,
-                child: DropdownButtonFormField<int>(
-                  initialValue: selectedMonth,
-                  decoration: const InputDecoration(
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: List.generate(
-                    12,
-                    (i) => DropdownMenuItem(
-                      value: i + 1,
-                      child: Text(monthNames[i]),
-                    ),
-                  ),
-                  onChanged: (v) {
-                    if (v != null) setState(() => selectedMonth = v);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Year dropdown
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<int>(
-                  initialValue: selectedYear,
-                  decoration: const InputDecoration(
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: years
-                      .map((y) => DropdownMenuItem(
-                            value: y,
-                            child: Text(y.toString()),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => selectedYear = v);
-                  },
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx)
-                  .pop(DateTime(selectedYear, selectedMonth, 1)),
-              child: Text(l10n.confirm),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1187,10 +1510,18 @@ class _AddBudgetDialog extends ConsumerStatefulWidget {
   /// When provided the dialog opens in edit mode pre-filled with this budget.
   final BudgetEntity? budget;
 
+  /// Create-mode prefill: pre-selects this category (matched by id).
+  final CategoryEntity? initialCategory;
+
+  /// Create-mode prefill: pre-fills the limit field with this amount.
+  final double? initialLimit;
+
   const _AddBudgetDialog({
     required this.month,
     this.period = BudgetPeriod.monthly,
     this.budget,
+    this.initialCategory,
+    this.initialLimit,
   });
 
   @override
@@ -1222,6 +1553,8 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
       _amountController.text = doubleToMoneyText(widget.budget!.limitAmount);
       _isAnnual = widget.budget!.isAnnual;
       _rollover = widget.budget!.rollover;
+    } else if (widget.initialLimit != null && widget.initialLimit! > 0) {
+      _amountController.text = doubleToMoneyText(widget.initialLimit!);
     }
   }
 
@@ -1395,12 +1728,20 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
         (c) => c.id == widget.budget!.categoryId,
         orElse: () => expenseCategories.first,
       );
+    } else if (!_isEditing &&
+        _selectedCategory == null &&
+        widget.initialCategory != null &&
+        expenseCategories.isNotEmpty) {
+      // Create-mode prefill: use the dialog's own list instance for the id.
+      _selectedCategory = expenseCategories.cast<CategoryEntity?>().firstWhere(
+            (c) => c!.id == widget.initialCategory!.id,
+            orElse: () => null,
+          );
     }
 
     final periodLabel = _periodLabel(widget.month, widget.period, dateLoc);
-    final title = _isEditing
-        ? l10n.editBudget
-        : '${l10n.newBudget}$periodLabel';
+    final title =
+        _isEditing ? l10n.editBudget : '${l10n.newBudget}$periodLabel';
 
     return AlertDialog(
       title: Text(title),
@@ -1425,8 +1766,7 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _selectedCategory = v),
-                validator: (v) =>
-                    v == null ? l10n.selectCategory : null,
+                validator: (v) => v == null ? l10n.selectCategory : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -1494,13 +1834,12 @@ class _AddBudgetDialogState extends ConsumerState<_AddBudgetDialog> {
                   onPressed: isLoading ? null : _delete,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Theme.of(context).colorScheme.error,
-                    side: BorderSide(
-                        color: Theme.of(context).colorScheme.error),
+                    side:
+                        BorderSide(color: Theme.of(context).colorScheme.error),
                     minimumSize: const Size(double.infinity, 44),
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label:
-                      Text(AppLocalizations.of(context).deleteBudget),
+                  label: Text(AppLocalizations.of(context).deleteBudget),
                 ),
               ],
             ],
@@ -1934,7 +2273,8 @@ class _IdealBudgetDialogState extends ConsumerState<_IdealBudgetDialog> {
         content: Text(failed == 0
             ? '$created orçamentos criados com sucesso!'
             : '$created criados, $failed falharam.'),
-        backgroundColor: failed == 0 ? Colors.green.shade700 : Colors.orange.shade800,
+        backgroundColor:
+            failed == 0 ? Colors.green.shade700 : Colors.orange.shade800,
       ),
     );
   }

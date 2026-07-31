@@ -32,7 +32,9 @@ import '../providers/dashboard_provider.dart';
 import '../../../../core/services/notification_providers.dart';
 import '../../../../core/services/notification_suggestion.dart';
 import '../../../../core/services/transaction_text_parser.dart';
+import '../../../budget/presentation/providers/budget_nudge_signal_provider.dart';
 import '../../../budget/presentation/screens/planning_screen.dart';
+import '../../../budget/presentation/widgets/budget_nudge_sheet.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../category_rules/domain/category_rule_matcher.dart';
 import '../../../category_rules/presentation/providers/category_rules_provider.dart';
@@ -628,8 +630,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
     ref.listen<bool>(pendingPriceAlertTapProvider, (_, fired) {
       if (!fired) return;
       ref.read(pendingPriceAlertTapProvider.notifier).state = false;
-      Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PriceAlertsScreen()));
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const PriceAlertsScreen()));
     });
 
     // Open AddTransactionDialog when a notification suggestion is tapped
@@ -643,6 +645,20 @@ class _MainScreenState extends ConsumerState<MainScreen>
           initialAmount: suggestion.amount,
           initialType: suggestion.type,
         ),
+      );
+    });
+
+    // Show the post-save budget nudge (an expense fell outside the plan).
+    ref.listen<BudgetNudgePayload?>(pendingBudgetNudgeProvider, (_, payload) {
+      if (payload == null) return;
+      ref.read(pendingBudgetNudgeProvider.notifier).state = null;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => BudgetNudgeSheet(payload: payload),
       );
     });
 
