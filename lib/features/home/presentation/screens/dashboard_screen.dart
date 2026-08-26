@@ -32,6 +32,7 @@ import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/utils/platform_store.dart';
 import '../../../transactions/presentation/widgets/add_transaction_dialog.dart';
+import '../../../referral/referral_home_card.dart';
 import '../../../workspaces/domain/workspace_entity.dart';
 import '../../../workspaces/presentation/move_transactions_screen.dart';
 import '../../../workspaces/presentation/workspace_switcher.dart';
@@ -130,6 +131,9 @@ class DashboardScreen extends ConsumerWidget {
             const _WelcomeFirstTransactionCard(),
             const SizedBox(height: 24),
           ],
+
+          // ── Indique e ganhe (descoberta; some no X, ≥5 transações) ──
+          const ReferralHomeCard(),
 
           // ── Seções dinâmicas ordenadas pelo usuário ──
           for (final section in config.visibleSections) ...[

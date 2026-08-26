@@ -9,8 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/crash_reporting_service.dart';
-import '../../../../core/services/referral_service.dart';
 import '../../../../core/utils/platform_store.dart';
+import '../../../referral/referral_actions.dart';
 import '../../../../core/utils/animated_dialog.dart';
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/widgets/help_hint.dart';
@@ -1446,66 +1446,13 @@ class _SharingSectionState extends ConsumerState<_SharingSection> {
     }
   }
 
-  /// Word-of-mouth referral: shares the app via the native share sheet
-  /// (WhatsApp, SMS, etc.) with a ready message + the store link. Available to
-  /// everyone (not Pro-gated) since it's how the app grows.
-  Future<void> _shareReferral() async {
-    final uid = ref.read(authStateProvider).value?.id;
-    var codeLine = '';
-    if (uid != null) {
-      final code = await ReferralService.instance.ensureReferralCode(uid);
-      codeLine = '\n\nUse meu código de indicação no app (Configurações → '
-          'Compartilhamento → "Tenho um código"): $code';
-    }
-    await Share.share(
-      'Tô usando o Fintab pra organizar minhas finanças e queria te convidar '
-      'a usar também. Baixe aqui: $storeUrl$codeLine',
-      subject: 'Conheça o Fintab',
-    );
-    AnalyticsService.instance.logEvent('invite_shared', {'origin': 'referral'});
-  }
+  /// Word-of-mouth referral — a lógica compartilhada (Home, paywall,
+  /// pós-compra) vive em `features/referral/referral_actions.dart`.
+  Future<void> _shareReferral() =>
+      shareReferralInvite(ref, origin: 'settings');
 
-  Future<void> _redeemReferral() async {
-    final controller = TextEditingController();
-    final code = await showAnimatedDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tenho um código de indicação'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Código de indicação',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppLocalizations.of(ctx).cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: const Text('Resgatar'),
-          ),
-        ],
-      ),
-    );
-    if (code == null || code.trim().isEmpty) return;
-    final uid = ref.read(authStateProvider).value?.id;
-    if (uid == null) return;
-    final error = await ReferralService.instance.redeemCode(uid, code);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error ??
-            'Código aplicado! Ao usar o app, quem te indicou ganha 1 mês de '
-                'Pro grátis.'),
-        backgroundColor: error != null ? Colors.red.shade700 : null,
-      ),
-    );
-  }
+  Future<void> _redeemReferral() =>
+      showRedeemReferralDialog(context, ref, origin: 'settings');
 
   Future<void> _confirmLeave() async {
     final confirmed = await showAnimatedDialog<bool>(

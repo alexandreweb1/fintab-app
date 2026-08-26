@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/platform_store.dart';
+import '../../../referral/referral_actions.dart';
 import '../../../settings/presentation/screens/privacy_policy_screen.dart';
 import '../../../settings/presentation/screens/terms_of_use_screen.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
@@ -357,6 +358,16 @@ class _OnboardingPaywallPageState extends ConsumerState<OnboardingPaywallPage> {
                   ref.read(iapNotifierProvider.notifier).restorePurchases(),
           icon: const Icon(Icons.restore, size: 16),
           label: const Text('Restaurar compras anteriores'),
+        ),
+      ),
+      // Convidado por alguém? Registra o código aqui mesmo, no 1º acesso —
+      // é o que a mensagem de convite promete (F0.9).
+      Center(
+        child: TextButton.icon(
+          onPressed: () => showRedeemReferralDialog(context, ref,
+              origin: 'onboarding_paywall'),
+          icon: const Icon(Icons.redeem_outlined, size: 16),
+          label: const Text('Tenho um código de indicação'),
         ),
       ),
       Row(

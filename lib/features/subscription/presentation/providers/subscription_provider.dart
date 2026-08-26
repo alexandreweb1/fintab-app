@@ -280,6 +280,15 @@ class IAPNotifier extends StateNotifier<IAPState> {
     }
   }
 
+  /// Consome o flag de compra concluída depois que a UI reagiu (ex.: dialog
+  /// de agradecimento na ProScreen) — sem isso o listener não distinguiria
+  /// uma compra nova de um estado antigo ainda true.
+  void acknowledgePurchaseSuccess() {
+    if (state.purchaseSuccess) {
+      state = state.copyWith(purchaseSuccess: false);
+    }
+  }
+
   Future<void> buyMonthly() => _buy(kIapMonthly);
   Future<void> buyAnnual() => _buy(kIapAnnual);
 

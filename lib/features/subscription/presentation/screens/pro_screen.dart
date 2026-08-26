@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/services/analytics_service.dart';
+import '../../../referral/referral_actions.dart';
 import '../../domain/entities/subscription_entity.dart';
 import '../providers/subscription_provider.dart';
 import '../widgets/pro_badge_widget.dart';
@@ -22,6 +24,18 @@ class ProScreen extends ConsumerWidget {
     final isPro = ref.watch(isProProvider);
     final subscription = ref.watch(subscriptionStreamProvider).value;
     final iapState = ref.watch(iapNotifierProvider);
+
+    // Compra concluída aqui → agradece e oferece o convite (ganhe 1 mês).
+    // Durante o onboarding quem conduz é o OnboardingPaywallPage (ele fecha
+    // as rotas empilhadas e encerra o fluxo) — o guard de isCurrent evita
+    // abrir dialog numa rota que está sendo removida.
+    ref.listen<IAPState>(iapNotifierProvider, (prev, next) {
+      if (prev?.purchaseSuccess == true || !next.purchaseSuccess) return;
+      ref.read(iapNotifierProvider.notifier).acknowledgePurchaseSuccess();
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isCurrent) return;
+      showPostPurchaseReferralDialog(context, ref);
+    });
 
     // O preço exibido vem da loja (ProductDetails.price, já localizado) quando
     // disponível; usa o fallback configurado se os produtos ainda não carregaram.
@@ -184,6 +198,23 @@ class ProScreen extends ConsumerWidget {
                                 .restorePurchases(),
                         icon: const Icon(Icons.restore, size: 16),
                         label: const Text('Restaurar compras anteriores'),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Alternativa sem pagar: indicação (F0.9 — descoberta)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () {
+                          AnalyticsService.instance.logEvent(
+                              'referral_cta_click', {'origin': 'paywall'});
+                          shareReferralInvite(ref, origin: 'paywall');
+                        },
+                        icon: const Icon(Icons.card_giftcard_outlined,
+                            size: 16),
+                        label: const Text(
+                            'Prefere não pagar? Indique um amigo e ganhe '
+                            '1 mês grátis'),
                       ),
                     ),
                     const SizedBox(height: 16),
