@@ -244,6 +244,36 @@ final activeLedgerScopeProvider = Provider<LedgerScope>((ref) {
   // ── Legacy account-wide collaborator: read the master's data by userId. ──
   if (masterUserId != null) {
     final shared = ref.watch(sharedWorkspacesStreamProvider).value ?? const [];
+    // The collaborator may ALSO own Carteiras of their own (Ajustes › Carteiras
+    // lets any Pro user create one — it is not gated on isMaster). Those must
+    // stay selectable: resolve the selection against the user's OWN Carteiras
+    // (and third-party shared-in ones) BEFORE treating it as "the master's
+    // context". Without this every tap on an own Carteira was silently
+    // ignored — the pill stayed stuck on the master's default and the
+    // switcher looked dead (no paywall, no error).
+    if (selected != null) {
+      final own = ref.watch(ownWorkspacesStreamProvider).value ?? const [];
+      if (selected == kAllWorkspaces) {
+        // "Todas juntas" = every OWN Carteira combined (the master's data is
+        // a different account and can't be merged into one userId query).
+        if (own.isNotEmpty) {
+          return UserScope(
+              user.id, null, ref.watch(defaultWorkspaceIdProvider));
+        }
+      } else {
+        for (final w in own) {
+          if (w.id == selected) {
+            return UserScope(
+                user.id, w.id, ref.watch(defaultWorkspaceIdProvider));
+          }
+        }
+        for (final w in shared) {
+          if (w.id == selected && w.ownerId != masterUserId) {
+            return MemberScope(w.id, w.ownerId);
+          }
+        }
+      }
+    }
     String? masterDefault;
     for (final w in shared) {
       if (w.ownerId == masterUserId && w.isDefault) masterDefault = w.id;
@@ -314,6 +344,39 @@ final ledgerOwnerIdProvider = Provider<String>((ref) {
     UserScope s => s.userId,
     MemberScope s => s.ownerId,
   };
+});
+
+/// The uid the ROOT LEDGER STREAMS query by on the UserScope path (and that
+/// the category/wallet seeds home defaults to). Follows the ACTIVE scope:
+/// an owner's own uid; for a legacy account-wide collaborator, the master's
+/// uid while the master's context is active but their OWN uid while one of
+/// their own Carteiras is selected — otherwise an own Carteira would be read
+/// from (and seeded into) the master's account. Empty while the profile is
+/// still loading, mirroring [effectiveUserIdProvider], so no query fires with
+/// the wrong uid before masterUserId is known.
+final ledgerQueryUserIdProvider = Provider<String>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return '';
+  if (ref.watch(userProfileStreamProvider).isLoading) return '';
+  return ref.watch(ledgerOwnerIdProvider);
+});
+
+/// Where background captures (bank notifications, share sheet, clipboard)
+/// land: the DEFAULT Carteira of the account the capture is homed to
+/// ([effectiveUserIdProvider]) — the owner's own default, or, for a legacy
+/// account-wide collaborator, the master's default (null → legacy doc without
+/// the field, which the master reads as default anyway). Never the
+/// collaborator's own Carteira: a doc homed to the master's uid but stamped
+/// with a foreign workspaceId would be invisible in every Carteira view.
+final captureWorkspaceIdProvider = Provider<String?>((ref) {
+  final profile = ref.watch(userProfileStreamProvider).value;
+  final masterUserId = profile?['masterUserId'] as String?;
+  if (masterUserId == null) return ref.watch(defaultWorkspaceIdProvider);
+  final shared = ref.watch(sharedWorkspacesStreamProvider).value ?? const [];
+  for (final w in shared) {
+    if (w.ownerId == masterUserId && w.isDefault) return w.id;
+  }
+  return null;
 });
 
 /// Filters a ledger list according to [scope] (no-op for MemberScope — those

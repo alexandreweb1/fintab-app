@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
@@ -39,7 +38,7 @@ final goalsStreamProvider = StreamProvider<List<GoalEntity>>((ref) {
   }
 
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();

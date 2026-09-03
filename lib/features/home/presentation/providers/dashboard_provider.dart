@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -34,7 +33,7 @@ final dashboardBudgetsStreamProvider =
             .toList());
   }
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();

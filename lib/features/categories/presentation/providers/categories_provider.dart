@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/providers/app_settings_provider.dart';
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
@@ -68,7 +67,7 @@ final categoriesStreamProvider =
   }
 
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
@@ -165,7 +164,7 @@ final categoriesSeedProvider = Provider<void>((ref) {
   // categories into someone else's workspace.
   final scope = ref.watch(activeLedgerScopeProvider);
   if (scope is! UserScope) return;
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   ref.listen<AsyncValue<List<CategoryEntity>>>(
     categoriesStreamProvider,
     (_, next) {

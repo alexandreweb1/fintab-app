@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/services/exchange_rate_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -33,7 +32,7 @@ final investmentAssetsStreamProvider =
   }
 
   final auth = ref.watch(authStateProvider);
-  final uid = ref.watch(effectiveUserIdProvider);
+  final uid = ref.watch(ledgerQueryUserIdProvider);
   return auth.when(
     data: (user) {
       if (user == null || uid.isEmpty) return const Stream.empty();
@@ -69,7 +68,7 @@ final investmentTradesStreamProvider =
   }
 
   final auth = ref.watch(authStateProvider);
-  final uid = ref.watch(effectiveUserIdProvider);
+  final uid = ref.watch(ledgerQueryUserIdProvider);
   return auth.when(
     data: (user) {
       if (user == null || uid.isEmpty) return const Stream.empty();

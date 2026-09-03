@@ -538,9 +538,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
                 date: DateTime.now(),
                 description: 'Via ${suggestion.sourceApp}',
                 isPending: true,
-                // Background capture always lands in the user's own default
-                // Carteira, regardless of which one is active on screen.
-                workspaceIdOverride: ref.read(defaultWorkspaceIdProvider),
+                // Background capture always lands in the DEFAULT Carteira of the
+                // account it is homed to (own default; the master's default for a
+                // legacy collaborator), regardless of which one is active on screen.
+                workspaceIdOverride: ref.read(captureWorkspaceIdProvider),
                 userIdOverride: ref.read(effectiveUserIdProvider),
               );
       debugPrint('[Notif] Auto-saved transaction id=$id');

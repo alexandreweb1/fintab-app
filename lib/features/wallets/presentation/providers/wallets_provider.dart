@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/datasources/wallet_remote_datasource.dart';
@@ -78,7 +77,7 @@ final walletsStreamProvider = StreamProvider<List<WalletEntity>>((ref) {
   }
 
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
@@ -99,7 +98,7 @@ final walletsStreamProvider = StreamProvider<List<WalletEntity>>((ref) {
 final walletsSeedProvider = Provider<void>((ref) {
   // NEVER seed defaults into a shared workspace (MemberScope).
   if (ref.watch(activeLedgerScopeProvider) is! UserScope) return;
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   ref.listen<AsyncValue<List<WalletEntity>>>(
     walletsStreamProvider,
     (_, next) {

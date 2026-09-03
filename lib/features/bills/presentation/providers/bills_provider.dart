@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/services/local_notification_service.dart';
@@ -33,7 +32,7 @@ final billsStreamProvider = StreamProvider<List<BillEntity>>((ref) {
   }
 
   final auth = ref.watch(authStateProvider);
-  final uid = ref.watch(effectiveUserIdProvider);
+  final uid = ref.watch(ledgerQueryUserIdProvider);
   return auth.when(
     data: (user) {
       if (user == null || uid.isEmpty) return const Stream.empty();

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/providers/effective_user_provider.dart';
 import '../../../../core/providers/selected_month_provider.dart';
 import '../../../../core/providers/workspace_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
@@ -82,7 +81,7 @@ final budgetsStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
         budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
   }
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
@@ -116,7 +115,7 @@ final budgetsByYearStreamProvider = StreamProvider<List<BudgetEntity>>((ref) {
     );
   }
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
@@ -232,7 +231,7 @@ final budgetsForMonthProvider =
     ).map((budgets) =>
         budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
   }
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   if (effectiveUserId.isEmpty) return const Stream.empty();
   return ref
       .watch(getBudgetsUseCaseProvider)
@@ -260,7 +259,7 @@ final annualBudgetsForYearProvider =
     ).map((budgets) => budgets.where((b) => b.isAnnual).toList());
   }
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
@@ -292,7 +291,7 @@ final previousMonthBudgetsProvider = StreamProvider<List<BudgetEntity>>((ref) {
         budgets.where((b) => b.period == BudgetPeriod.monthly).toList());
   }
   final authState = ref.watch(authStateProvider);
-  final effectiveUserId = ref.watch(effectiveUserIdProvider);
+  final effectiveUserId = ref.watch(ledgerQueryUserIdProvider);
   return authState.when(
     data: (user) {
       if (user == null || effectiveUserId.isEmpty) return const Stream.empty();
